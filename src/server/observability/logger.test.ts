@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/client";
 
 import {
   internalErrorResponse,
+  logMercadoPagoSubscriptionDiagnostic,
   logServerError,
 } from "@/server/observability/logger";
 import { SubscriptionProviderError } from "@/server/subscriptions/errors";
@@ -43,6 +44,39 @@ afterEach(() => {
 });
 
 describe("server error logging", () => {
+  it("logs only safe Mercado Pago credential classifications", () => {
+    const consoleInfo = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+
+    logMercadoPagoSubscriptionDiagnostic({
+      mode: "test",
+      publicKeyConfigured: true,
+      accessTokenConfigured: true,
+      publicKeyPrefix: "TEST",
+      accessTokenPrefix: "TEST",
+      publicKeyEnvironment: "test",
+      accessTokenEnvironment: "test",
+      publicKeyBuildMatchesRuntime: true,
+      cardTokenIdPresent: true,
+      preapprovalPlanIdPresent: true,
+    });
+
+    const serialized = String(consoleInfo.mock.calls[0]?.[0]);
+    const logged = JSON.parse(serialized) as Record<string, unknown>;
+    expect(logged).toMatchObject({
+      scope: "api.subscriptions.credential-diagnostic",
+      mode: "test",
+      publicKeyConfigured: true,
+      accessTokenConfigured: true,
+      publicKeyBuildMatchesRuntime: true,
+      cardTokenIdPresent: true,
+      preapprovalPlanIdPresent: true,
+    });
+    expect(serialized).not.toMatch(/TEST-[A-Za-z0-9]/);
+    expect(serialized).not.toContain("APP_USR-");
+  });
+
   it("logs useful Prisma metadata while redacting sensitive values", () => {
     const consoleError = vi
       .spyOn(console, "error")

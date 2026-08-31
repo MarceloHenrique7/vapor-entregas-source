@@ -1,10 +1,14 @@
+import { createHash } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/server/config/env", () => ({
   getSubscriptionEnv: () => ({
-    MERCADO_PAGO_ACCESS_TOKEN: "test-token-not-a-real-secret",
+    NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY: "TEST-public-key-not-real",
+    MERCADO_PAGO_ACCESS_TOKEN: "TEST-access-token-not-a-real-secret",
     MERCADO_PAGO_API_BASE_URL: "https://api.mercadopago.test",
+    MERCADO_PAGO_MODE: "test",
   }),
 }));
 
@@ -31,7 +35,10 @@ const subscriptionBody = {
 };
 
 describe("adapter oficial de Assinaturas do Mercado Pago", () => {
-  beforeEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+  });
 
   it("cria plano mensal BRL com idempotencia", async () => {
     const fetchMock = vi
@@ -68,6 +75,13 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       new MercadoPagoSubscriptionProvider().createAuthorized({
         providerPlanId: "provider-plan-1",
         cardTokenId: "card-token-valid-1234567890",
+        clientDiagnostics: {
+          publicKeyConfigured: true,
+          publicKeyEnvironment: "test",
+          publicKeyHash: createHash("sha256")
+            .update("TEST-public-key-not-real")
+            .digest("hex"),
+        },
         externalReference: "subscription:local-subscription-1",
         payerEmail: "payer@example.test",
         reason: "Plano mensal",
@@ -92,6 +106,59 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     expect(sent).not.toHaveProperty("transaction_amount");
     expect(sent).not.toHaveProperty("card_number");
     expect(sent).not.toHaveProperty("security_code");
+
+    const diagnostic = JSON.parse(
+      String(vi.mocked(console.info).mock.calls[0]?.[0]),
+    ) as Record<string, unknown>;
+    expect(diagnostic).toMatchObject({
+      scope: "api.subscriptions.credential-diagnostic",
+      mode: "test",
+      publicKeyConfigured: true,
+      accessTokenConfigured: true,
+      publicKeyPrefix: "TEST",
+      accessTokenPrefix: "TEST",
+      publicKeyEnvironment: "test",
+      accessTokenEnvironment: "test",
+      publicKeyBuildMatchesRuntime: true,
+      cardTokenIdPresent: true,
+      preapprovalPlanIdPresent: true,
+    });
+    const serializedDiagnostic = JSON.stringify(diagnostic);
+    expect(serializedDiagnostic).not.toContain("public-key-not-real");
+    expect(serializedDiagnostic).not.toContain(
+      "access-token-not-a-real-secret",
+    );
+    expect(serializedDiagnostic).not.toContain("card-token-valid-1234567890");
+    expect(serializedDiagnostic).not.toContain("provider-plan-1");
+  });
+
+  it("detecta Public Key antiga no bundle sem registrar a chave", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(subscriptionBody)),
+    );
+    await new MercadoPagoSubscriptionProvider().createAuthorized({
+      providerPlanId: "provider-plan-1",
+      cardTokenId: "card-token-valid-1234567890",
+      clientDiagnostics: {
+        publicKeyConfigured: true,
+        publicKeyEnvironment: "test",
+        publicKeyHash: createHash("sha256")
+          .update("TEST-old-public-key-not-real")
+          .digest("hex"),
+      },
+      externalReference: "subscription:local-subscription-1",
+      payerEmail: "payer@example.test",
+      reason: "Plano mensal",
+      backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
+      notificationUrl:
+        "https://app.example.test/api/webhooks/mercadopago?source_news=webhooks",
+    });
+
+    const diagnostic = JSON.parse(
+      String(vi.mocked(console.info).mock.calls[0]?.[0]),
+    ) as Record<string, unknown>;
+    expect(diagnostic.publicKeyBuildMatchesRuntime).toBe(false);
+    expect(JSON.stringify(diagnostic)).not.toContain("old-public-key");
   });
 
   it("configura sete dias de teste gratis no plano remoto", async () => {

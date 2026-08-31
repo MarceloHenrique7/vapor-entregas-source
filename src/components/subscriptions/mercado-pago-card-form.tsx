@@ -41,6 +41,12 @@ type MercadoPagoInstance = {
   }): CardFormController;
 };
 
+export type MercadoPagoClientDiagnostics = {
+  publicKeyConfigured: boolean;
+  publicKeyEnvironment: "test" | "production" | "unknown";
+  publicKeyHash: string | null;
+};
+
 declare global {
   interface Window {
     MercadoPago?: new (
@@ -51,8 +57,25 @@ declare global {
 }
 
 const publicKey = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY?.trim();
+const publicKeyEnvironment: MercadoPagoClientDiagnostics["publicKeyEnvironment"] =
+  publicKey?.startsWith("TEST-")
+    ? "test"
+    : publicKey?.startsWith("APP_USR-")
+      ? "production"
+      : "unknown";
 const secureFieldClass =
   "h-12 w-full overflow-hidden rounded-2xl border border-line bg-white px-4 py-3 shadow-sm transition hover:border-brand/35 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/10";
+
+async function sha256(value: string) {
+  if (!globalThis.crypto?.subtle) return null;
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
 
 export function MercadoPagoCardForm({
   amount,
@@ -63,11 +86,15 @@ export function MercadoPagoCardForm({
   amount: number;
   trialDays: number;
   disabled: boolean;
-  onToken: (cardTokenId: string) => Promise<boolean>;
+  onToken: (
+    cardTokenId: string,
+    diagnostics: MercadoPagoClientDiagnostics,
+  ) => Promise<boolean>;
 }) {
   const [ready, setReady] = useState(false);
   const [tokenizing, setTokenizing] = useState(false);
   const [error, setError] = useState("");
+  const [formGeneration, setFormGeneration] = useState(0);
   const tokenizingRef = useRef(false);
 
   useEffect(() => {
@@ -82,6 +109,7 @@ export function MercadoPagoCardForm({
         return;
       }
       try {
+        const publicKeyHash = await sha256(publicKey);
         await loadMercadoPago();
         if (!active || !window.MercadoPago) return;
         const mercadoPago = new window.MercadoPago(publicKey, {
@@ -152,21 +180,29 @@ export function MercadoPagoCardForm({
                   setError("Revise os dados do cartão e tente novamente.");
                   return;
                 }
-                const completed = await onToken(cardTokenId);
+                const completed = await onToken(cardTokenId, {
+                  publicKeyConfigured: true,
+                  publicKeyEnvironment,
+                  publicKeyHash,
+                });
                 if (!completed) {
                   setError(
                     "Não foi possível autorizar o cartão. Revise os dados ou tente outro cartão.",
                   );
+                  setReady(false);
+                  setFormGeneration((generation) => generation + 1);
                 }
               } catch {
                 if (active) {
                   setError(
                     "Não foi possível autorizar o cartão. Revise os dados ou tente outro cartão.",
                   );
+                  setReady(false);
+                  setFormGeneration((generation) => generation + 1);
                 }
               } finally {
                 tokenizingRef.current = false;
-                if (active) setTokenizing(false);
+                setTokenizing(false);
               }
             },
             onFetching() {
@@ -191,10 +227,11 @@ export function MercadoPagoCardForm({
       active = false;
       cardForm?.unmount?.();
     };
-  }, [amount, onToken]);
+  }, [amount, formGeneration, onToken]);
 
   return (
     <form
+      key={formGeneration}
       id="subscription-card-form"
       className="max-h-[72dvh] space-y-4 overflow-y-auto pr-1"
     >

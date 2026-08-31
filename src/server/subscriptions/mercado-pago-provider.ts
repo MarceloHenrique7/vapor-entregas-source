@@ -1,8 +1,11 @@
 import "server-only";
 
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import { z } from "zod";
 
 import { getSubscriptionEnv } from "@/server/config/env";
+import { logMercadoPagoSubscriptionDiagnostic } from "@/server/observability/logger";
 
 import {
   SubscriptionProviderError,
@@ -12,6 +15,8 @@ import type {
   ProviderPayment,
   ProviderPlan,
   ProviderSubscription,
+  MercadoPagoClientDiagnostics,
+  MercadoPagoCredentialEnvironment,
   SubscriptionProviderClient,
 } from "./types";
 
@@ -181,6 +186,33 @@ function freeTrial(trialDays: number) {
 
 function endpointPath(path: string) {
   return path.split(/[?#]/, 1)[0] || "/";
+}
+
+function credentialClassification(value: string | undefined): {
+  prefix: "TEST" | "APP_USR" | "unknown" | "not_configured";
+  environment: MercadoPagoCredentialEnvironment;
+} {
+  if (!value) return { prefix: "not_configured", environment: "unknown" };
+  if (value.startsWith("TEST-")) {
+    return { prefix: "TEST", environment: "test" };
+  }
+  if (value.startsWith("APP_USR-")) {
+    return { prefix: "APP_USR", environment: "production" };
+  }
+  return { prefix: "unknown", environment: "unknown" };
+}
+
+function publicKeyBuildMatchesRuntime(
+  clientDiagnostics: MercadoPagoClientDiagnostics | undefined,
+  runtimePublicKey: string | undefined,
+) {
+  if (!clientDiagnostics?.publicKeyHash || !runtimePublicKey) return null;
+  const clientHash = Buffer.from(clientDiagnostics.publicKeyHash, "hex");
+  const runtimeHash = createHash("sha256").update(runtimePublicKey).digest();
+  return (
+    clientHash.length === runtimeHash.length &&
+    timingSafeEqual(clientHash, runtimeHash)
+  );
 }
 
 function toProviderPlan(raw: unknown): ProviderPlan {
@@ -378,12 +410,44 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
   async createAuthorized(input: {
     providerPlanId: string;
     cardTokenId: string;
+    clientDiagnostics?: MercadoPagoClientDiagnostics;
     externalReference: string;
     payerEmail: string;
     reason: string;
     backUrl: string;
     notificationUrl: string;
   }) {
+    const env = getSubscriptionEnv();
+    const runtimePublicKey = env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY;
+    const accessToken = env.MERCADO_PAGO_ACCESS_TOKEN;
+    const publicKeyClassification = input.clientDiagnostics
+      ? {
+          prefix:
+            input.clientDiagnostics.publicKeyEnvironment === "test"
+              ? ("TEST" as const)
+              : input.clientDiagnostics.publicKeyEnvironment === "production"
+                ? ("APP_USR" as const)
+                : ("unknown" as const),
+          environment: input.clientDiagnostics.publicKeyEnvironment,
+        }
+      : credentialClassification(undefined);
+    const accessTokenClassification = credentialClassification(accessToken);
+    logMercadoPagoSubscriptionDiagnostic({
+      mode: env.MERCADO_PAGO_MODE,
+      publicKeyConfigured:
+        input.clientDiagnostics?.publicKeyConfigured ?? false,
+      accessTokenConfigured: Boolean(accessToken),
+      publicKeyPrefix: publicKeyClassification.prefix,
+      accessTokenPrefix: accessTokenClassification.prefix,
+      publicKeyEnvironment: publicKeyClassification.environment,
+      accessTokenEnvironment: accessTokenClassification.environment,
+      publicKeyBuildMatchesRuntime: publicKeyBuildMatchesRuntime(
+        input.clientDiagnostics,
+        runtimePublicKey,
+      ),
+      cardTokenIdPresent: Boolean(input.cardTokenId.trim()),
+      preapprovalPlanIdPresent: Boolean(input.providerPlanId.trim()),
+    });
     return this.request(
       "/preapproval",
       {

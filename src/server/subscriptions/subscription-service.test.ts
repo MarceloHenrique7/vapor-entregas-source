@@ -31,6 +31,11 @@ import type {
 
 const now = new Date("2026-08-30T18:00:00.000Z");
 const cardTokenId = "card-token-valid-1234567890";
+const clientDiagnostics = {
+  publicKeyConfigured: true,
+  publicKeyEnvironment: "test" as const,
+  publicKeyHash: "a".repeat(64),
+};
 const motoboyPlan: SubscriptionPlanRecord = {
   id: "15000000-0000-4000-8000-000000000001",
   role: "MOTOBOY",
@@ -283,7 +288,7 @@ describe("assinaturas recorrentes da plataforma", () => {
     const client = provider();
     const result = await startSubscription(
       motoboy,
-      { cardTokenId },
+      { cardTokenId, clientDiagnostics },
       repo,
       client,
       now,
@@ -292,6 +297,7 @@ describe("assinaturas recorrentes da plataforma", () => {
     expect(client.createAuthorized).toHaveBeenCalledWith(
       expect.objectContaining({
         cardTokenId,
+        clientDiagnostics,
         externalReference: "subscription:subscription-id",
         payerEmail: "payer@example.test",
       }),

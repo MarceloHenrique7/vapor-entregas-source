@@ -65,6 +65,15 @@ o build do Next.js, configure a Public Key na Hostinger antes de executar o
 build/redeploy. Alterar apenas o valor no processo já compilado não atualiza o
 frontend.
 
+Em cada tentativa de autorização, o servidor registra um diagnóstico seguro no
+scope `api.subscriptions.credential-diagnostic`. Ele contém somente modo,
+presença das configurações, prefixos/ambientes classificados, presença do token
+e do plano e o booleano `publicKeyBuildMatchesRuntime`. Nenhuma chave, token ou
+ID é registrado. `false` nesse último campo indica que o bundle foi compilado
+com outra Public Key; `null` indica que a comparação não pôde ser feita, por
+exemplo porque a variável não existe no runtime ou a tentativa veio de um
+bundle anterior a esse diagnóstico.
+
 ## Sincronização dos planos
 
 `POST /api/admin/subscription-plans/sync` exige ADMIN autenticado, origem válida e
@@ -107,6 +116,10 @@ O CardForm oficial roda no navegador com a Public Key e monta campos seguros em
 iframes do Mercado Pago. Ao confirmar, o SDK gera um token de uso único. A Vapor
 envia somente esse token para sua API; não envia preço, plano, e-mail, documento,
 número do cartão ou CVV.
+
+O token é lido apenas dentro do callback de envio e encaminhado imediatamente à
+API. Depois de qualquer tentativa rejeitada, o CardForm é desmontado e recriado,
+obrigando a geração de outro token antes do próximo envio.
 
 O backend usa role e ID da sessão, recarrega o e-mail do banco, escolhe preço e
 plano internos, cria `external_reference` como `subscription:<uuid>` sem PII e
@@ -215,6 +228,14 @@ real sem autorização explícita.
 - **502 ao autorizar cartão:** consulte o log pelo `correlationId`; erros 400/422
   recebem mensagem pública segura, enquanto detalhes sanitizados ficam apenas no
   servidor.
+- **404 `Card token service not found`:** confira o log
+  `api.subscriptions.credential-diagnostic`. Em modo `test`, Public Key e Access
+  Token precisam aparecer como ambiente/prefixo de teste, as duas presenças de
+  IDs devem ser `true` e `publicKeyBuildMatchesRuntime` deve ser `true`. Se tudo
+  isso estiver correto, confirme no painel que as duas credenciais pertencem à
+  mesma aplicação e recrie/sincronize o plano com esse Access Token. Public Key
+  e Access Token não possuem um identificador público comum que permita ao
+  backend provar sozinho que formam o mesmo par.
 - **502 geral:** timeout, HTTP ou resposta inválida; não cancele localmente.
 - **401 webhook:** confira segredo, `data.id`, headers e URL configurada.
 - **409 ambiente:** `live_mode` não coincide com o modo.

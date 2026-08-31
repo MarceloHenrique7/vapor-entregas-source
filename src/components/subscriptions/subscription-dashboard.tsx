@@ -6,7 +6,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-elements";
-import { MercadoPagoCardForm } from "@/components/subscriptions/mercado-pago-card-form";
+import {
+  MercadoPagoCardForm,
+  type MercadoPagoClientDiagnostics,
+} from "@/components/subscriptions/mercado-pago-card-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -168,9 +171,13 @@ export function SubscriptionDashboard() {
   );
 
   const submitCardToken = useCallback(
-    async (cardTokenId: string) => {
+    async (
+      cardTokenId: string,
+      clientDiagnostics: MercadoPagoClientDiagnostics,
+    ) => {
       const completed = await action("/api/subscriptions/checkout", {
         cardTokenId,
+        clientDiagnostics,
       });
       if (completed) setCardOpen(false);
       return completed;

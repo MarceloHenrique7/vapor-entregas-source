@@ -348,6 +348,7 @@ export async function startSubscription(
   const providerValue = await provider.createAuthorized({
     providerPlanId,
     cardTokenId: checkout.cardTokenId,
+    clientDiagnostics: checkout.clientDiagnostics,
     externalReference: draft.externalReference,
     payerEmail: billingUser.email,
     reason: `Assinatura mensal Vapor Entregas - ${plan.name}`,

@@ -8,6 +8,17 @@ export const checkoutSchema = z
       .min(16)
       .max(256)
       .regex(/^[A-Za-z0-9._-]+$/),
+    clientDiagnostics: z
+      .object({
+        publicKeyConfigured: z.boolean(),
+        publicKeyEnvironment: z.enum(["test", "production", "unknown"]),
+        publicKeyHash: z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .nullable(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export const cancelSchema = z.object({ confirm: z.literal(true) }).strict();

@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { Prisma } from "@/generated/prisma/client";
+import type {
+  MercadoPagoCredentialEnvironment,
+  MercadoPagoMode,
+} from "@/server/subscriptions/types";
 
 const PRISMA_ERROR_CODE = /^P\d{4}$/;
 const MAX_LOG_DEPTH = 6;
@@ -28,6 +32,32 @@ type SafeLogValue =
   | string
   | SafeLogValue[]
   | { [key: string]: SafeLogValue };
+
+export type MercadoPagoSubscriptionDiagnostic = {
+  mode: MercadoPagoMode;
+  publicKeyConfigured: boolean;
+  accessTokenConfigured: boolean;
+  publicKeyPrefix: "TEST" | "APP_USR" | "unknown" | "not_configured";
+  accessTokenPrefix: "TEST" | "APP_USR" | "unknown" | "not_configured";
+  publicKeyEnvironment: MercadoPagoCredentialEnvironment;
+  accessTokenEnvironment: MercadoPagoCredentialEnvironment;
+  publicKeyBuildMatchesRuntime: boolean | null;
+  cardTokenIdPresent: boolean;
+  preapprovalPlanIdPresent: boolean;
+};
+
+export function logMercadoPagoSubscriptionDiagnostic(
+  diagnostic: MercadoPagoSubscriptionDiagnostic,
+) {
+  console.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "info",
+      scope: "api.subscriptions.credential-diagnostic",
+      ...diagnostic,
+    }),
+  );
+}
 
 function sanitizeText(value: string) {
   const sanitized = value

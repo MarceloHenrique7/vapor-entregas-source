@@ -10,6 +10,14 @@ export type SubscriptionStatus =
   | "CANCELED"
   | "EXPIRED";
 export type MercadoPagoMode = "test" | "production";
+export type MercadoPagoCredentialEnvironment =
+  "test" | "production" | "unknown";
+
+export interface MercadoPagoClientDiagnostics {
+  publicKeyConfigured: boolean;
+  publicKeyEnvironment: MercadoPagoCredentialEnvironment;
+  publicKeyHash: string | null;
+}
 
 export interface SubscriptionActor {
   userId: string;
@@ -126,6 +134,7 @@ export interface SubscriptionProviderClient {
   createAuthorized(input: {
     providerPlanId: string;
     cardTokenId: string;
+    clientDiagnostics?: MercadoPagoClientDiagnostics;
     externalReference: string;
     payerEmail: string;
     reason: string;

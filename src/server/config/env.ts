@@ -57,6 +57,7 @@ const distanceEnvSchema = z.object({
 });
 
 const subscriptionEnvSchema = z.object({
+  NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY: z.string().trim().min(10).optional(),
   MERCADO_PAGO_ACCESS_TOKEN: z.string().trim().min(20).optional(),
   MERCADO_PAGO_WEBHOOK_SECRET: z.string().trim().min(16).optional(),
   MERCADO_PAGO_API_BASE_URL: z
