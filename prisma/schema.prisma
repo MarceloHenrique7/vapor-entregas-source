@@ -1,0 +1,652 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  MOTOBOY
+  COMPANY
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  DELETED
+}
+
+enum SupportedCity {
+  PETROLINA_PE
+  JUAZEIRO_BA
+}
+
+enum CompanyDocumentType {
+  CPF
+  CNPJ
+}
+
+enum DeliveryStatus {
+  SEARCHING_MOTOBOY
+  ACCEPTED
+  MOTOBOY_TO_PICKUP
+  ARRIVED_AT_PICKUP
+  PICKED_UP
+  IN_DELIVERY
+  COMPLETED
+  CANCELLED_BY_COMPANY
+  CANCELLED_BY_MOTOBOY
+  EXPIRED
+  DISPUTED
+}
+
+enum DeliveryPaymentMethod {
+  PIX
+  CASH
+  COMPANY_SETTLEMENT
+  OTHER
+}
+
+enum ReportCategory {
+  USER_NO_SHOW
+  FRAUD_ATTEMPT
+  INAPPROPRIATE_BEHAVIOR
+  PAYMENT_PROBLEM
+  THREAT
+  ACCIDENT
+  IRREGULAR_ORDER
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum AdminActionType {
+  USER_ACTIVATED
+  USER_SUSPENDED
+  USER_BANNED
+  USER_REACTIVATED
+  REPORT_STATUS_CHANGED
+  PRICING_RULE_CHANGED
+  SUBSCRIPTION_PLAN_CHANGED
+}
+
+enum SubscriptionProvider {
+  MERCADO_PAGO
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  PENDING
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELED
+  EXPIRED
+}
+
+enum PreRegistrationType {
+  MOTOBOY
+  COMPANY
+}
+
+enum DistanceCalculationMethod {
+  STRAIGHT_LINE
+}
+
+enum LegalDocumentType {
+  TERMS_OF_USE
+  PRIVACY_POLICY
+}
+
+enum NotificationType {
+  NEW_OPPORTUNITY
+  DELIVERY_ACCEPTED
+  DELIVERY_STATUS_CHANGED
+  DELIVERY_CANCELLED
+  DELIVERY_COMPLETED
+  REPORT_UPDATED
+  ADMIN_NOTICE
+}
+
+enum DeliveryExtraType {
+  WAITING
+  RETURN
+  PURCHASE
+  SPECIAL_WEIGHT_VOLUME
+  CANCELLATION_AFTER_DEPARTURE
+  OTHER
+}
+
+enum DeliveryExtraStatus {
+  PENDING
+  ACKNOWLEDGED
+  REJECTED
+  CANCELLED
+}
+
+enum DeliveryExtraAction {
+  CREATED
+  ACKNOWLEDGED
+  REJECTED
+  CANCELLED
+}
+
+model User {
+  id                        String                 @id @default(uuid()) @db.Char(36)
+  role                      Role
+  name                      String                 @db.VarChar(120)
+  email                     String                 @unique @db.VarChar(254)
+  phone                     String                 @unique @db.VarChar(20)
+  passwordHash              String                 @db.VarChar(255)
+  status                    UserStatus             @default(ACTIVE)
+  failedLoginAttempts       Int                    @default(0)
+  lockedUntil               DateTime?              @db.DateTime(3)
+  passwordChangedAt         DateTime               @default(now()) @db.DateTime(3)
+  lastLoginAt               DateTime?              @db.DateTime(3)
+  createdAt                 DateTime               @default(now()) @db.DateTime(3)
+  updatedAt                 DateTime               @updatedAt @db.DateTime(3)
+  sessions                  Session[]
+  motoboyProfile            MotoboyProfile?
+  companyProfile            CompanyProfile?
+  termsAcceptances          TermsAcceptance[]
+  privacyAcceptances        PrivacyAcceptance[]
+  legalAcceptances          LegalAcceptance[]
+  accountClosure            AccountClosure?
+  ratingsGiven              Rating[]               @relation("RatingsGiven")
+  ratingsReceived           Rating[]               @relation("RatingsReceived")
+  reportsCreated            Report[]               @relation("ReportsCreated")
+  reportsReceived           Report[]               @relation("ReportsReceived")
+  adminActionsCreated       AdminAction[]          @relation("AdminActionsCreated")
+  adminActionsTarget        AdminAction[]          @relation("AdminActionsTarget")
+  notifications             Notification[]
+  deliveryExtrasInformed    DeliveryExtra[]        @relation("DeliveryExtrasInformed")
+  deliveryExtraActions      DeliveryExtraHistory[] @relation("DeliveryExtraActions")
+  subscriptions             Subscription[]
+  preRegistrationsConverted PreRegistration[]
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model PreRegistration {
+  id                   String              @id @default(uuid()) @db.Char(36)
+  name                 String              @db.VarChar(120)
+  phone                String              @db.VarChar(20)
+  normalizedPhone      String              @db.VarChar(14)
+  type                 PreRegistrationType
+  consentNoticeVersion String              @db.VarChar(40)
+  consentRecordedAt    DateTime            @db.DateTime(3)
+  convertedUserId      String?             @db.Char(36)
+  createdAt            DateTime            @default(now()) @db.DateTime(3)
+  updatedAt            DateTime            @updatedAt @db.DateTime(3)
+  convertedUser        User?               @relation(fields: [convertedUserId], references: [id], onDelete: SetNull)
+
+  @@unique([normalizedPhone, type])
+  @@index([type, createdAt])
+  @@index([createdAt])
+  @@index([convertedUserId])
+  @@map("pre_registrations")
+}
+
+model SubscriptionPlan {
+  id               String         @id @default(uuid()) @db.Char(36)
+  role             Role           @unique
+  name             String         @db.VarChar(80)
+  description      String         @db.VarChar(240)
+  monthlyPrice     Decimal        @db.Decimal(10, 2)
+  active           Boolean        @default(true)
+  trialDays        Int            @default(0) @db.SmallInt
+  externalPlanId   String?        @unique @db.VarChar(120)
+  externalPlanMode String?        @db.VarChar(20)
+  createdAt        DateTime       @default(now()) @db.DateTime(3)
+  updatedAt        DateTime       @updatedAt @db.DateTime(3)
+  subscriptions    Subscription[]
+
+  @@index([active, role])
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                      String                @id @default(uuid()) @db.Char(36)
+  userId                  String                @db.Char(36)
+  openSubscriptionUserKey String?               @unique(map: "subscriptions_one_open_per_user_key") @db.Char(36)
+  planId                  String                @db.Char(36)
+  provider                SubscriptionProvider  @default(MERCADO_PAGO)
+  externalReference       String?               @unique @db.VarChar(180)
+  providerPlanId          String?               @db.VarChar(120)
+  providerSubscriptionId  String?               @unique @db.VarChar(120)
+  providerStatus          String?               @db.VarChar(40)
+  status                  SubscriptionStatus    @default(PENDING)
+  monthlyPrice            Decimal               @db.Decimal(10, 2)
+  checkoutUrl             String?               @db.Text
+  currentPeriodStart      DateTime?             @db.DateTime(3)
+  currentPeriodEnd        DateTime?             @db.DateTime(3)
+  nextPaymentAt           DateTime?             @db.DateTime(3)
+  canceledAt              DateTime?             @db.DateTime(3)
+  createdAt               DateTime              @default(now()) @db.DateTime(3)
+  updatedAt               DateTime              @updatedAt @db.DateTime(3)
+  user                    User                  @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  plan                    SubscriptionPlan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  events                  SubscriptionEvent[]
+  payments                SubscriptionPayment[]
+
+  @@index([userId, status, createdAt])
+  @@index([providerPlanId])
+  @@index([status, nextPaymentAt])
+  @@map("subscriptions")
+}
+
+model SubscriptionPayment {
+  id                          String       @id @default(uuid()) @db.Char(36)
+  subscriptionId              String       @db.Char(36)
+  providerAuthorizedPaymentId String?      @unique @db.VarChar(120)
+  providerPaymentId           String?      @unique @db.VarChar(120)
+  amount                      Decimal      @db.Decimal(10, 2)
+  currency                    String       @db.Char(3)
+  status                      String       @db.VarChar(40)
+  paidAt                      DateTime?    @db.DateTime(3)
+  providerCreatedAt           DateTime?    @db.DateTime(3)
+  createdAt                   DateTime     @default(now()) @db.DateTime(3)
+  updatedAt                   DateTime     @updatedAt @db.DateTime(3)
+  subscription                Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([subscriptionId, createdAt])
+  @@index([status, createdAt])
+  @@map("subscription_payments")
+}
+
+model SubscriptionEvent {
+  id              String        @id @default(uuid()) @db.Char(36)
+  subscriptionId  String?       @db.Char(36)
+  providerEventId String        @unique @db.VarChar(180)
+  eventType       String        @db.VarChar(100)
+  payloadMetadata Json?         @db.Json
+  processedAt     DateTime?     @db.DateTime(3)
+  createdAt       DateTime      @default(now()) @db.DateTime(3)
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("subscription_events")
+}
+
+model MotoboyProfile {
+  id                            String        @id @default(uuid()) @db.Char(36)
+  userId                        String        @unique @db.Char(36)
+  cpfEncrypted                  String        @db.Text
+  cpfHash                       String        @unique @db.Char(64)
+  cpfLastDigits                 String        @db.Char(2)
+  rgEncrypted                   String        @db.Text
+  rgHash                        String        @db.Char(64)
+  birthDate                     DateTime      @db.Date
+  city                          SupportedCity
+  vehiclePlate                  String?       @db.VarChar(10)
+  isOnline                      Boolean       @default(false)
+  onlineSince                   DateTime?     @db.DateTime(3)
+  lastLocationAt                DateTime?     @db.DateTime(3)
+  lastLatitude                  Decimal?      @db.Decimal(9, 6)
+  lastLongitude                 Decimal?      @db.Decimal(9, 6)
+  legalResponsibilityAcceptedAt DateTime      @db.DateTime(3)
+  intermediationAcceptedAt      DateTime      @db.DateTime(3)
+  createdAt                     DateTime      @default(now()) @db.DateTime(3)
+  updatedAt                     DateTime      @updatedAt @db.DateTime(3)
+  user                          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries                    Delivery[]
+  favoritedBy                   Favorite[]
+
+  @@index([city])
+  @@index([isOnline, lastLocationAt])
+  @@index([rgHash])
+  @@map("motoboy_profiles")
+}
+
+model CompanyProfile {
+  id                      String              @id @default(uuid()) @db.Char(36)
+  userId                  String              @unique @db.Char(36)
+  fantasyName             String              @db.VarChar(120)
+  documentType            CompanyDocumentType
+  legalDocumentEncrypted  String              @db.Text
+  legalDocumentHash       String              @unique @db.Char(64)
+  legalDocumentLastDigits String              @db.Char(4)
+  city                    SupportedCity
+  createdAt               DateTime            @default(now()) @db.DateTime(3)
+  updatedAt               DateTime            @updatedAt @db.DateTime(3)
+  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locations               CompanyLocation[]
+  deliveries              Delivery[]
+  favorites               Favorite[]
+
+  @@index([city])
+  @@map("company_profiles")
+}
+
+model CompanyLocation {
+  id                String         @id @default(uuid()) @db.Char(36)
+  companyId         String         @db.Char(36)
+  defaultCompanyKey String?        @unique(map: "company_locations_one_default_per_company_idx") @db.Char(36)
+  label             String         @default("Loja principal") @db.VarChar(80)
+  address           String         @db.VarChar(180)
+  number            String         @db.VarChar(20)
+  neighborhood      String         @db.VarChar(100)
+  complement        String?        @db.VarChar(120)
+  reference         String?        @db.VarChar(180)
+  city              SupportedCity
+  state             String         @db.Char(2)
+  postalCode        String?        @db.VarChar(9)
+  latitude          Decimal?       @db.Decimal(9, 6)
+  longitude         Decimal?       @db.Decimal(9, 6)
+  isDefault         Boolean        @default(false)
+  createdAt         DateTime       @default(now()) @db.DateTime(3)
+  updatedAt         DateTime       @updatedAt @db.DateTime(3)
+  company           CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  deliveries        Delivery[]
+
+  @@index([companyId])
+  @@index([companyId, isDefault])
+  @@map("company_locations")
+}
+
+model Delivery {
+  id                      String                    @id @default(uuid()) @db.Char(36)
+  companyId               String                    @db.Char(36)
+  motoboyId               String?                   @db.Char(36)
+  activeMotoboyKey        String?                   @unique(map: "deliveries_one_active_per_motoboy_idx") @db.Char(36)
+  pickupLocationId        String                    @db.Char(36)
+  pickupLabel             String                    @db.VarChar(80)
+  pickupAddress           String                    @db.VarChar(180)
+  pickupNumber            String                    @db.VarChar(20)
+  pickupNeighborhood      String                    @db.VarChar(100)
+  pickupCity              SupportedCity
+  pickupState             String                    @db.Char(2)
+  pickupLatitude          Decimal                   @db.Decimal(9, 6)
+  pickupLongitude         Decimal                   @db.Decimal(9, 6)
+  destinationAddress      String                    @db.VarChar(180)
+  destinationNumber       String                    @db.VarChar(20)
+  destinationNeighborhood String                    @db.VarChar(100)
+  destinationComplement   String?                   @db.VarChar(120)
+  destinationReference    String?                   @db.VarChar(180)
+  destinationCity         SupportedCity
+  destinationState        String                    @db.Char(2)
+  destinationPostalCode   String?                   @db.VarChar(9)
+  destinationLatitude     Decimal                   @db.Decimal(9, 6)
+  destinationLongitude    Decimal                   @db.Decimal(9, 6)
+  distanceEstimateKm      Decimal                   @db.Decimal(8, 2)
+  distanceMethod          DistanceCalculationMethod @default(STRAIGHT_LINE)
+  suggestedPrice          Decimal?                  @db.Decimal(10, 2)
+  pricingRuleId           String?                   @db.Char(36)
+  offeredPrice            Decimal                   @db.Decimal(10, 2)
+  paymentMethod           DeliveryPaymentMethod
+  notes                   String?                   @db.VarChar(500)
+  status                  DeliveryStatus            @default(SEARCHING_MOTOBOY)
+  acceptedAt              DateTime?                 @db.DateTime(3)
+  pickedUpAt              DateTime?                 @db.DateTime(3)
+  completedAt             DateTime?                 @db.DateTime(3)
+  cancelledAt             DateTime?                 @db.DateTime(3)
+  expiresAt               DateTime                  @db.DateTime(3)
+  createdAt               DateTime                  @default(now()) @db.DateTime(3)
+  updatedAt               DateTime                  @updatedAt @db.DateTime(3)
+  company                 CompanyProfile            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  motoboy                 MotoboyProfile?           @relation(fields: [motoboyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  pickupLocation          CompanyLocation           @relation(fields: [pickupLocationId], references: [id], onDelete: Restrict)
+  statusHistory           DeliveryStatusHistory[]
+  ratings                 Rating[]
+  reports                 Report[]
+  extras                  DeliveryExtra[]
+  pricingRule             PricingRule?              @relation(fields: [pricingRuleId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([companyId, status, createdAt])
+  @@index([companyId, motoboyId, createdAt])
+  @@index([motoboyId, status])
+  @@index([status, createdAt])
+  @@index([pickupCity, status])
+  @@index([pickupCity, status, expiresAt])
+  @@index([pricingRuleId])
+  @@map("deliveries")
+}
+
+model PricingRule {
+  id           String        @id @default(uuid()) @db.Char(36)
+  city         SupportedCity
+  basePrice    Decimal       @db.Decimal(10, 2)
+  pricePerKm   Decimal       @db.Decimal(10, 2)
+  minimumPrice Decimal       @db.Decimal(10, 2)
+  enabled      Boolean       @default(true)
+  activeFrom   DateTime      @db.DateTime(3)
+  activeTo     DateTime?     @db.DateTime(3)
+  createdAt    DateTime      @default(now()) @db.DateTime(3)
+  updatedAt    DateTime      @updatedAt @db.DateTime(3)
+  deliveries   Delivery[]
+
+  @@index([city, enabled, activeFrom])
+  @@map("pricing_rules")
+}
+
+model DeliveryExtra {
+  id               String                 @id @default(uuid()) @db.Char(36)
+  deliveryId       String                 @db.Char(36)
+  type             DeliveryExtraType
+  description      String                 @db.VarChar(240)
+  amount           Decimal?               @db.Decimal(10, 2)
+  informedByUserId String                 @db.Char(36)
+  informedByRole   Role
+  status           DeliveryExtraStatus    @default(PENDING)
+  note             String?                @db.VarChar(300)
+  createdAt        DateTime               @default(now()) @db.DateTime(3)
+  updatedAt        DateTime               @updatedAt @db.DateTime(3)
+  delivery         Delivery               @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  informedBy       User                   @relation("DeliveryExtrasInformed", fields: [informedByUserId], references: [id], onDelete: Restrict)
+  history          DeliveryExtraHistory[]
+
+  @@index([deliveryId, status, createdAt])
+  @@index([informedByUserId, createdAt])
+  @@map("delivery_extras")
+}
+
+model DeliveryExtraHistory {
+  id             String               @id @default(uuid()) @db.Char(36)
+  extraId        String               @db.Char(36)
+  previousStatus DeliveryExtraStatus?
+  newStatus      DeliveryExtraStatus
+  action         DeliveryExtraAction
+  actorUserId    String               @db.Char(36)
+  actorRole      Role
+  note           String?              @db.VarChar(300)
+  createdAt      DateTime             @default(now()) @db.DateTime(3)
+  extra          DeliveryExtra        @relation(fields: [extraId], references: [id], onDelete: Cascade)
+  actor          User                 @relation("DeliveryExtraActions", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([extraId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("delivery_extra_history")
+}
+
+model DeliveryStatusHistory {
+  id             String          @id @default(uuid()) @db.Char(36)
+  deliveryId     String          @db.Char(36)
+  previousStatus DeliveryStatus?
+  newStatus      DeliveryStatus
+  actorUserId    String?         @db.Char(36)
+  actorRole      Role?
+  note           String?         @db.VarChar(300)
+  createdAt      DateTime        @default(now()) @db.DateTime(3)
+  delivery       Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId, createdAt])
+  @@map("delivery_status_history")
+}
+
+model Rating {
+  id             String   @id @default(uuid()) @db.Char(36)
+  deliveryId     String   @db.Char(36)
+  reviewerUserId String   @db.Char(36)
+  reviewedUserId String   @db.Char(36)
+  reviewerRole   Role
+  score          Int      @db.SmallInt
+  comment        String?  @db.VarChar(500)
+  createdAt      DateTime @default(now()) @db.DateTime(3)
+  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  reviewer       User     @relation("RatingsGiven", fields: [reviewerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviewed       User     @relation("RatingsReceived", fields: [reviewedUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([deliveryId, reviewerUserId])
+  @@index([reviewedUserId, createdAt])
+  @@index([reviewerUserId, createdAt])
+  @@map("ratings")
+}
+
+model Favorite {
+  id        String         @id @default(uuid()) @db.Char(36)
+  companyId String         @db.Char(36)
+  motoboyId String         @db.Char(36)
+  createdAt DateTime       @default(now()) @db.DateTime(3)
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  motoboy   MotoboyProfile @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, motoboyId])
+  @@index([motoboyId])
+  @@map("favorites")
+}
+
+model Report {
+  id             String         @id @default(uuid()) @db.Char(36)
+  reporterUserId String         @db.Char(36)
+  reportedUserId String?        @db.Char(36)
+  deliveryId     String?        @db.Char(36)
+  category       ReportCategory
+  description    String         @db.VarChar(1500)
+  fingerprint    String         @db.Char(64)
+  status         ReportStatus   @default(OPEN)
+  adminNotes     String?        @db.VarChar(2000)
+  createdAt      DateTime       @default(now()) @db.DateTime(3)
+  updatedAt      DateTime       @updatedAt @db.DateTime(3)
+  reporter       User           @relation("ReportsCreated", fields: [reporterUserId], references: [id], onDelete: Restrict)
+  reported       User?          @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  delivery       Delivery?      @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+
+  @@unique([reporterUserId, fingerprint])
+  @@index([reporterUserId, createdAt])
+  @@index([reportedUserId, status])
+  @@index([deliveryId])
+  @@index([status, createdAt])
+  @@map("reports")
+}
+
+model AdminAction {
+  id           String          @id @default(uuid()) @db.Char(36)
+  adminUserId  String          @db.Char(36)
+  targetUserId String?         @db.Char(36)
+  actionType   AdminActionType
+  reason       String?         @db.VarChar(1000)
+  metadata     Json?           @db.Json
+  createdAt    DateTime        @default(now()) @db.DateTime(3)
+  admin        User            @relation("AdminActionsCreated", fields: [adminUserId], references: [id], onDelete: Restrict)
+  target       User?           @relation("AdminActionsTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@index([adminUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([actionType, createdAt])
+  @@map("admin_actions")
+}
+
+model TermsAcceptance {
+  id         String   @id @default(uuid()) @db.Char(36)
+  userId     String   @db.Char(36)
+  version    String   @db.VarChar(40)
+  acceptedAt DateTime @default(now()) @db.DateTime(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+  @@index([version])
+  @@map("terms_acceptances")
+}
+
+model PrivacyAcceptance {
+  id         String   @id @default(uuid()) @db.Char(36)
+  userId     String   @db.Char(36)
+  version    String   @db.VarChar(40)
+  acceptedAt DateTime @default(now()) @db.DateTime(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+  @@index([version])
+  @@map("privacy_acceptances")
+}
+
+model LegalAcceptance {
+  id              String            @id @default(uuid()) @db.Char(36)
+  userId          String            @db.Char(36)
+  documentType    LegalDocumentType
+  documentVersion String            @db.VarChar(40)
+  acceptedAt      DateTime          @default(now()) @db.DateTime(3)
+  metadata        Json?             @db.Json
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentType, documentVersion])
+  @@index([documentType, documentVersion])
+  @@map("legal_acceptances")
+}
+
+model AccountClosure {
+  id           String   @id @default(uuid()) @db.Char(36)
+  userId       String   @unique @db.Char(36)
+  requestedAt  DateTime @db.DateTime(3)
+  processedAt  DateTime @db.DateTime(3)
+  retainedData Json?    @db.Json
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([processedAt])
+  @@map("account_closures")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Char(36)
+  userId    String           @db.Char(36)
+  type      NotificationType
+  title     String           @db.VarChar(120)
+  message   String           @db.VarChar(500)
+  readAt    DateTime?        @db.DateTime(3)
+  metadata  Json?            @db.Json
+  createdAt DateTime         @default(now()) @db.DateTime(3)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model Session {
+  id         String    @id @default(uuid()) @db.Char(36)
+  tokenHash  String    @unique @db.Char(64)
+  userId     String    @db.Char(36)
+  expiresAt  DateTime  @db.DateTime(3)
+  lastSeenAt DateTime  @default(now()) @db.DateTime(3)
+  revokedAt  DateTime? @db.DateTime(3)
+  createdAt  DateTime  @default(now()) @db.DateTime(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model AuthThrottle {
+  keyHash         String    @id @db.Char(64)
+  failedAttempts  Int       @default(0)
+  windowStartedAt DateTime  @default(now()) @db.DateTime(3)
+  blockedUntil    DateTime? @db.DateTime(3)
+  updatedAt       DateTime  @updatedAt @db.DateTime(3)
+
+  @@index([blockedUntil])
+  @@map("auth_throttles")
+}

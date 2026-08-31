@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-brand: var(--brand-primary);
+  --color-brand-hover: var(--brand-primary-hover);
+  --color-brand-dark: var(--brand-primary-dark);
+  --color-brand-light: var(--brand-primary-light);
+  --color-brand-soft: var(--brand-primary-soft);
+  --color-brand-accent: var(--brand-accent);
+  --color-sun: var(--sun);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --shadow-soft: 0 18px 50px rgba(31, 31, 31, 0.08);
+  --shadow-card: 0 8px 28px rgba(31, 31, 31, 0.07);
+}
+
+:root {
+  color-scheme: light;
+  --ink: #1f1f1f;
+  --ink-soft: #5f6368;
+  --brand-primary: #ea1d2c;
+  --brand-primary-hover: #d71928;
+  --brand-primary-dark: #b91522;
+  --brand-primary-light: #fde7e9;
+  --brand-primary-soft: #fff3f4;
+  --brand-accent: #ff4d5a;
+  --sun: #f6b94a;
+  --canvas: #f7f7f7;
+  --surface: #ffffff;
+  --line: #e6e6e6;
+  --muted: #5f6368;
+  --font-body: "Inter", "Segoe UI", Arial, sans-serif;
+  --font-display: "Manrope", "Segoe UI", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  background: var(--canvas);
+}
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-body);
+  text-rendering: optimizeLegibility;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+::selection {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary-dark);
+}
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand-primary) 38%, transparent);
+  outline-offset: 2px;
+}
+.page-shell {
+  width: min(100% - 2rem, 76rem);
+  margin-inline: auto;
+}
+.text-balance {
+  text-wrap: balance;
+}
+.soft-grid {
+  background-image:
+    linear-gradient(rgba(234, 29, 44, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(234, 29, 44, 0.055) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.company-map-pin {
+  position: relative;
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  border: 0;
+  background: transparent;
+}
+.company-map-pin::before {
+  position: absolute;
+  inset: 0;
+  border: 4px solid white;
+  border-radius: 50% 50% 50% 0;
+  background: var(--brand-primary);
+  box-shadow: 0 8px 22px rgba(31, 31, 31, 0.24);
+  content: "";
+  transform: rotate(-45deg);
+}
+.company-map-pin::after {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: white;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+.leaflet-control-attribution {
+  font-size: 10px !important;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+.animate-pulse-soft {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,51 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next
+/.next-*
+/out
+
+# production
+/build
+/dist
+/src/generated/prisma
+/.tools
+
+# tests
+/coverage
+
+# local runtime and backup artifacts
+/backups
+/tmp
+/temp
+
+# local environment files
+.env
+.env.development
+.env.test
+.env.production
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# editor and operating system
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
