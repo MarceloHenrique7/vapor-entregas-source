@@ -31,6 +31,7 @@
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@tailwindcss/postcss": "^4.3.3",
     "argon2": "^0.45.1",
     "leaflet": "^1.9.4",
     "mariadb": "3.5.3",
@@ -39,10 +40,10 @@
     "react-dom": "^19.2.8",
     "react-leaflet": "^5.0.0",
     "server-only": "^0.0.1",
+    "tailwindcss": "^4.3.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",
@@ -51,7 +52,6 @@
     "eslint-config-next": "^16.3.3",
     "prettier": "^3.9.6",
     "prisma": "^7.10.0",
-    "tailwindcss": "^4.3.3",
     "tsx": "^4.23.12",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
