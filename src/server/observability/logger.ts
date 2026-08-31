@@ -14,8 +14,12 @@ const SENSITIVE_KEY =
 const DATABASE_URL_IN_TEXT =
   /\b(?:mysql|mariadb|postgres(?:ql)?):\/\/[^\s"'`]+/gi;
 const BEARER_TOKEN_IN_TEXT = /\b(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi;
+const MERCADO_PAGO_TOKEN_IN_TEXT =
+  /\b(?:APP_USR|TEST)-[A-Za-z0-9._~+/=-]{10,}/gi;
+const EMAIL_IN_TEXT = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const CARD_NUMBER_IN_TEXT = /\b(?:\d[ -]*?){13,19}\b/g;
 const SENSITIVE_ASSIGNMENT_IN_TEXT =
-  /((?:DATABASE_URL|FIELD_ENCRYPTION_KEY|MERCADO_PAGO_(?:ACCESS_TOKEN|WEBHOOK_SECRET)|password|passwordHash|secret|token|authorization|cookie)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)/gi;
+  /((?:DATABASE_URL|FIELD_ENCRYPTION_KEY|MERCADO_PAGO_(?:ACCESS_TOKEN|WEBHOOK_SECRET)|password|passwordHash|secret|token|authorization|cookie|cvv|card|cpf|cnpj|document|rg|phone|email)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)/gi;
 
 type SafeLogValue =
   | null
@@ -29,10 +33,18 @@ function sanitizeText(value: string) {
   const sanitized = value
     .replace(DATABASE_URL_IN_TEXT, "[REDACTED_DATABASE_URL]")
     .replace(BEARER_TOKEN_IN_TEXT, `$1${REDACTED}`)
+    .replace(MERCADO_PAGO_TOKEN_IN_TEXT, REDACTED)
+    .replace(EMAIL_IN_TEXT, REDACTED)
+    .replace(CARD_NUMBER_IN_TEXT, REDACTED)
     .replace(SENSITIVE_ASSIGNMENT_IN_TEXT, `$1${REDACTED}`);
   return sanitized.length > MAX_LOG_TEXT_LENGTH
     ? `${sanitized.slice(0, MAX_LOG_TEXT_LENGTH)}...[TRUNCATED]`
     : sanitized;
+}
+
+function sanitizeEndpoint(value: unknown) {
+  if (typeof value !== "string") return null;
+  return sanitizeText(value.split(/[?#]/, 1)[0] || "/");
 }
 
 function sanitizeLogValue(
@@ -102,7 +114,31 @@ function safeErrorDetails(error: unknown) {
       errorMeta: sanitizeLogValue(error.meta),
     };
   }
-  const candidate = error as Error & { code?: unknown };
+  const candidate = error as Error & {
+    code?: unknown;
+    providerStatus?: unknown;
+    providerCode?: unknown;
+    providerMessage?: unknown;
+    providerCause?: unknown;
+    endpoint?: unknown;
+    method?: unknown;
+    responseBody?: unknown;
+  };
+  if (error.name === "SubscriptionProviderError") {
+    return {
+      errorType: error.name,
+      providerStatus:
+        typeof candidate.providerStatus === "number"
+          ? candidate.providerStatus
+          : null,
+      providerCode: sanitizeLogValue(candidate.providerCode),
+      providerMessage: sanitizeLogValue(candidate.providerMessage),
+      cause: sanitizeLogValue(candidate.providerCause),
+      endpoint: sanitizeEndpoint(candidate.endpoint),
+      method: sanitizeLogValue(candidate.method),
+      responseBody: sanitizeLogValue(candidate.responseBody),
+    };
+  }
   return {
     errorType: error.name || "Error",
     ...(typeof candidate.code === "string" &&

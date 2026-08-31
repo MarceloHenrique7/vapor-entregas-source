@@ -153,7 +153,7 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     });
   });
 
-  it("encapsula timeout, HTTP e resposta invalida sem vazar corpo", async () => {
+  it("preserva diagnostico de timeout, HTTP e resposta invalida no erro interno", async () => {
     const adapter = new MercadoPagoSubscriptionProvider();
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
       new Error("token-secret"),
@@ -165,19 +165,47 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       }),
     );
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify({ message: "provider-sensitive-detail" }), {
-        status: 500,
-      }),
+      new Response(
+        JSON.stringify({
+          message: "invalid preapproval payload",
+          error: "bad_request",
+          status: 400,
+          cause: [{ code: 1234, description: "payer_email is invalid" }],
+          access_token: "TEST-provider-private-token",
+        }),
+        { status: 400 },
+      ),
     );
-    await expect(adapter.getSubscription("id")).rejects.toMatchObject({
-      providerStatus: 500,
+    await expect(
+      adapter.createPending({
+        providerPlanId: "provider-plan-1",
+        externalReference: "subscription:local-subscription-1",
+        payerEmail: "payer@example.test",
+        reason: "Plano mensal",
+        backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
+        notificationUrl:
+          "https://app.example.test/api/webhooks/mercadopago?source_news=webhooks",
+      }),
+    ).rejects.toMatchObject({
+      providerStatus: 400,
+      providerCode: "bad_request",
+      providerMessage: "invalid preapproval payload",
+      providerCause: [{ code: 1234, description: "payer_email is invalid" }],
+      endpoint: "/preapproval",
+      method: "POST",
+      responseBody: expect.objectContaining({ status: 400 }),
     });
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response("not-json", { status: 200 }),
     );
-    await expect(adapter.getSubscription("id")).rejects.toBeInstanceOf(
-      SubscriptionProviderError,
-    );
+    await expect(adapter.getSubscription("id")).rejects.toMatchObject({
+      constructor: SubscriptionProviderError,
+      providerStatus: 200,
+      providerCode: "INVALID_RESPONSE",
+      endpoint: "/preapproval/id",
+      method: "GET",
+      responseBody: "not-json",
+    });
   });
 
   it("rejeita checkout fora dos dominios HTTPS do Mercado Pago", async () => {

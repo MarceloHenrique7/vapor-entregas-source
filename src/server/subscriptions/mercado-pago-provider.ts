@@ -15,6 +15,8 @@ import type {
   SubscriptionProviderClient,
 } from "./types";
 
+type ProviderResponseBody = Record<string, unknown>;
+
 const numberValue = z.union([z.number(), z.string()]).transform(Number);
 const optionalDate = z.string().nullable().optional();
 
@@ -123,6 +125,46 @@ function parse<T>(schema: z.ZodType<T>, raw: unknown): T {
   return result.data;
 }
 
+function isProviderResponseBody(value: unknown): value is ProviderResponseBody {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringField(value: unknown) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number") return String(value);
+  return null;
+}
+
+function firstProviderCause(body: ProviderResponseBody) {
+  const cause = body.cause;
+  if (!Array.isArray(cause)) return null;
+  return cause.find(isProviderResponseBody) ?? null;
+}
+
+function providerDiagnostics(body: unknown) {
+  if (!isProviderResponseBody(body)) {
+    return {
+      providerCode: null,
+      providerMessage: null,
+      providerCause: null,
+    };
+  }
+  const firstCause = firstProviderCause(body);
+  return {
+    providerCode:
+      stringField(body.error) ??
+      stringField(body.code) ??
+      stringField(firstCause?.code),
+    providerMessage:
+      stringField(body.message) ?? stringField(firstCause?.description),
+    providerCause: body.cause ?? null,
+  };
+}
+
+function endpointPath(path: string) {
+  return path.split(/[?#]/, 1)[0] || "/";
+}
+
 function toProviderPlan(raw: unknown): ProviderPlan {
   const value = parse(planSchema, raw);
   return {
@@ -175,11 +217,17 @@ function toProviderPayment(raw: unknown): ProviderPayment {
 }
 
 export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClient {
-  private async request(path: string, init?: RequestInit) {
+  private async request<T>(
+    path: string,
+    init: RequestInit | undefined,
+    transform: (raw: unknown) => T,
+  ) {
     const env = getSubscriptionEnv();
     if (!env.MERCADO_PAGO_ACCESS_TOKEN) {
       throw new SubscriptionProviderNotConfiguredError();
     }
+    const endpoint = endpointPath(path);
+    const method = init?.method?.toUpperCase() ?? "GET";
     let response: Response;
     try {
       response = await fetch(`${env.MERCADO_PAGO_API_BASE_URL}${path}`, {
@@ -192,14 +240,51 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
         cache: "no-store",
         signal: AbortSignal.timeout(12_000),
       });
-    } catch {
-      throw new SubscriptionProviderError();
+    } catch (cause) {
+      throw new SubscriptionProviderError({
+        providerCause: cause,
+        endpoint,
+        method,
+      });
     }
-    if (!response.ok) throw new SubscriptionProviderError(response.status);
+    let responseBody: unknown;
+    let responseText = "";
     try {
-      return (await response.json()) as unknown;
-    } catch {
-      throw new SubscriptionProviderError(response.status);
+      responseText = await response.text();
+      responseBody = responseText ? JSON.parse(responseText) : null;
+    } catch (cause) {
+      throw new SubscriptionProviderError({
+        providerStatus: response.status,
+        providerCode: "INVALID_RESPONSE",
+        providerMessage: "A resposta do provedor não contém JSON válido.",
+        providerCause: cause,
+        endpoint,
+        method,
+        responseBody: responseText || null,
+      });
+    }
+    if (!response.ok) {
+      throw new SubscriptionProviderError({
+        providerStatus: response.status,
+        ...providerDiagnostics(responseBody),
+        endpoint,
+        method,
+        responseBody,
+      });
+    }
+    try {
+      return transform(responseBody);
+    } catch (cause) {
+      if (!(cause instanceof SubscriptionProviderError)) throw cause;
+      throw new SubscriptionProviderError({
+        providerStatus: response.status,
+        providerCode: cause.providerCode ?? "INVALID_RESPONSE",
+        providerMessage: cause.providerMessage,
+        providerCause: cause.providerCause,
+        endpoint,
+        method,
+        responseBody,
+      });
     }
   }
 
@@ -209,8 +294,9 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
     monthlyPrice: number;
     backUrl: string;
   }) {
-    return toProviderPlan(
-      await this.request("/preapproval_plan", {
+    return this.request(
+      "/preapproval_plan",
+      {
         method: "POST",
         headers: { "X-Idempotency-Key": input.idempotencyKey },
         body: JSON.stringify({
@@ -223,13 +309,16 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
           },
           back_url: input.backUrl,
         }),
-      }),
+      },
+      toProviderPlan,
     );
   }
 
   async getPlan(id: string) {
-    return toProviderPlan(
-      await this.request(`/preapproval_plan/${encodeURIComponent(id)}`),
+    return this.request(
+      `/preapproval_plan/${encodeURIComponent(id)}`,
+      undefined,
+      toProviderPlan,
     );
   }
 
@@ -237,8 +326,9 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
     id: string,
     input: { reason: string; monthlyPrice: number; backUrl: string },
   ) {
-    return toProviderPlan(
-      await this.request(`/preapproval_plan/${encodeURIComponent(id)}`, {
+    return this.request(
+      `/preapproval_plan/${encodeURIComponent(id)}`,
+      {
         method: "PUT",
         body: JSON.stringify({
           reason: input.reason,
@@ -250,7 +340,8 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
           },
           back_url: input.backUrl,
         }),
-      }),
+      },
+      toProviderPlan,
     );
   }
 
@@ -262,8 +353,9 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
     backUrl: string;
     notificationUrl: string;
   }) {
-    return toProviderSubscription(
-      await this.request("/preapproval", {
+    return this.request(
+      "/preapproval",
+      {
         method: "POST",
         headers: { "X-Idempotency-Key": input.externalReference },
         body: JSON.stringify({
@@ -275,38 +367,46 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
           notification_url: input.notificationUrl,
           status: "pending",
         }),
-      }),
+      },
+      toProviderSubscription,
     );
   }
 
   async getSubscription(id: string) {
-    return toProviderSubscription(
-      await this.request(`/preapproval/${encodeURIComponent(id)}`),
+    return this.request(
+      `/preapproval/${encodeURIComponent(id)}`,
+      undefined,
+      toProviderSubscription,
     );
   }
 
   async cancelSubscription(id: string) {
-    return toProviderSubscription(
-      await this.request(`/preapproval/${encodeURIComponent(id)}`, {
+    return this.request(
+      `/preapproval/${encodeURIComponent(id)}`,
+      {
         method: "PUT",
         body: JSON.stringify({ status: "canceled" }),
-      }),
+      },
+      toProviderSubscription,
     );
   }
 
   async reactivateSubscription(id: string) {
-    return toProviderSubscription(
-      await this.request(`/preapproval/${encodeURIComponent(id)}`, {
+    return this.request(
+      `/preapproval/${encodeURIComponent(id)}`,
+      {
         method: "PUT",
         body: JSON.stringify({ status: "authorized" }),
-      }),
+      },
+      toProviderSubscription,
     );
   }
 
   async getAuthorizedPayment(id: string) {
-    const value = parse(
-      authorizedPaymentSchema,
-      await this.request(`/authorized_payments/${encodeURIComponent(id)}`),
+    const value = await this.request(
+      `/authorized_payments/${encodeURIComponent(id)}`,
+      undefined,
+      (body) => parse(authorizedPaymentSchema, body),
     );
     if (value.payment?.id) {
       const payment = await this.getPayment(String(value.payment.id));
@@ -335,8 +435,10 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
   }
 
   async getPayment(id: string) {
-    return toProviderPayment(
-      await this.request(`/v1/payments/${encodeURIComponent(id)}`),
+    return this.request(
+      `/v1/payments/${encodeURIComponent(id)}`,
+      undefined,
+      toProviderPayment,
     );
   }
 }
