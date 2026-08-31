@@ -121,7 +121,7 @@ describe("server error logging", () => {
       providerStatus: 400,
       providerCode: "bad_request",
       providerMessage:
-        "payer_email=buyer@example.test card=5031 4332 1540 6351 token=TEST-private-provider-token",
+        "payer_email=buyer@example.test card=5031 4332 1540 6351 token=TEST-private-provider-token card_token_id=card-token-valid-1234567890",
       providerCause: [
         {
           code: 1234,
@@ -134,6 +134,7 @@ describe("server error logging", () => {
       responseBody: {
         message: "Invalid payer buyer@example.test",
         access_token: "TEST-private-provider-token",
+        cardTokenId: "card-token-valid-1234567890",
         authorization: "Bearer private-token",
         card_number: "5031433215406351",
       },
@@ -156,6 +157,7 @@ describe("server error logging", () => {
     expect(serialized).not.toContain("buyer@example.test");
     expect(serialized).not.toContain("5031433215406351");
     expect(serialized).not.toContain("private-card-token");
+    expect(serialized).not.toContain("card-token-valid-1234567890");
     expect(serialized).not.toContain("private-provider-token");
     expect(serialized).not.toContain("Bearer private-token");
   });

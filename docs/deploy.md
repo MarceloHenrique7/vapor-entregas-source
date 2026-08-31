@@ -29,10 +29,11 @@ após alterar a flag. Para liberar o produto completo, use `PRELAUNCH_MODE=false
 Nunca use e-mail, telefone ou segredo nessa lista.
 
 Para assinaturas, use credenciais de produção do próprio operador e configure
-`MERCADO_PAGO_MODE=production`, `MERCADO_PAGO_ACCESS_TOKEN`,
+`MERCADO_PAGO_MODE=production`, `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY`,
+`MERCADO_PAGO_ACCESS_TOKEN`,
 `MERCADO_PAGO_WEBHOOK_SECRET` e a URL oficial em
-`MERCADO_PAGO_API_BASE_URL`. O token é exclusivamente server-side. Não exponha a
-chave como variável `NEXT_PUBLIC_*`.
+`MERCADO_PAGO_API_BASE_URL`. O Access Token é exclusivamente server-side. Apenas
+a Public Key usa o prefixo `NEXT_PUBLIC_*`.
 
 Antes de trocar para produção, siga o checklist de
 `docs/mercado-pago-subscriptions.md`, execute a sincronização administrativa dos

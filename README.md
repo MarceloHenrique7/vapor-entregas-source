@@ -380,10 +380,10 @@ consultam esses dados, evitando valores espalhados no frontend.
 
 O checkout recorrente usa planos associados da API oficial de Assinaturas do
 Mercado Pago por um adapter server-side. A aplicação sincroniza
-`/preapproval_plan`, cria uma preapproval pendente e redireciona o
-usuário para o checkout hospedado; número de cartão, CVV e credenciais de pagamento
-nunca passam pela Vapor Entregas. O webhook assinado consulta novamente o recurso no
-provider antes de mudar o status local. Evento, assinatura e cobrança são
+`/preapproval_plan`, tokeniza o cartão no navegador com o CardForm oficial e cria
+uma preapproval autorizada associada ao plano. A API da Vapor recebe somente o
+token efêmero; número do cartão e CVV não chegam ao backend nem são persistidos. O
+webhook assinado consulta novamente o recurso no provider antes de mudar o status local. Evento, assinatura e cobrança são
 persistidos atomicamente; faturas/pagamentos repetidos não duplicam histórico.
 
 Arquitetura, Sandbox, produção, status e troubleshooting estão em
@@ -393,6 +393,7 @@ Configure somente no ambiente, sem sobrescrever um `.env` existente:
 
 ```dotenv
 MERCADO_PAGO_MODE=test
+NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY=SUA_PUBLIC_KEY_DE_TESTE
 MERCADO_PAGO_ACCESS_TOKEN=SEU_ACCESS_TOKEN_DE_TESTE
 MERCADO_PAGO_WEBHOOK_SECRET=SEU_SEGREDO_DO_WEBHOOK
 MERCADO_PAGO_API_BASE_URL=https://api.mercadopago.com

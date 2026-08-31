@@ -24,7 +24,8 @@ describe("subscription provider public errors", () => {
 
     expect(response.status).toBe(502);
     expect(body).toEqual({
-      error: "O Mercado Pago não concluiu esta operação. Tente novamente.",
+      error:
+        "Não foi possível autorizar este cartão. Revise os dados ou tente outro cartão.",
       correlationId: expect.any(String),
     });
     expect(JSON.stringify(body)).not.toContain("provider-private-detail");

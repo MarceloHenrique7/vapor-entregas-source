@@ -57,8 +57,9 @@ Cadastre no painel Node.js todas as chaves de `.env.example`. No mínimo, revise
 - `PRELAUNCH_TEST_USER_IDS` somente com UUIDs autorizados;
 - mapa/geocoding, contato jurídico e assinatura já documentados no exemplo.
 
-Para Mercado Pago, revise explicitamente `MERCADO_PAGO_MODE`, Access Token,
-segredo de webhook, API base e `NEXT_PUBLIC_APP_URL` HTTPS. Depois do deploy,
+Para Mercado Pago, revise explicitamente `MERCADO_PAGO_MODE`, Public Key, Access
+Token, segredo de webhook, API base e `NEXT_PUBLIC_APP_URL` HTTPS. Public Key e
+Access Token devem pertencer à mesma aplicação/ambiente. Depois do deploy,
 sincronize os planos em `/admin/assinaturas` e siga
 `docs/mercado-pago-subscriptions.md`; não reutilize credenciais ou IDs Sandbox.
 

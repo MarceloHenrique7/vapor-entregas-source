@@ -25,8 +25,7 @@ const planBody = {
 };
 const subscriptionBody = {
   id: "preapproval-1",
-  status: "pending",
-  init_point: "https://www.mercadopago.com.br/subscriptions/checkout",
+  status: "authorized",
   external_reference: "subscription:local-subscription-1",
   preapproval_plan_id: "provider-plan-1",
 };
@@ -42,6 +41,7 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       idempotencyKey: "plan:test:internal:19.90",
       reason: planBody.reason,
       monthlyPrice: 19.9,
+      trialDays: 0,
       backUrl: planBody.back_url,
     });
     expect(fetchMock.mock.calls[0][0]).toBe(
@@ -60,13 +60,14 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     });
   });
 
-  it("cria preapproval associado sem aceitar preco nem dados de cartao", async () => {
+  it("cria preapproval autorizado com o token gerado pelo SDK", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(JSON.stringify(subscriptionBody)));
     await expect(
-      new MercadoPagoSubscriptionProvider().createPending({
+      new MercadoPagoSubscriptionProvider().createAuthorized({
         providerPlanId: "provider-plan-1",
+        cardTokenId: "card-token-valid-1234567890",
         externalReference: "subscription:local-subscription-1",
         payerEmail: "payer@example.test",
         reason: "Plano mensal",
@@ -81,15 +82,44 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     const sent = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(sent).toMatchObject({
       preapproval_plan_id: "provider-plan-1",
+      card_token_id: "card-token-valid-1234567890",
       payer_email: "payer@example.test",
       external_reference: "subscription:local-subscription-1",
-      status: "pending",
+      status: "authorized",
       notification_url:
         "https://app.example.test/api/webhooks/mercadopago?source_news=webhooks",
     });
-    expect(JSON.stringify(sent)).not.toMatch(
-      /transaction_amount|card|cvv|security_code/i,
+    expect(sent).not.toHaveProperty("transaction_amount");
+    expect(sent).not.toHaveProperty("card_number");
+    expect(sent).not.toHaveProperty("security_code");
+  });
+
+  it("configura sete dias de teste gratis no plano remoto", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...planBody,
+          auto_recurring: {
+            ...planBody.auto_recurring,
+            free_trial: { frequency: 7, frequency_type: "days" },
+          },
+        }),
+      ),
     );
+    await expect(
+      new MercadoPagoSubscriptionProvider().createPlan({
+        idempotencyKey: "plan:test:internal:19.90:trial-7",
+        reason: planBody.reason,
+        monthlyPrice: 19.9,
+        trialDays: 7,
+        backUrl: planBody.back_url,
+      }),
+    ).resolves.toMatchObject({ trialDays: 7 });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      auto_recurring: {
+        free_trial: { frequency: 7, frequency_type: "days" },
+      },
+    });
   });
 
   it("consulta fatura e pagamento final sem persistir dados de cartao", async () => {
@@ -177,8 +207,9 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       ),
     );
     await expect(
-      adapter.createPending({
+      adapter.createAuthorized({
         providerPlanId: "provider-plan-1",
+        cardTokenId: "card-token-valid-1234567890",
         externalReference: "subscription:local-subscription-1",
         payerEmail: "payer@example.test",
         reason: "Plano mensal",

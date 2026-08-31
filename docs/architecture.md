@@ -407,9 +407,10 @@ datas do ciclo. `SubscriptionEvent` é append-only e possui identificador de eve
 Uma chave nullable única no MySQL permite no máximo uma assinatura aberta por usuário.
 
 `SubscriptionProviderClient` mantém o domínio independente do fornecedor. O
-adapter atual usa a API de assinaturas do Mercado Pago somente no servidor: cria
-uma preapproval pendente, entrega ao navegador apenas o checkout hospedado e nunca
-recebe cartão ou CVV. Cancelamento usa o estado oficial `canceled`; sincronização e
+adapter atual usa a API de assinaturas do Mercado Pago no servidor e o CardForm
+oficial no navegador: o SDK tokeniza o cartão e a API da Vapor recebe apenas o
+token efêmero para criar uma preapproval `authorized`. Número completo e CVV não
+chegam ao backend. Cancelamento usa o estado oficial `canceled`; sincronização e
 webhook sempre consultam o recurso autenticado antes de atualizar o banco. A
 assinatura HMAC do webhook é validada com comparação constante e o ambiente
 TEST/produção também é conferido.

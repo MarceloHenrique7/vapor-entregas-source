@@ -208,6 +208,19 @@ export const prismaSubscriptionRepository: SubscriptionRepository = {
     });
     return value ? toSubscription(value) : null;
   },
+  async hasPriorSubscription(userId, excludeSubscriptionId) {
+    return Boolean(
+      await getPrisma().subscription.findFirst({
+        where: {
+          userId,
+          ...(excludeSubscriptionId
+            ? { id: { not: excludeSubscriptionId } }
+            : {}),
+        },
+        select: { id: true },
+      }),
+    );
+  },
   async findById(id) {
     const value = await getPrisma().subscription.findUnique({
       where: { id },

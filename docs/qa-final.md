@@ -80,12 +80,13 @@ IN_DELIVERY → COMPLETED`, sem saltos;
 
 Esta seção requer credenciais TEST e uma URL HTTPS acessível ao Mercado Pago.
 
-1. configure as quatro variáveis `MERCADO_PAGO_*` e `NEXT_PUBLIC_APP_URL` sem
-   substituir outras chaves do ambiente;
+1. configure `MERCADO_PAGO_MODE`, `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY`, Access
+   Token, segredo de webhook, API base e `NEXT_PUBLIC_APP_URL` sem substituir
+   outras chaves do ambiente;
 2. cadastre `/api/webhooks/mercadopago` e os tópicos de preapproval e pagamentos
    autorizados no painel do provider;
-3. crie assinatura com usuário de teste e confirme que o navegador é redirecionado
-   ao checkout hospedado;
+3. crie assinatura com usuário/cartão de teste e confirme que o CardForm gera o
+   token sem enviar número completo ou CVV à API da Vapor;
 4. conclua a aprovação e confirme `ACTIVE` somente depois do webhook/sincronização;
 5. envie novamente o mesmo evento e confirme resposta de duplicidade sem novo
    `SubscriptionEvent`;

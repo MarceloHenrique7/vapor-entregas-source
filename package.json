@@ -29,6 +29,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@mercadopago/sdk-js": "^0.0.3",
     "@prisma/adapter-mariadb": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@tailwindcss/postcss": "^4.3.3",

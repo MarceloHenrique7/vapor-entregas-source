@@ -31,6 +31,13 @@ const planSchema = z
       frequency_type: z.string(),
       transaction_amount: numberValue,
       currency_id: z.string(),
+      free_trial: z
+        .object({
+          frequency: numberValue,
+          frequency_type: z.string(),
+        })
+        .nullable()
+        .optional(),
     }),
   })
   .passthrough();
@@ -161,6 +168,17 @@ function providerDiagnostics(body: unknown) {
   };
 }
 
+function freeTrial(trialDays: number) {
+  return trialDays > 0
+    ? {
+        free_trial: {
+          frequency: trialDays,
+          frequency_type: "days",
+        },
+      }
+    : {};
+}
+
 function endpointPath(path: string) {
   return path.split(/[?#]/, 1)[0] || "/";
 }
@@ -174,6 +192,10 @@ function toProviderPlan(raw: unknown): ProviderPlan {
     currency: value.auto_recurring.currency_id,
     frequency: value.auto_recurring.frequency,
     frequencyType: value.auto_recurring.frequency_type,
+    trialDays:
+      value.auto_recurring.free_trial?.frequency_type === "days"
+        ? value.auto_recurring.free_trial.frequency
+        : 0,
     status: value.status ?? null,
     backUrl: value.back_url ?? null,
   };
@@ -292,6 +314,7 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
     idempotencyKey: string;
     reason: string;
     monthlyPrice: number;
+    trialDays: number;
     backUrl: string;
   }) {
     return this.request(
@@ -306,6 +329,7 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
             frequency_type: "months",
             transaction_amount: input.monthlyPrice,
             currency_id: "BRL",
+            ...freeTrial(input.trialDays),
           },
           back_url: input.backUrl,
         }),
@@ -324,7 +348,12 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
 
   async updatePlan(
     id: string,
-    input: { reason: string; monthlyPrice: number; backUrl: string },
+    input: {
+      reason: string;
+      monthlyPrice: number;
+      trialDays: number;
+      backUrl: string;
+    },
   ) {
     return this.request(
       `/preapproval_plan/${encodeURIComponent(id)}`,
@@ -337,6 +366,7 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
             frequency_type: "months",
             transaction_amount: input.monthlyPrice,
             currency_id: "BRL",
+            ...freeTrial(input.trialDays),
           },
           back_url: input.backUrl,
         }),
@@ -345,8 +375,9 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
     );
   }
 
-  async createPending(input: {
+  async createAuthorized(input: {
     providerPlanId: string;
+    cardTokenId: string;
     externalReference: string;
     payerEmail: string;
     reason: string;
@@ -360,12 +391,13 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
         headers: { "X-Idempotency-Key": input.externalReference },
         body: JSON.stringify({
           preapproval_plan_id: input.providerPlanId,
+          card_token_id: input.cardTokenId,
           reason: input.reason,
           external_reference: input.externalReference,
           payer_email: input.payerEmail,
           back_url: input.backUrl,
           notification_url: input.notificationUrl,
-          status: "pending",
+          status: "authorized",
         }),
       },
       toProviderSubscription,

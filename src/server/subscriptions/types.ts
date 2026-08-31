@@ -77,6 +77,7 @@ export interface ProviderPlan {
   currency: string;
   frequency: number;
   frequencyType: string;
+  trialDays: number;
   status: string | null;
   backUrl: string | null;
 }
@@ -109,15 +110,22 @@ export interface SubscriptionProviderClient {
     idempotencyKey: string;
     reason: string;
     monthlyPrice: number;
+    trialDays: number;
     backUrl: string;
   }): Promise<ProviderPlan>;
   getPlan(id: string): Promise<ProviderPlan>;
   updatePlan(
     id: string,
-    input: { reason: string; monthlyPrice: number; backUrl: string },
+    input: {
+      reason: string;
+      monthlyPrice: number;
+      trialDays: number;
+      backUrl: string;
+    },
   ): Promise<ProviderPlan>;
-  createPending(input: {
+  createAuthorized(input: {
     providerPlanId: string;
+    cardTokenId: string;
     externalReference: string;
     payerEmail: string;
     reason: string;
@@ -142,6 +150,10 @@ export interface SubscriptionRepository {
   } | null>;
   getLatest(userId: string): Promise<SubscriptionRecord | null>;
   getCurrent(userId: string): Promise<SubscriptionRecord | null>;
+  hasPriorSubscription(
+    userId: string,
+    excludeSubscriptionId: string | null,
+  ): Promise<boolean>;
   findById(id: string): Promise<SubscriptionRecord | null>;
   findByExternalReference(
     externalReference: string,

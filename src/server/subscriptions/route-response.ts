@@ -47,8 +47,11 @@ export function subscriptionErrorResponse(error: unknown) {
   }
   if (error instanceof SubscriptionProviderError) {
     const correlationId = logServerError("api.subscriptions.provider", error);
+    const publicMessage = [400, 422].includes(error.providerStatus ?? 0)
+      ? "Não foi possível autorizar este cartão. Revise os dados ou tente outro cartão."
+      : error.message;
     return NextResponse.json(
-      { error: error.message, correlationId },
+      { error: publicMessage, correlationId },
       { status: 502 },
     );
   }

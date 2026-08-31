@@ -19,7 +19,7 @@ const MERCADO_PAGO_TOKEN_IN_TEXT =
 const EMAIL_IN_TEXT = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const CARD_NUMBER_IN_TEXT = /\b(?:\d[ -]*?){13,19}\b/g;
 const SENSITIVE_ASSIGNMENT_IN_TEXT =
-  /((?:DATABASE_URL|FIELD_ENCRYPTION_KEY|MERCADO_PAGO_(?:ACCESS_TOKEN|WEBHOOK_SECRET)|password|passwordHash|secret|token|authorization|cookie|cvv|card|cpf|cnpj|document|rg|phone|email)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)/gi;
+  /((?:DATABASE_URL|FIELD_ENCRYPTION_KEY|MERCADO_PAGO_(?:ACCESS_TOKEN|WEBHOOK_SECRET)|password|passwordHash|secret|card[_-]?token[_-]?id|token|authorization|cookie|cvv|card|cpf|cnpj|document|rg|phone|email)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)/gi;
 
 type SafeLogValue =
   | null

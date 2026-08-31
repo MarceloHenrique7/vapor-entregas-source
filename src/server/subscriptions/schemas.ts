@@ -1,6 +1,15 @@
 import { z } from "zod";
 
-export const checkoutSchema = z.object({}).strict();
+export const checkoutSchema = z
+  .object({
+    cardTokenId: z
+      .string()
+      .trim()
+      .min(16)
+      .max(256)
+      .regex(/^[A-Za-z0-9._-]+$/),
+  })
+  .strict();
 export const cancelSchema = z.object({ confirm: z.literal(true) }).strict();
 export const planIdSchema = z.string().uuid();
 export const updatePlanSchema = z

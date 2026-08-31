@@ -11,13 +11,14 @@ Pago é a fonte de verdade do estado externo da assinatura e das cobranças:
 
 1. a role autenticada determina o `SubscriptionPlan` interno;
 2. o backend consulta ou cria o plano em `POST /preapproval_plan`;
-3. o backend cria a assinatura associada em `POST /preapproval`;
-4. o usuário conclui a autorização no domínio do Mercado Pago;
+3. o navegador usa MercadoPago.js/CardForm para tokenizar o cartão;
+4. o backend cria a assinatura associada e autorizada em `POST /preapproval`;
 5. webhook e sincronização consultam a API antes de alterar o banco;
 6. somente `TRIAL` ou `ACTIVE` liberam novas operações.
 
-O token privado nunca é enviado ao navegador. O backend não recebe nem persiste
-número de cartão, CVV ou documento do pagador.
+O Access Token privado nunca é enviado ao navegador. O backend recebe apenas o
+`cardTokenId` efêmero, usa-o uma vez e não o persiste. Número do cartão, CVV e
+documento são capturados pelo SDK oficial e não são enviados à API da Vapor.
 
 Referências oficiais: [API de Assinaturas](https://www.mercadopago.com.br/developers/pt/reference/online-payments/subscriptions/overview),
 [assinatura com plano associado](https://www.mercadopago.com.br/developers/pt/docs/subscriptions/integration-configuration/subscription-associated-plan)
@@ -45,16 +46,24 @@ assinaturas já criadas. Os planos para novas adesões ficam em R$ 19,90
 ```dotenv
 NEXT_PUBLIC_APP_URL=https://app.seudominio.com.br
 MERCADO_PAGO_MODE=test
+NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY=SUA_PUBLIC_KEY_DE_TESTE
 MERCADO_PAGO_ACCESS_TOKEN=SEU_ACCESS_TOKEN_DE_TESTE
 MERCADO_PAGO_WEBHOOK_SECRET=SUA_ASSINATURA_SECRETA_DE_TESTE
 MERCADO_PAGO_API_BASE_URL=https://api.mercadopago.com
 ```
 
-`MERCADO_PAGO_MODE` aceita `test` ou `production`. Access Token e segredo de
-webhook são exclusivamente server-side. Em produção, `NEXT_PUBLIC_APP_URL` deve
+`MERCADO_PAGO_MODE` aceita `test` ou `production`. A Public Key é a única
+credencial Mercado Pago exposta ao frontend; Access Token e segredo de webhook
+são exclusivamente server-side. Public Key e Access Token devem vir da mesma
+aplicação e do mesmo ambiente. Em produção, `NEXT_PUBLIC_APP_URL` deve
 ser HTTPS público; o código rejeita localhost/loopback. Não copie `.env.example`
 sobre um `.env` existente. O `.env` está ignorado pelo Git. Um ID de plano só é
 reutilizado quando `externalPlanMode` coincide com o ambiente atual.
+
+Como variáveis `NEXT_PUBLIC_*` são incorporadas ao bundle do navegador durante
+o build do Next.js, configure a Public Key na Hostinger antes de executar o
+build/redeploy. Alterar apenas o valor no processo já compilado não atualiza o
+frontend.
 
 ## Sincronização dos planos
 
@@ -79,7 +88,8 @@ remota usa frequência `1`, tipo `months`, moeda `BRL`, preço do banco e
 - `GET /api/subscriptions/plans`: planos públicos ativos.
 - `GET /api/subscriptions/me`: plano da role e assinatura/pagamentos do usuário.
 - `POST /api/subscriptions/checkout`: cria/reutiliza assinatura para a role. O
-  body aceito é `{}`; preço, plano e e-mail do cliente são rejeitados.
+  body aceito é `{ "cardTokenId": "..." }`; preço, plano e e-mail enviados pelo
+  cliente são rejeitados.
 - `POST /api/subscriptions/sync`: consulta `GET /preapproval/{id}`.
 - `POST /api/subscriptions/cancel`: exige `{ "confirm": true }`, ownership e
   confirmação de `PUT /preapproval/{id}` com `status=canceled`.
@@ -93,20 +103,22 @@ sincronização, que consulta o Mercado Pago.
 
 ## Criação da assinatura
 
+O CardForm oficial roda no navegador com a Public Key e monta campos seguros em
+iframes do Mercado Pago. Ao confirmar, o SDK gera um token de uso único. A Vapor
+envia somente esse token para sua API; não envia preço, plano, e-mail, documento,
+número do cartão ou CVV.
+
 O backend usa role e ID da sessão, recarrega o e-mail do banco, escolhe preço e
 plano internos, cria `external_reference` como `subscription:<uuid>` sem PII e
-envia `preapproval_plan_id`. A `notification_url` aponta para o webhook HTTPS com
-`source_news=webhooks`; o estado inicial é `pending`. O `init_point` só é aceito
-se pertencer a domínio HTTPS do Mercado Pago.
+envia `preapproval_plan_id`, `card_token_id` e `status=authorized`. A
+`notification_url` aponta para o webhook HTTPS com `source_news=webhooks`.
+Somente a resposta validada da API é persistida; o token não entra em models,
+eventos ou logs.
 
-A documentação oficial atual apresenta uma inconsistência: o guia de plano
-associado descreve criação direta com `card_token_id` e `authorized`, enquanto a
-referência de `POST /preapproval` também documenta `init_point` e resposta
-`pending`. Esta implementação segue o fluxo hospedado solicitado, com plano
-associado e `pending`. Valide obrigatoriamente esse contrato na conta Sandbox
-brasileira antes da produção. Se a conta rejeitar a combinação, não remova o
-plano nem colete cartão no backend: será necessário decidir entre tokenização
-oficial MP.js + preapproval `authorized` ou o fluxo oficial sem plano associado.
+Quando `trialDays` é 7, o plano remoto recebe `free_trial` de 7 dias. A primeira
+assinatura fica `TRIAL` localmente durante esse período. Usuários com qualquer
+histórico anterior usam um plano remoto idempotente sem trial, impedindo uma
+segunda concessão sem exigir alteração de schema.
 
 ## Status e acesso
 
@@ -165,13 +177,15 @@ auditoria atomicamente. O body não permite indicar outra assinatura.
 1. Crie/abra a aplicação em **Mercado Pago Developers > Suas integrações**.
 2. Obtenha credenciais de teste e contas de teste no painel. Não use dinheiro ou
    credenciais reais.
-3. Configure `MERCADO_PAGO_MODE=test` e uma URL HTTPS pública de homologação.
+3. Configure `MERCADO_PAGO_MODE=test`, Public Key e Access Token de teste da
+   mesma aplicação, além de uma URL HTTPS pública de homologação.
    Para webhook local, use túnel HTTPS e ajuste `NEXT_PUBLIC_APP_URL`.
 4. Aplique migrations e crie empresa/motoboy de teste. Com prelaunch ativo,
    inclua somente seus UUIDs em `PRELAUNCH_TEST_USER_IDS`.
 5. Como ADMIN em `/admin/assinaturas`, sincronize os planos e confira no painel.
-6. Como usuário, abra **Minha assinatura**, clique **Assinar plano** e use o
-   comprador/cartão de teste exibido na documentação atual do Mercado Pago.
+6. Como usuário de teste, abra **Minha assinatura**, clique **Assinar plano** e
+   use o comprador/cartão de teste exibido na documentação atual do Mercado
+   Pago. Os dados devem pertencer ao mesmo país/ambiente do vendedor de teste.
 7. Para aprovação, confirme `ACTIVE`, um pagamento no histórico e acesso a nova
    operação.
 8. Para recusa, use o cenário de teste atual; confirme `PAST_DUE`, um histórico
@@ -187,7 +201,8 @@ Pago. O webhook Sandbox usa o segredo de teste, não o produtivo.
 Configure variáveis protegidas no painel Node.js, aplique
 `prisma migrate deploy`, reinicie e confirme que o proxy preserva body, query,
 `x-signature` e `x-request-id`. Use `NODE_ENV=production`, URL HTTPS real,
-`MERCADO_PAGO_MODE=production`, credenciais produtivas e a API oficial.
+`MERCADO_PAGO_MODE=production`, Public Key e Access Token produtivos da mesma
+aplicação, segredo produtivo e a API oficial.
 
 Cadastre/valide
 `https://DOMINIO_REAL/api/webhooks/mercadopago?source_news=webhooks` e os tópicos
@@ -197,7 +212,10 @@ real sem autorização explícita.
 ## Troubleshooting
 
 - **503:** Access Token ausente no ambiente.
-- **502:** timeout, HTTP ou resposta inválida; não cancele localmente.
+- **502 ao autorizar cartão:** consulte o log pelo `correlationId`; erros 400/422
+  recebem mensagem pública segura, enquanto detalhes sanitizados ficam apenas no
+  servidor.
+- **502 geral:** timeout, HTTP ou resposta inválida; não cancele localmente.
 - **401 webhook:** confira segredo, `data.id`, headers e URL configurada.
 - **409 ambiente:** `live_mode` não coincide com o modo.
 - **409 correlação/plano/valor:** compare conta, credencial, ambiente e recurso;

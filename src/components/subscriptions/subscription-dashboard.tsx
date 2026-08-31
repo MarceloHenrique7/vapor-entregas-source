@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-elements";
+import { MercadoPagoCardForm } from "@/components/subscriptions/mercado-pago-card-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -115,6 +116,7 @@ export function SubscriptionDashboard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -130,32 +132,51 @@ export function SubscriptionDashboard() {
     void load();
   }, [load]);
 
-  const action = async (path: string, body: object = {}) => {
-    setBusy(true);
-    setError("");
-    try {
-      const result = await api<{ subscription: SubscriptionView | null }>(
-        path,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-      );
-      if (
-        result.subscription?.checkoutUrl &&
-        (path.includes("checkout") || result.subscription.status === "PENDING")
-      ) {
-        window.location.assign(result.subscription.checkoutUrl);
-        return;
+  const action = useCallback(
+    async (path: string, body: object = {}) => {
+      setBusy(true);
+      setError("");
+      try {
+        const result = await api<{ subscription: SubscriptionView | null }>(
+          path,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
+        if (
+          result.subscription?.checkoutUrl &&
+          (path.includes("checkout") ||
+            result.subscription.status === "PENDING")
+        ) {
+          window.location.assign(result.subscription.checkoutUrl);
+          return true;
+        }
+        await load();
+        return true;
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "Falha na operação.",
+        );
+        return false;
+      } finally {
+        setBusy(false);
       }
-      await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Falha na operação.");
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    [load],
+  );
+
+  const submitCardToken = useCallback(
+    async (cardTokenId: string) => {
+      const completed = await action("/api/subscriptions/checkout", {
+        cardTokenId,
+      });
+      if (completed) setCardOpen(false);
+      return completed;
+    },
+    [action],
+  );
 
   if (loading) {
     return (
@@ -181,6 +202,10 @@ export function SubscriptionDashboard() {
   const operational =
     subscription?.status === "ACTIVE" || subscription?.status === "TRIAL";
   const lastPayment = subscription?.payments[0] ?? null;
+  const canStartSubscription =
+    !subscription ||
+    ["CANCELED", "EXPIRED"].includes(subscription.status) ||
+    (subscription.status === "PENDING" && !subscription.managedByProvider);
 
   return (
     <div className="space-y-6">
@@ -255,12 +280,8 @@ export function SubscriptionDashboard() {
           </div>
         </dl>
         <div className="mt-6 flex flex-wrap gap-3">
-          {(!subscription ||
-            ["CANCELED", "EXPIRED"].includes(subscription.status)) && (
-            <Button
-              disabled={busy}
-              onClick={() => action("/api/subscriptions/checkout")}
-            >
+          {canStartSubscription && (
+            <Button disabled={busy} onClick={() => setCardOpen(true)}>
               {busy
                 ? "Preparando…"
                 : data.plan.trialDays > 0 && !subscription
@@ -342,6 +363,25 @@ export function SubscriptionDashboard() {
           </p>
         )}
       </Card>
+      <Dialog
+        open={cardOpen}
+        onClose={() => !busy && setCardOpen(false)}
+        title={
+          data.plan.trialDays > 0 && !subscription
+            ? "Ativar teste grátis"
+            : "Autorizar assinatura"
+        }
+        description={`${money.format(data.plan.monthlyPrice)} por mês · pagamento protegido pelo Mercado Pago`}
+      >
+        <MercadoPagoCardForm
+          amount={data.plan.monthlyPrice}
+          trialDays={
+            data.plan.trialDays > 0 && !subscription ? data.plan.trialDays : 0
+          }
+          disabled={busy}
+          onToken={submitCardToken}
+        />
+      </Dialog>
       <Dialog
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}

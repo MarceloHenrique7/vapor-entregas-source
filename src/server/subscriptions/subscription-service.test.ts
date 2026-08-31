@@ -30,6 +30,7 @@ import type {
 } from "./types";
 
 const now = new Date("2026-08-30T18:00:00.000Z");
+const cardTokenId = "card-token-valid-1234567890";
 const motoboyPlan: SubscriptionPlanRecord = {
   id: "15000000-0000-4000-8000-000000000001",
   role: "MOTOBOY",
@@ -58,13 +59,14 @@ const providerPlan: ProviderPlan = {
   currency: "BRL",
   frequency: 1,
   frequencyType: "months",
+  trialDays: 0,
   status: "active",
   backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
 };
 const providerValue: ProviderSubscription = {
   id: "preapproval-test-1",
-  status: "pending",
-  checkoutUrl: "https://www.mercadopago.com.br/subscriptions/checkout",
+  status: "authorized",
+  checkoutUrl: null,
   externalReference: "subscription:subscription-id",
   currentPeriodStart: null,
   currentPeriodEnd: null,
@@ -92,9 +94,9 @@ const subscription = (
   planId: plan.id,
   externalReference: "subscription:subscription-id",
   providerPlanId: plan.externalPlanId,
-  providerSubscriptionId: status === "TRIAL" ? null : providerValue.id,
+  providerSubscriptionId: providerValue.id,
   providerStatus:
-    status === "ACTIVE"
+    status === "ACTIVE" || status === "TRIAL"
       ? "authorized"
       : status === "PAUSED"
         ? "paused"
@@ -131,6 +133,7 @@ function repository(
     }),
     getLatest: vi.fn().mockResolvedValue(null),
     getCurrent: vi.fn().mockResolvedValue(null),
+    hasPriorSubscription: vi.fn().mockResolvedValue(false),
     findById: vi.fn().mockResolvedValue(subscription()),
     findByExternalReference: vi.fn().mockResolvedValue(subscription()),
     saveProviderPlan: vi.fn().mockImplementation(async (_id, id, mode) => ({
@@ -171,7 +174,7 @@ function provider(
       .fn()
       .mockImplementation(async (id) => ({ ...providerPlan, id })),
     updatePlan: vi.fn().mockResolvedValue(providerPlan),
-    createPending: vi.fn().mockResolvedValue(providerValue),
+    createAuthorized: vi.fn().mockResolvedValue(providerValue),
     getSubscription: vi
       .fn()
       .mockResolvedValue({ ...providerValue, status: "authorized" }),
@@ -226,16 +229,17 @@ describe("assinaturas recorrentes da plataforma", () => {
           amount: expectedPlan.monthlyPrice,
           backUrl: `https://app.example.test/app/${actor.role === "MOTOBOY" ? "motoboy" : "empresa"}/assinatura/retorno`,
         }),
-        createPending: vi.fn().mockResolvedValue({
+        createAuthorized: vi.fn().mockResolvedValue({
           ...providerValue,
           planId: expectedPlan.externalPlanId,
         }),
       });
-      await startSubscription(actor, {}, repo, client, now);
+      await startSubscription(actor, { cardTokenId }, repo, client, now);
       expect(repo.getPlanForRole).toHaveBeenCalledWith(actor.role);
-      expect(client.createPending).toHaveBeenCalledWith(
+      expect(client.createAuthorized).toHaveBeenCalledWith(
         expect.objectContaining({
           providerPlanId: expectedPlan.externalPlanId,
+          cardTokenId,
           payerEmail: email,
         }),
       );
@@ -246,34 +250,66 @@ describe("assinaturas recorrentes da plataforma", () => {
     const repo = repository();
     const client = provider();
     await expect(
-      startSubscription(motoboy, { amount: 0.01 }, repo, client, now),
-    ).rejects.toThrow();
-    await expect(
       startSubscription(
         motoboy,
-        { providerPlanId: "attacker-plan" },
+        { cardTokenId, amount: 0.01 },
         repo,
         client,
         now,
       ),
     ).rejects.toThrow();
-    expect(client.createPending).not.toHaveBeenCalled();
+    await expect(
+      startSubscription(
+        motoboy,
+        { cardTokenId, providerPlanId: "attacker-plan" },
+        repo,
+        client,
+        now,
+      ),
+    ).rejects.toThrow();
+    expect(client.createAuthorized).not.toHaveBeenCalled();
+  });
+
+  it("rejeita checkout sem cardTokenId", async () => {
+    const client = provider();
+    await expect(
+      startSubscription(motoboy, {}, repository(), client, now),
+    ).rejects.toThrow();
+    expect(client.createAuthorized).not.toHaveBeenCalled();
   });
 
   it("salva correlacao opaca e usa email obtido no backend", async () => {
     const repo = repository();
     const client = provider();
-    const result = await startSubscription(motoboy, {}, repo, client, now);
-    expect(result).toMatchObject({ status: "PENDING", monthlyPrice: 19.9 });
-    expect(client.createPending).toHaveBeenCalledWith(
+    const result = await startSubscription(
+      motoboy,
+      { cardTokenId },
+      repo,
+      client,
+      now,
+    );
+    expect(result).toMatchObject({ status: "ACTIVE", monthlyPrice: 19.9 });
+    expect(client.createAuthorized).toHaveBeenCalledWith(
       expect.objectContaining({
+        cardTokenId,
         externalReference: "subscription:subscription-id",
         payerEmail: "payer@example.test",
       }),
     );
-    expect(client.createPending).not.toHaveBeenCalledWith(
+    expect(client.createAuthorized).not.toHaveBeenCalledWith(
       expect.objectContaining({ monthlyPrice: expect.anything() }),
     );
+    expect(repo.createDraft).toHaveBeenCalledWith(
+      motoboy.userId,
+      motoboyPlan,
+      now,
+    );
+    expect(
+      JSON.stringify(vi.mocked(repo.createDraft).mock.calls),
+    ).not.toContain(cardTokenId);
+    expect(
+      JSON.stringify(vi.mocked(repo.attachProvider).mock.calls),
+    ).not.toContain(cardTokenId);
   });
 
   it("consulta e reutiliza plano remoto compativel", async () => {
@@ -332,13 +368,90 @@ describe("assinaturas recorrentes da plataforma", () => {
       checkoutUrl: null,
     };
     const repo = repository({ getCurrent: vi.fn().mockResolvedValue(draft) });
-    await startSubscription(motoboy, {}, repo, provider(), now);
+    await startSubscription(motoboy, { cardTokenId }, repo, provider(), now);
     expect(repo.createDraft).not.toHaveBeenCalled();
     expect(repo.attachProvider).toHaveBeenCalledWith(
       draft.id,
       providerValue,
-      "PENDING",
+      "ACTIVE",
     );
+  });
+
+  it("preserva sete dias de teste no primeiro contrato", async () => {
+    const trialEndsAt = new Date(now.getTime() + 7 * 86_400_000);
+    const plan = { ...motoboyPlan, trialDays: 7 };
+    const repo = repository({
+      getPlanForRole: vi.fn().mockResolvedValue(plan),
+      hasPriorSubscription: vi.fn().mockResolvedValue(false),
+      createDraft: vi.fn().mockResolvedValue(subscription("PENDING", plan)),
+    });
+    const client = provider({
+      getPlan: vi.fn().mockResolvedValue({ ...providerPlan, trialDays: 7 }),
+      createAuthorized: vi.fn().mockResolvedValue({
+        ...providerValue,
+        nextPaymentAt: trialEndsAt,
+      }),
+    });
+
+    const result = await startSubscription(
+      motoboy,
+      { cardTokenId },
+      repo,
+      client,
+      now,
+    );
+
+    expect(result?.status).toBe("TRIAL");
+    expect(client.createAuthorized).toHaveBeenCalledWith(
+      expect.objectContaining({ cardTokenId }),
+    );
+    expect(repo.attachProvider).toHaveBeenCalledWith(
+      "subscription-id",
+      expect.objectContaining({ nextPaymentAt: trialEndsAt }),
+      "TRIAL",
+    );
+    expect(repo.createTrial).not.toHaveBeenCalled();
+  });
+
+  it("nao concede segundo trial a usuario com historico", async () => {
+    const plan = { ...motoboyPlan, trialDays: 7 };
+    const noTrialPlan = {
+      ...providerPlan,
+      id: "provider-plan-without-trial",
+      trialDays: 0,
+    };
+    const repo = repository({
+      getPlanForRole: vi.fn().mockResolvedValue(plan),
+      hasPriorSubscription: vi.fn().mockResolvedValue(true),
+      createDraft: vi.fn().mockResolvedValue(subscription("PENDING", plan)),
+    });
+    const client = provider({
+      createPlan: vi.fn().mockResolvedValue(noTrialPlan),
+      createAuthorized: vi.fn().mockResolvedValue({
+        ...providerValue,
+        planId: noTrialPlan.id,
+      }),
+    });
+
+    const result = await startSubscription(
+      motoboy,
+      { cardTokenId },
+      repo,
+      client,
+      now,
+    );
+
+    expect(result?.status).toBe("ACTIVE");
+    expect(client.createPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trialDays: 0,
+        idempotencyKey: expect.stringContaining("without-trial"),
+      }),
+    );
+    expect(client.createAuthorized).toHaveBeenCalledWith(
+      expect.objectContaining({ providerPlanId: noTrialPlan.id }),
+    );
+    expect(repo.createTrial).not.toHaveBeenCalled();
   });
 
   it("mapeia pausa separadamente de inadimplencia", () => {
@@ -505,6 +618,20 @@ describe("assinaturas recorrentes da plataforma", () => {
     expect(result?.status).toBe("PAST_DUE");
   });
 
+  it("sync generico preserva TRIAL ate evento de cobranca", async () => {
+    const repo = repository({
+      getCurrent: vi.fn().mockResolvedValue(subscription("TRIAL")),
+    });
+    const result = await refreshMySubscription(motoboy, repo, provider(), now);
+    expect(repo.updateFromProvider).toHaveBeenCalledWith(
+      "subscription-id",
+      expect.objectContaining({ status: "authorized" }),
+      "TRIAL",
+      now,
+    );
+    expect(result?.status).toBe("TRIAL");
+  });
+
   it("ACTIVE libera e estados invalidos bloqueiam somente o gate operacional", async () => {
     await expect(
       assertOperationalSubscription("user-id", repository(), now),
@@ -524,7 +651,7 @@ describe("assinaturas recorrentes da plataforma", () => {
     await expect(
       startSubscription(
         { userId: "admin", role: "ADMIN", status: "ACTIVE" },
-        {},
+        { cardTokenId },
         repository(),
         provider(),
         now,

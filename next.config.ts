@@ -12,12 +12,15 @@ const nextConfig: NextConfig = {
       "frame-ancestors 'none'",
       "form-action 'self'",
       isDevelopment
-        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-        : "script-src 'self' 'unsafe-inline'",
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com"
+        : "script-src 'self' 'unsafe-inline' https://sdk.mercadopago.com",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
       "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
-      isDevelopment ? "connect-src 'self' ws: wss:" : "connect-src 'self'",
+      isDevelopment
+        ? "connect-src 'self' ws: wss: https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br"
+        : "connect-src 'self' https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br",
+      "frame-src 'self' https://*.mercadopago.com https://*.mercadopago.com.br",
       "worker-src 'self' blob:",
       "manifest-src 'self'",
     ].join("; ");
