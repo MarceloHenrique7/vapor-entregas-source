@@ -31,5 +31,13 @@
     ".next-rebrand-test/types/**/*.ts",
     ".next-rebrand-test/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "vitest.config.ts",
+    "vitest.mysql.config.ts"
+  ]
 }
