@@ -171,6 +171,7 @@ model User {
   deliveryExtrasInformed    DeliveryExtra[]        @relation("DeliveryExtrasInformed")
   deliveryExtraActions      DeliveryExtraHistory[] @relation("DeliveryExtraActions")
   subscriptions             Subscription[]
+  subscriptionPayments      SubscriptionPayment[]
   preRegistrationsConverted PreRegistration[]
 
   @@index([role, status])
@@ -198,18 +199,19 @@ model PreRegistration {
 }
 
 model SubscriptionPlan {
-  id               String         @id @default(uuid()) @db.Char(36)
-  role             Role           @unique
-  name             String         @db.VarChar(80)
-  description      String         @db.VarChar(240)
-  monthlyPrice     Decimal        @db.Decimal(10, 2)
-  active           Boolean        @default(true)
-  trialDays        Int            @default(0) @db.SmallInt
-  externalPlanId   String?        @unique @db.VarChar(120)
-  externalPlanMode String?        @db.VarChar(20)
-  createdAt        DateTime       @default(now()) @db.DateTime(3)
-  updatedAt        DateTime       @updatedAt @db.DateTime(3)
+  id               String                @id @default(uuid()) @db.Char(36)
+  role             Role                  @unique
+  name             String                @db.VarChar(80)
+  description      String                @db.VarChar(240)
+  monthlyPrice     Decimal               @db.Decimal(10, 2)
+  active           Boolean               @default(true)
+  trialDays        Int                   @default(0) @db.SmallInt
+  externalPlanId   String?               @unique @db.VarChar(120)
+  externalPlanMode String?               @db.VarChar(20)
+  createdAt        DateTime              @default(now()) @db.DateTime(3)
+  updatedAt        DateTime              @updatedAt @db.DateTime(3)
   subscriptions    Subscription[]
+  payments         SubscriptionPayment[]
 
   @@index([active, role])
   @@map("subscription_plans")
@@ -231,6 +233,8 @@ model Subscription {
   currentPeriodStart      DateTime?             @db.DateTime(3)
   currentPeriodEnd        DateTime?             @db.DateTime(3)
   nextPaymentAt           DateTime?             @db.DateTime(3)
+  trialGrantedAt          DateTime?             @db.DateTime(3)
+  trialEndsAt             DateTime?             @db.DateTime(3)
   canceledAt              DateTime?             @db.DateTime(3)
   createdAt               DateTime              @default(now()) @db.DateTime(3)
   updatedAt               DateTime              @updatedAt @db.DateTime(3)
@@ -246,20 +250,33 @@ model Subscription {
 }
 
 model SubscriptionPayment {
-  id                          String       @id @default(uuid()) @db.Char(36)
-  subscriptionId              String       @db.Char(36)
-  providerAuthorizedPaymentId String?      @unique @db.VarChar(120)
-  providerPaymentId           String?      @unique @db.VarChar(120)
-  amount                      Decimal      @db.Decimal(10, 2)
-  currency                    String       @db.Char(3)
-  status                      String       @db.VarChar(40)
-  paidAt                      DateTime?    @db.DateTime(3)
-  providerCreatedAt           DateTime?    @db.DateTime(3)
-  createdAt                   DateTime     @default(now()) @db.DateTime(3)
-  updatedAt                   DateTime     @updatedAt @db.DateTime(3)
-  subscription                Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id                          String            @id @default(uuid()) @db.Char(36)
+  subscriptionId              String            @db.Char(36)
+  userId                      String?           @db.Char(36)
+  planId                      String?           @db.Char(36)
+  providerAuthorizedPaymentId String?           @unique @db.VarChar(120)
+  providerPaymentId           String?           @unique @db.VarChar(120)
+  externalReference           String?           @unique @db.VarChar(180)
+  idempotencyKey              String?           @unique @db.Char(36)
+  amount                      Decimal           @db.Decimal(10, 2)
+  currency                    String            @db.Char(3)
+  status                      String            @db.VarChar(40)
+  providerStatusDetail        String?           @db.VarChar(120)
+  paymentMethod               String?           @db.VarChar(40)
+  paidAt                      DateTime?         @db.DateTime(3)
+  expiresAt                   DateTime?         @db.DateTime(3)
+  accessGrantedAt             DateTime?         @db.DateTime(3)
+  safeMetadata                Json?             @db.Json
+  providerCreatedAt           DateTime?         @db.DateTime(3)
+  createdAt                   DateTime          @default(now()) @db.DateTime(3)
+  updatedAt                   DateTime          @updatedAt @db.DateTime(3)
+  subscription                Subscription      @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user                        User?             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  plan                        SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([subscriptionId, createdAt])
+  @@index([userId, createdAt])
+  @@index([planId, createdAt])
   @@index([status, createdAt])
   @@map("subscription_payments")
 }

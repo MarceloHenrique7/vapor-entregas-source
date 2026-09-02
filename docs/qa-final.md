@@ -76,22 +76,24 @@ IN_DELIVERY → COMPLETED`, sem saltos;
 - respostas nunca incluem senha, hashes de sessão, tokens, secrets ou coordenadas
   privadas.
 
-## Assinatura em sandbox
+## Pagamento de acesso em sandbox
 
 Esta seção requer credenciais TEST e uma URL HTTPS acessível ao Mercado Pago.
 
 1. configure `MERCADO_PAGO_MODE`, `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY`, Access
    Token, segredo de webhook, API base e `NEXT_PUBLIC_APP_URL` sem substituir
    outras chaves do ambiente;
-2. cadastre `/api/webhooks/mercadopago` e os tópicos de preapproval e pagamentos
-   autorizados no painel do provider;
-3. crie assinatura com usuário/cartão de teste e confirme que o CardForm gera o
-   token sem enviar número completo ou CVV à API da Vapor;
-4. conclua a aprovação e confirme `ACTIVE` somente depois do webhook/sincronização;
+2. cadastre `/api/webhooks/mercadopago` e o tópico `payment` no painel do
+   provider;
+3. abra a compra de acesso como empresa e motoboy e confirme que o Payment Brick
+   oficial oferece somente Pix e cartão de crédito;
+4. conclua pagamentos de teste pelos dois meios e confirme `ACTIVE` somente
+   depois de a API do Mercado Pago retornar `approved`;
 5. envie novamente o mesmo evento e confirme resposta de duplicidade sem novo
    `SubscriptionEvent`;
-6. teste `paused`/atraso e confirme bloqueio de novas operações;
-7. cancele, confirme estado `CANCELED` e acesso contínuo a histórico/configuração;
+6. confirme que Pix apenas gerado fica `PENDING` e não libera acesso;
+7. confirme que cada aprovação acrescenta 30 dias e que pagamento recusado não
+   remove um período de acesso ainda válido;
 8. verifique que access token, cartão e CVV não aparecem em HTML, logs ou banco.
 
 ## Mobile, PWA e acessibilidade

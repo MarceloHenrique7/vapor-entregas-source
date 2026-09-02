@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getSubscriptionEnv } from "@/server/config/env";
+import { mercadoPagoPaymentProvider } from "@/server/payments/mercado-pago-payment-provider";
+import { processAccessPaymentWebhook } from "@/server/payments/payment-service";
+import { prismaPaymentRepository } from "@/server/payments/prisma-payment-repository";
 import { mercadoPagoSubscriptionProvider } from "@/server/subscriptions/mercado-pago-provider";
 import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
 import { subscriptionErrorResponse } from "@/server/subscriptions/route-response";
@@ -42,17 +45,30 @@ export async function POST(request: NextRequest) {
     const eventId = body.id
       ? `mp:${String(body.id)}`
       : `mp:${requestId}:${body.type}:${body.action ?? "updated"}:${resourceId}`;
-    const result = await processMercadoPagoWebhook(
-      {
-        eventId,
-        type: body.type,
-        action: body.action ?? null,
-        resourceId,
-      },
-      prismaSubscriptionRepository,
-      mercadoPagoSubscriptionProvider,
-      new Date(),
-    );
+    const result =
+      body.type === "payment"
+        ? await processAccessPaymentWebhook(
+            {
+              eventId,
+              action: body.action ?? null,
+              resourceId,
+            },
+            prismaSubscriptionRepository,
+            prismaPaymentRepository,
+            mercadoPagoPaymentProvider,
+            new Date(),
+          )
+        : await processMercadoPagoWebhook(
+            {
+              eventId,
+              type: body.type,
+              action: body.action ?? null,
+              resourceId,
+            },
+            prismaSubscriptionRepository,
+            mercadoPagoSubscriptionProvider,
+            new Date(),
+          );
     return NextResponse.json({
       received: true,
       duplicate: result === "duplicate",

@@ -1,4 +1,9 @@
-# Assinaturas Mercado Pago
+# Assinaturas Mercado Pago (legado)
+
+> Este documento descreve o contrato recorrente anterior, mantido apenas para
+> consultar, sincronizar e cancelar assinaturas antigas. Novos pagamentos usam
+> o Payment Brick e estão documentados em
+> [`mercado-pago-payments.md`](mercado-pago-payments.md).
 
 ## Escopo e arquitetura
 

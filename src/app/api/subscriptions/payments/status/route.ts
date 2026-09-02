@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { requireRole } from "@/server/auth/guards";
 import { hasValidRequestOrigin } from "@/server/http/origin";
 import { mercadoPagoPaymentProvider } from "@/server/payments/mercado-pago-payment-provider";
-import { createAccessPayment } from "@/server/payments/payment-service";
+import { refreshAccessPayment } from "@/server/payments/payment-service";
 import { prismaPaymentRepository } from "@/server/payments/prisma-payment-repository";
 import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
 import { enforceSubscriptionRateLimit } from "@/server/subscriptions/rate-limit";
 import { subscriptionErrorResponse } from "@/server/subscriptions/route-response";
+
+const inputSchema = z.object({ paymentId: z.string().uuid() });
 
 export async function POST(request: NextRequest) {
   if (!hasValidRequestOrigin(request)) {
@@ -16,15 +19,18 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireRole(["MOTOBOY", "COMPANY"]);
     enforceSubscriptionRateLimit(user.id);
-    const result = await createAccessPayment(
+    const input = inputSchema.parse(await request.json());
+    const result = await refreshAccessPayment(
       { userId: user.id, role: user.role, status: user.status },
-      await request.json(),
+      input.paymentId,
       prismaSubscriptionRepository,
       prismaPaymentRepository,
       mercadoPagoPaymentProvider,
       new Date(),
     );
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch (error) {
     return subscriptionErrorResponse(error);
   }

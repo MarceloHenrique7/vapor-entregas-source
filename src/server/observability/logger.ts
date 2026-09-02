@@ -66,6 +66,36 @@ export function logMercadoPagoSubscriptionDiagnostic(
   );
 }
 
+export type MercadoPagoPaymentDiagnostic = {
+  mode: MercadoPagoMode;
+  publicKeyConfigured: boolean;
+  accessTokenConfigured: boolean;
+  publicKeyEnvironment: MercadoPagoCredentialEnvironment;
+  accessTokenEnvironment: MercadoPagoCredentialEnvironment;
+  credentialsMatch: boolean | null;
+  paymentMethod: "pix" | "credit_card";
+  paymentIdPresent: boolean;
+  providerStatus: string | null;
+  providerStatusDetail: string | null;
+  accessGranted: boolean;
+};
+
+export function logMercadoPagoPaymentDiagnostic(
+  diagnostic: MercadoPagoPaymentDiagnostic,
+) {
+  console.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "info",
+      scope: "api.payments.mercado-pago",
+      ...diagnostic,
+      providerStatusDetail: diagnostic.providerStatusDetail
+        ? sanitizeText(diagnostic.providerStatusDetail)
+        : null,
+    }),
+  );
+}
+
 export type MercadoPagoPlanDiagnostic = {
   providerPlanIdPresent: boolean;
   providerPlanIdMasked: string;

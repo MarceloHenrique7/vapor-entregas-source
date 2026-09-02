@@ -6,7 +6,7 @@ import { PublicPlans } from "@/components/subscriptions/public-plans";
 
 export const metadata: Metadata = {
   title: "Planos | Vapor Entregas",
-  description: "Planos mensais de acesso à plataforma Vapor Entregas.",
+  description: "Planos de 30 dias de acesso à plataforma Vapor Entregas.",
 };
 
 export default function PlansPage() {
@@ -22,8 +22,8 @@ export default function PlansPage() {
             Escolha seu acesso à Vapor Entregas
           </h1>
           <p className="mt-4 text-muted">
-            A mensalidade dá acesso às funções comerciais. O pagamento de cada
-            entrega continua sendo combinado diretamente entre empresa e
+            Cada pagamento libera 30 dias de funções comerciais. O pagamento de
+            cada entrega continua sendo combinado diretamente entre empresa e
             motoboy.
           </p>
         </div>
@@ -31,9 +31,9 @@ export default function PlansPage() {
           <PublicPlans />
         </div>
         <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-5 text-muted">
-          Cobrança recorrente processada pelo Mercado Pago. A Vapor Entregas não
-          armazena dados de cartão. Valores e eventual período de teste são
-          configuráveis.
+          Pagamento avulso por Pix ou cartão processado pelo Mercado Pago. A
+          Vapor Entregas não armazena dados de cartão. Valores e eventual
+          período de teste são configuráveis.
         </p>
       </main>
       <Footer />

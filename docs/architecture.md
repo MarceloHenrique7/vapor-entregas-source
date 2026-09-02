@@ -398,22 +398,21 @@ nas oportunidades é feita em lote para evitar N+1. MySQL e Prisma continuam
 sendo a única infraestrutura persistente; Docker e serviços pagos não fazem parte
 desta etapa.
 
-## Assinaturas da plataforma — Etapa 15
+## Pagamentos de acesso da plataforma
 
-`SubscriptionPlan` representa a oferta mensal por role. `Subscription` registra um
+`SubscriptionPlan` representa a oferta de 30 dias por role. `Subscription` registra um
 snapshot do preço contratado, estado local, identificador opaco do provider e
 datas do ciclo. `SubscriptionEvent` é append-only e possui identificador de evento
 único para tornar a recepção repetida do webhook idempotente. Um índice parcial no
 Uma chave nullable única no MySQL permite no máximo uma assinatura aberta por usuário.
 
-`SubscriptionProviderClient` mantém o domínio independente do fornecedor. O
-adapter atual usa a API de assinaturas do Mercado Pago no servidor e o CardForm
-oficial no navegador: o SDK tokeniza o cartão e a API da Vapor recebe apenas o
-token efêmero para criar uma preapproval `authorized`. Número completo e CVV não
-chegam ao backend. Cancelamento usa o estado oficial `canceled`; sincronização e
-webhook sempre consultam o recurso autenticado antes de atualizar o banco. A
-assinatura HMAC do webhook é validada com comparação constante e o ambiente
-TEST/produção também é conferido.
+O fluxo principal usa o Payment Brick no navegador e `/v1/payments` no servidor.
+Pix permanece pendente até confirmação; cartão é tokenizado pelo SDK oficial.
+Número completo, CVV e token não são persistidos. O backend reconsulta o pagamento,
+valida valor, moeda e metadata e concede exatamente 30 dias uma vez. A assinatura
+HMAC do webhook é validada com comparação constante e o ambiente TEST/produção
+também é conferido. O provider recorrente anterior existe somente para contratos
+legados.
 
 Somente `TRIAL` ainda vigente ou `ACTIVE` libera novas operações. A checagem fica
 nas fronteiras server-side de publicação, disponibilidade, atualização de presença

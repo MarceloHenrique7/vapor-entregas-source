@@ -87,7 +87,8 @@ O proxy também deve encaminhar `POST /api/webhooks/mercadopago` sem cache, sem
 alterar corpo, query string ou os headers `x-signature` e `x-request-id`. Cadastre
 no Mercado Pago exatamente
 `https://SEU_DOMINIO/api/webhooks/mercadopago?source_news=webhooks` e mantenha
-os tópicos de preapproval e pagamento recorrente autorizados habilitados.
+o tópico de pagamentos (`payment`) habilitado. Tópicos de preapproval são
+necessários somente enquanto houver contratos recorrentes legados.
 
 O polling de contingência mantém as telas atualizadas se SSE cair. A central de
 notificações permanece no MySQL. Web Push remoto não está habilitado e não

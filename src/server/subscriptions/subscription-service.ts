@@ -91,17 +91,40 @@ export function toPlanView(plan: SubscriptionPlanRecord) {
   };
 }
 
-export function toSubscriptionView(subscription: SubscriptionRecord | null) {
+export function toSubscriptionView(
+  subscription: SubscriptionRecord | null,
+  now = new Date(),
+) {
   if (!subscription) return null;
+  const periodExpired = Boolean(
+    subscription.currentPeriodEnd && subscription.currentPeriodEnd <= now,
+  );
+  const effectiveStatus =
+    periodExpired &&
+    (subscription.status === "ACTIVE" || subscription.status === "TRIAL")
+      ? "EXPIRED"
+      : subscription.status;
+  const daysRemaining = subscription.currentPeriodEnd
+    ? Math.max(
+        0,
+        Math.ceil(
+          (subscription.currentPeriodEnd.getTime() - now.getTime()) /
+            86_400_000,
+        ),
+      )
+    : 0;
   return {
     id: subscription.id,
-    status: subscription.status,
+    status: effectiveStatus,
     managedByProvider: subscription.providerSubscriptionId !== null,
     canReactivate: subscription.providerStatus?.toLowerCase() === "paused",
     monthlyPrice: subscription.monthlyPrice,
     checkoutUrl: subscription.checkoutUrl,
     currentPeriodStart: iso(subscription.currentPeriodStart),
     currentPeriodEnd: iso(subscription.currentPeriodEnd),
+    trialGrantedAt: iso(subscription.trialGrantedAt),
+    trialEndsAt: iso(subscription.trialEndsAt),
+    daysRemaining,
     nextPaymentAt: iso(subscription.nextPaymentAt),
     canceledAt: iso(subscription.canceledAt),
     createdAt: subscription.createdAt.toISOString(),
@@ -116,7 +139,11 @@ export function toSubscriptionView(subscription: SubscriptionRecord | null) {
       amount: payment.amount,
       currency: payment.currency,
       status: payment.status,
+      statusDetail: payment.providerStatusDetail,
+      paymentMethod: payment.paymentMethod,
       paidAt: iso(payment.paidAt),
+      expiresAt: iso(payment.expiresAt),
+      accessGrantedAt: iso(payment.accessGrantedAt),
       createdAt: (payment.providerCreatedAt ?? payment.createdAt).toISOString(),
     })),
   };
@@ -133,6 +160,9 @@ export async function getMySubscription(
   repository: SubscriptionRepository,
 ) {
   const user = requireBillableActor(actor);
+  const billingUser = await repository.getBillingUser(user.userId);
+  if (!billingUser || billingUser.id !== user.userId)
+    throw new ForbiddenError();
   return {
     plan: toPlanView(
       (await repository.getPlanForRole(user.role)) ??
@@ -140,6 +170,7 @@ export async function getMySubscription(
           throw new SubscriptionNotFoundError();
         })(),
     ),
+    payerEmail: billingUser.email,
     subscription: toSubscriptionView(await repository.getLatest(user.userId)),
   };
 }

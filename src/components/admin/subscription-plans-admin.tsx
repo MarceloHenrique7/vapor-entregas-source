@@ -71,40 +71,13 @@ export function SubscriptionPlansAdmin() {
       setBusy(false);
     }
   };
-  const syncProvider = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/admin/subscription-plans/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(body.error ?? "Falha ao sincronizar planos.");
-      }
-      await load();
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Falha ao sincronizar.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <div className="space-y-6">
       <DashboardHeader
         eyebrow="Administração"
-        title="Planos e mensalidades"
+        title="Planos de acesso"
         description="Valores configuráveis para novas assinaturas. Assinaturas existentes preservam o preço contratado."
       />
-      <div className="flex justify-end">
-        <Button variant="outline" disabled={busy} onClick={syncProvider}>
-          Sincronizar com Mercado Pago
-        </Button>
-      </div>
       {error && (
         <p role="alert" className="rounded-2xl bg-red-50 p-4 text-red-700">
           {error}
@@ -156,7 +129,7 @@ export function SubscriptionPlansAdmin() {
             Editar {editing.name}
           </h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
-            <FormField label="Mensalidade (R$)" htmlFor="plan-price">
+            <FormField label="Valor por 30 dias (R$)" htmlFor="plan-price">
               <Input
                 id="plan-price"
                 inputMode="decimal"

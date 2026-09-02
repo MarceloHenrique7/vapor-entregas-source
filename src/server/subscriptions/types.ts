@@ -53,6 +53,8 @@ export interface SubscriptionRecord {
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
   nextPaymentAt: Date | null;
+  trialGrantedAt: Date | null;
+  trialEndsAt: Date | null;
   canceledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -70,10 +72,14 @@ export interface SubscriptionPaymentRecord {
   id: string;
   providerAuthorizedPaymentId: string | null;
   providerPaymentId: string | null;
+  providerStatusDetail: string | null;
+  paymentMethod: string | null;
   amount: number;
   currency: string;
   status: string;
   paidAt: Date | null;
+  expiresAt: Date | null;
+  accessGrantedAt: Date | null;
   providerCreatedAt: Date | null;
   createdAt: Date;
 }

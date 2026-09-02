@@ -28,6 +28,7 @@ export interface NewMotoboyAccount {
   passwordHash: string;
   termsVersion: string;
   privacyVersion: string;
+  registeredAt: Date;
   profile: {
     cpfEncrypted: string;
     cpfHash: string;
@@ -49,6 +50,7 @@ export interface NewCompanyAccount {
   passwordHash: string;
   termsVersion: string;
   privacyVersion: string;
+  registeredAt: Date;
   profile: {
     fantasyName: string;
     documentType: "CPF" | "CNPJ";
@@ -87,6 +89,7 @@ export async function registerMotoboy(
     passwordHash: await hashPassword(data.password),
     termsVersion: CURRENT_TERMS_VERSION,
     privacyVersion: CURRENT_PRIVACY_VERSION,
+    registeredAt: now,
     profile: {
       cpfEncrypted: encryptPrivateField(cpf, encryptionKey),
       cpfHash: fingerprintPrivateField(cpf, encryptionKey),
@@ -105,6 +108,7 @@ export async function registerCompany(
   input: CompanyRegistrationInput,
   repository: RegistrationRepository,
   encryptionKey: string,
+  now = new Date(),
 ) {
   const data = companyRegistrationSchema.parse(input);
   const legalDocument = onlyDigits(data.legalDocument);
@@ -122,6 +126,7 @@ export async function registerCompany(
     passwordHash: await hashPassword(data.password),
     termsVersion: CURRENT_TERMS_VERSION,
     privacyVersion: CURRENT_PRIVACY_VERSION,
+    registeredAt: now,
     profile: {
       fantasyName: data.fantasyName,
       documentType,

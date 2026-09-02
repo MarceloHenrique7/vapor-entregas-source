@@ -58,7 +58,7 @@ export function PublicPlans() {
             <span className="font-display text-4xl font-extrabold text-brand">
               {money.format(plan.monthlyPrice)}
             </span>
-            <span className="text-muted">/mês</span>
+            <span className="text-muted"> / 30 dias</span>
           </p>
           <p className="mt-4 min-h-12 text-sm leading-6 text-muted">
             {plan.description}

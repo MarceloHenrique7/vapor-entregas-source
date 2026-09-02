@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   processWebhook: vi.fn(),
+  processPaymentWebhook: vi.fn(),
 }));
 
 vi.mock("@/server/config/env", () => ({
@@ -21,6 +22,15 @@ vi.mock("@/server/subscriptions/prisma-subscription-repository", () => ({
 }));
 vi.mock("@/server/subscriptions/subscription-service", () => ({
   processMercadoPagoWebhook: mocks.processWebhook,
+}));
+vi.mock("@/server/payments/mercado-pago-payment-provider", () => ({
+  mercadoPagoPaymentProvider: {},
+}));
+vi.mock("@/server/payments/prisma-payment-repository", () => ({
+  prismaPaymentRepository: {},
+}));
+vi.mock("@/server/payments/payment-service", () => ({
+  processAccessPaymentWebhook: mocks.processPaymentWebhook,
 }));
 
 import { buildWebhookManifest } from "@/server/subscriptions/webhook-signature";
@@ -59,6 +69,7 @@ describe("webhook Mercado Pago", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.processWebhook.mockResolvedValue("processed");
+    mocks.processPaymentWebhook.mockResolvedValue("processed");
   });
 
   it("aceita assinatura valida e delega consulta oficial", async () => {
@@ -90,5 +101,40 @@ describe("webhook Mercado Pago", () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ received: true, duplicate: true });
+  });
+
+  it("encaminha eventos payment ao fluxo avulso", async () => {
+    const paymentRequest = new NextRequest(
+      `https://app.example.test/api/webhooks/mercadopago?data.id=${dataId}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-request-id": requestId,
+          "x-signature": `ts=${timestamp},v1=${signature}`,
+        },
+        body: JSON.stringify({
+          id: "event-payment",
+          live_mode: false,
+          type: "payment",
+          action: "payment.updated",
+          data: { id: dataId },
+        }),
+      },
+    );
+    const response = await POST(paymentRequest);
+
+    expect(response.status).toBe(200);
+    expect(mocks.processPaymentWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: "mp:event-payment",
+        resourceId: dataId,
+      }),
+      {},
+      {},
+      {},
+      expect.any(Date),
+    );
+    expect(mocks.processWebhook).not.toHaveBeenCalled();
   });
 });

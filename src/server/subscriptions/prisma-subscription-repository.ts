@@ -41,6 +41,8 @@ const subscriptionSelect = {
   currentPeriodStart: true,
   currentPeriodEnd: true,
   nextPaymentAt: true,
+  trialGrantedAt: true,
+  trialEndsAt: true,
   canceledAt: true,
   createdAt: true,
   updatedAt: true,
@@ -62,10 +64,14 @@ const subscriptionSelect = {
       id: true,
       providerAuthorizedPaymentId: true,
       providerPaymentId: true,
+      providerStatusDetail: true,
+      paymentMethod: true,
       amount: true,
       currency: true,
       status: true,
       paidAt: true,
+      expiresAt: true,
+      accessGrantedAt: true,
       providerCreatedAt: true,
       createdAt: true,
     },
@@ -109,6 +115,8 @@ function toSubscription(value: {
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
   nextPaymentAt: Date | null;
+  trialGrantedAt: Date | null;
+  trialEndsAt: Date | null;
   canceledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -123,10 +131,14 @@ function toSubscription(value: {
     id: string;
     providerAuthorizedPaymentId: string | null;
     providerPaymentId: string | null;
+    providerStatusDetail: string | null;
+    paymentMethod: string | null;
     amount: { toNumber(): number };
     currency: string;
     status: string;
     paidAt: Date | null;
+    expiresAt: Date | null;
+    accessGrantedAt: Date | null;
     providerCreatedAt: Date | null;
     createdAt: Date;
   }>;
@@ -255,6 +267,8 @@ export const prismaSubscriptionRepository: SubscriptionRepository = {
           monthlyPrice: plan.monthlyPrice,
           currentPeriodStart: startsAt,
           currentPeriodEnd: endsAt,
+          trialGrantedAt: startsAt,
+          trialEndsAt: endsAt,
           nextPaymentAt: endsAt,
           events: {
             create: {
@@ -477,7 +491,7 @@ export const prismaSubscriptionRepository: SubscriptionRepository = {
         where: {
           userId,
           status: { in: ["TRIAL", "ACTIVE"] },
-          OR: [{ currentPeriodEnd: null }, { currentPeriodEnd: { gt: now } }],
+          currentPeriodEnd: { gt: now },
         },
         select: { id: true },
       }),

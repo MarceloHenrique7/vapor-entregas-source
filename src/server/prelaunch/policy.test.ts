@@ -53,6 +53,9 @@ describe("política do pré-lançamento", () => {
     expect(
       isPrelaunchPublicRequest("/api/subscriptions/checkout", "POST"),
     ).toBe(false);
+    expect(
+      isPrelaunchPublicRequest("/api/subscriptions/payments/status", "POST"),
+    ).toBe(false);
     expect(isPrelaunchPublicRequest("/api/auth/register/company", "POST")).toBe(
       false,
     );

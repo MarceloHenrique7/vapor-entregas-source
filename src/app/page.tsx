@@ -409,7 +409,7 @@ export default function Home() {
             <SectionHeading
               eyebrow="Preços provisórios"
               title="Acesso simples, sem comissão sobre a corrida."
-              description="Os valores abaixo são de assinatura mensal da plataforma. O valor de cada entrega continua sendo pago diretamente entre empresa e motoboy."
+              description="Os valores abaixo liberam 30 dias de acesso à plataforma. O valor de cada entrega continua sendo pago diretamente entre empresa e motoboy."
               centered
             />
             <div className="mx-auto mt-12 max-w-3xl">

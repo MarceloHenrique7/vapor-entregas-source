@@ -31,7 +31,7 @@
     "mp:check-plans": "node --conditions=react-server --import tsx scripts/check-mercado-pago-plans.ts"
   },
   "dependencies": {
-    "@mercadopago/sdk-js": "^0.0.3",
+    "@mercadopago/sdk-react": "^1.0.7",
     "@prisma/adapter-mariadb": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@tailwindcss/postcss": "^4.3.3",

@@ -125,10 +125,9 @@ describe.skipIf(!enabled)("ETAPA 11 — fluxo real no banco relacional", () => {
     );
     companyActor.userId = company.id;
     createdUserIds.push(company.id);
-    await prisma.subscription.create({
+    await prisma.subscription.updateMany({
+      where: { userId: company.id },
       data: {
-        userId: company.id,
-        planId: "15000000-0000-4000-8000-000000000002",
         status: "ACTIVE",
         monthlyPrice: 25,
         currentPeriodStart: new Date(),
@@ -178,10 +177,9 @@ describe.skipIf(!enabled)("ETAPA 11 — fluxo real no banco relacional", () => {
       );
       actor.userId = user.id;
       createdUserIds.push(user.id);
-      await prisma.subscription.create({
+      await prisma.subscription.updateMany({
+        where: { userId: user.id },
         data: {
-          userId: user.id,
-          planId: "15000000-0000-4000-8000-000000000001",
           status: "ACTIVE",
           monthlyPrice: 20,
           currentPeriodStart: new Date(),

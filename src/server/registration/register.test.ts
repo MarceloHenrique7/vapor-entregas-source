@@ -28,6 +28,7 @@ function repository(): RegistrationRepository {
 describe("cadastro público", () => {
   it("cria motoboy com role fixa e documentos protegidos", async () => {
     const repo = repository();
+    const registeredAt = new Date("2026-09-02T12:00:00.000Z");
     const user = await registerMotoboy(
       {
         name: "Maria da Silva",
@@ -47,12 +48,14 @@ describe("cadastro público", () => {
       },
       repo,
       key,
+      registeredAt,
     );
     expect(user.role).toBe("MOTOBOY");
     expect(repo.createMotoboy).toHaveBeenCalledWith(
       expect.objectContaining({
         role: "MOTOBOY",
         email: "maria@example.com",
+        registeredAt,
         profile: expect.objectContaining({
           cpfLastDigits: "25",
           vehiclePlate: "ABC1234",

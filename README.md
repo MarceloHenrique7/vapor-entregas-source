@@ -370,24 +370,23 @@ alterar status; a moderação é isolada nas APIs administrativas da Etapa 9.
 
 Cadastros públicos não aceitam role enviada pelo navegador e nunca criam `ADMIN`.
 
-## Assinaturas mensais da plataforma
+## Pagamentos de acesso da plataforma
 
-A Etapa 19 cobra exclusivamente o acesso mensal à Vapor Entregas. Os planos ativos
-são persistidos no MySQL e começam com R$ 19,90/mês para `MOTOBOY` e R$ 29,90/mês
+A Vapor cobra exclusivamente o acesso à plataforma em períodos de 30 dias. Os planos ativos
+são persistidos no MySQL e começam com R$ 19,90 para `MOTOBOY` e R$ 29,90
 para `COMPANY`; o administrador pode alterar preço, teste grátis e disponibilidade
 em `/admin/assinaturas`, com auditoria. A landing e `/planos`
 consultam esses dados, evitando valores espalhados no frontend.
 
-O checkout recorrente usa planos associados da API oficial de Assinaturas do
-Mercado Pago por um adapter server-side. A aplicação sincroniza
-`/preapproval_plan`, tokeniza o cartão no navegador com o CardForm oficial e cria
-uma preapproval autorizada associada ao plano. A API da Vapor recebe somente o
-token efêmero; número do cartão e CVV não chegam ao backend nem são persistidos. O
-webhook assinado consulta novamente o recurso no provider antes de mudar o status local. Evento, assinatura e cobrança são
-persistidos atomicamente; faturas/pagamentos repetidos não duplicam histórico.
+O checkout principal usa o Payment Brick oficial para Pix e cartão. O backend
+define usuário, plano, preço e e-mail, cria o pagamento avulso em `/v1/payments`
+com idempotência e consulta novamente o recurso antes de liberar o acesso. Número
+completo, CVV e token do cartão não são persistidos. O webhook assinado também
+reconsulta o pagamento; cada aprovação adiciona exatamente 30 dias uma única vez.
 
 Arquitetura, Sandbox, produção, status e troubleshooting estão em
-[`docs/mercado-pago-subscriptions.md`](docs/mercado-pago-subscriptions.md).
+[`docs/mercado-pago-payments.md`](docs/mercado-pago-payments.md). A integração
+recorrente anterior permanece documentada apenas para contratos legados.
 
 Configure somente no ambiente, sem sobrescrever um `.env` existente:
 
@@ -401,8 +400,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 No Mercado Pago, valide a URL HTTPS pública terminada em
-`/api/webhooks/mercadopago?source_news=webhooks` e habilite os tópicos de assinaturas/preapproval e
-pagamentos recorrentes autorizados. Em desenvolvimento local, o checkout pode ser
+`/api/webhooks/mercadopago?source_news=webhooks` e habilite o tópico de pagamentos.
+Em desenvolvimento local, o checkout pode ser
 criado com credenciais TEST, mas o webhook exige um túnel HTTPS temporário ou um
 ambiente de homologação acessível; nenhum túnel é dependência do aplicativo.
 

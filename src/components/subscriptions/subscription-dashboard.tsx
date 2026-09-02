@@ -1,15 +1,15 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect -- synchronizes authenticated billing state */
+/* eslint-disable react-hooks/set-state-in-effect -- loads authenticated billing state */
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-elements";
 import {
-  MercadoPagoCardForm,
-  type MercadoPagoClientDiagnostics,
-} from "@/components/subscriptions/mercado-pago-card-form";
+  MercadoPagoPaymentBrick,
+  type AccessPaymentView,
+} from "@/components/subscriptions/mercado-pago-payment-brick";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -26,28 +26,27 @@ type Status =
   | "CANCELED"
   | "EXPIRED";
 
-interface SubscriptionView {
+type SubscriptionView = {
   id: string;
   status: Status;
   managedByProvider: boolean;
-  canReactivate: boolean;
   monthlyPrice: number;
-  checkoutUrl: string | null;
   currentPeriodEnd: string | null;
-  nextPaymentAt: string | null;
-  canceledAt: string | null;
-  createdAt: string;
+  trialEndsAt: string | null;
+  daysRemaining: number;
   payments: Array<{
     id: string;
     amount: number;
     currency: string;
     status: string;
+    paymentMethod: string | null;
     paidAt: string | null;
     createdAt: string;
   }>;
-}
+};
 
-interface Result {
+type Result = {
+  payerEmail: string;
   plan: {
     role: "MOTOBOY" | "COMPANY";
     name: string;
@@ -56,19 +55,27 @@ interface Result {
     trialDays: number;
   };
   subscription: SubscriptionView | null;
-}
+};
 
-const labels: Record<Status, string> = {
+const statusLabels: Record<Status, string> = {
   TRIAL: "Teste grátis",
-  PENDING: "Aguardando confirmação",
-  ACTIVE: "Ativa",
+  PENDING: "Aguardando pagamento",
+  ACTIVE: "Ativo",
   PAST_DUE: "Pagamento pendente",
-  PAUSED: "Pausada",
-  CANCELED: "Cancelada",
-  EXPIRED: "Expirada",
+  PAUSED: "Pausado",
+  CANCELED: "Cancelado",
+  EXPIRED: "Expirado",
 };
 
 const paymentLabels: Record<string, string> = {
+  CREATED: "Criado",
+  PENDING: "Pendente",
+  APPROVED: "Aprovado",
+  REJECTED: "Recusado",
+  CANCELLED: "Cancelado",
+  REFUNDED: "Estornado",
+  EXPIRED: "Expirado",
+  ERROR: "Erro",
   approved: "Aprovado",
   pending: "Pendente",
   in_process: "Em análise",
@@ -76,7 +83,6 @@ const paymentLabels: Record<string, string> = {
   cancelled: "Cancelado",
   canceled: "Cancelado",
   refunded: "Estornado",
-  charged_back: "Contestado",
 };
 
 const benefits = {
@@ -96,7 +102,7 @@ const money = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
-const date = (value: string | null) =>
+const formatDate = (value: string | null) =>
   value
     ? new Intl.DateTimeFormat("pt-BR", {
         dateStyle: "medium",
@@ -118,8 +124,9 @@ export function SubscriptionDashboard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [cardOpen, setCardOpen] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -131,58 +138,37 @@ export function SubscriptionDashboard() {
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
 
-  const action = useCallback(
-    async (path: string, body: object = {}) => {
-      setBusy(true);
-      setError("");
-      try {
-        const result = await api<{ subscription: SubscriptionView | null }>(
-          path,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          },
-        );
-        if (
-          result.subscription?.checkoutUrl &&
-          (path.includes("checkout") ||
-            result.subscription.status === "PENDING")
-        ) {
-          window.location.assign(result.subscription.checkoutUrl);
-          return true;
-        }
+  const cancelLegacy = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/subscriptions/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      setCancelOpen(false);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Falha ao cancelar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onPayment = useCallback(
+    async (payment: AccessPaymentView) => {
+      if (payment.status === "APPROVED") {
+        setPaymentOpen(false);
         await load();
-        return true;
-      } catch (caught) {
-        setError(
-          caught instanceof Error ? caught.message : "Falha na operação.",
-        );
-        return false;
-      } finally {
-        setBusy(false);
       }
     },
     [load],
-  );
-
-  const submitCardToken = useCallback(
-    async (
-      cardTokenId: string,
-      clientDiagnostics: MercadoPagoClientDiagnostics,
-    ) => {
-      const completed = await action("/api/subscriptions/checkout", {
-        cardTokenId,
-        clientDiagnostics,
-      });
-      if (completed) setCardOpen(false);
-      return completed;
-    },
-    [action],
   );
 
   if (loading) {
@@ -198,28 +184,36 @@ export function SubscriptionDashboard() {
       <Card>
         <EmptyState
           icon="wallet"
-          title="Assinatura indisponível"
+          title="Acesso indisponível"
           description={error || "Tente novamente em instantes."}
           action={<Button onClick={load}>Tentar novamente</Button>}
         />
       </Card>
     );
   }
+
   const subscription = data.subscription;
   const operational =
     subscription?.status === "ACTIVE" || subscription?.status === "TRIAL";
   const lastPayment = subscription?.payments[0] ?? null;
-  const canStartSubscription =
-    !subscription ||
-    ["CANCELED", "EXPIRED"].includes(subscription.status) ||
-    (subscription.status === "PENDING" && !subscription.managedByProvider);
+  const hasApprovedPayment = Boolean(
+    subscription?.payments.some(
+      (payment) => payment.status.toUpperCase() === "APPROVED",
+    ),
+  );
+  const hasLegacyRecurring = Boolean(subscription?.managedByProvider);
+  const paymentActionLabel = operational
+    ? "Renovar por mais 30 dias"
+    : hasApprovedPayment
+      ? "Renovar acesso"
+      : "Ativar plano";
 
   return (
     <div className="space-y-6">
       <DashboardHeader
         eyebrow="Acesso comercial"
         title="Minha assinatura"
-        description="A mensalidade é da plataforma. Valores de entregas continuam sendo pagos diretamente entre as partes."
+        description="Cada pagamento aprovado libera 30 dias de acesso. Valores das entregas continuam sendo pagos diretamente entre as partes."
         action={
           <Link href="/planos" className="text-sm font-bold text-brand">
             Ver planos
@@ -247,7 +241,7 @@ export function SubscriptionDashboard() {
                     : "neutral"
               }
             >
-              {subscription ? labels[subscription.status] : "Sem assinatura"}
+              {subscription ? statusLabels[subscription.status] : "Sem acesso"}
             </Badge>
             <h2 className="mt-4 font-display text-2xl font-extrabold">
               Plano {data.plan.name}
@@ -260,83 +254,52 @@ export function SubscriptionDashboard() {
             </ul>
           </div>
           <p className="font-display text-3xl font-extrabold text-brand">
-            {money.format(subscription?.monthlyPrice ?? data.plan.monthlyPrice)}
-            <span className="text-sm text-muted">/mês</span>
+            {money.format(data.plan.monthlyPrice)}
+            <span className="text-sm text-muted"> / 30 dias</span>
           </p>
         </div>
         <dl className="mt-7 grid gap-4 rounded-2xl bg-canvas p-5 text-sm sm:grid-cols-3">
           <div>
-            <dt className="text-muted">Próxima cobrança</dt>
+            <dt className="text-muted">Válido até</dt>
             <dd className="mt-1 font-bold">
-              {date(subscription?.nextPaymentAt ?? null)}
+              {formatDate(subscription?.currentPeriodEnd ?? null)}
             </dd>
           </div>
           <div>
-            <dt className="text-muted">Fim do período atual/teste</dt>
+            <dt className="text-muted">Dias restantes</dt>
             <dd className="mt-1 font-bold">
-              {date(subscription?.currentPeriodEnd ?? null)}
+              {subscription ? subscription.daysRemaining : 0}
             </dd>
           </div>
           <div>
-            <dt className="text-muted">Última cobrança</dt>
+            <dt className="text-muted">Último pagamento</dt>
             <dd className="mt-1 font-bold">
               {lastPayment
                 ? `${money.format(lastPayment.amount)} · ${paymentLabels[lastPayment.status] ?? lastPayment.status}`
-                : "Nenhuma cobrança registrada"}
+                : "Nenhum pagamento registrado"}
             </dd>
           </div>
         </dl>
         <div className="mt-6 flex flex-wrap gap-3">
-          {canStartSubscription && (
-            <Button disabled={busy} onClick={() => setCardOpen(true)}>
-              {busy
-                ? "Preparando…"
-                : data.plan.trialDays > 0 && !subscription
-                  ? "Começar teste grátis"
-                  : "Assinar plano"}
+          {!hasLegacyRecurring && (
+            <Button onClick={() => setPaymentOpen(true)}>
+              {paymentActionLabel}
             </Button>
           )}
-          {subscription?.status === "PENDING" && subscription.checkoutUrl && (
-            <Button
-              disabled={busy}
-              onClick={() => window.location.assign(subscription.checkoutUrl!)}
-            >
-              Concluir autorização
-            </Button>
-          )}
-          {subscription?.status === "PAST_DUE" && subscription.checkoutUrl && (
-            <Button
-              onClick={() => window.location.assign(subscription.checkoutUrl!)}
-            >
-              Regularizar pagamento
-            </Button>
-          )}
-          {subscription?.canReactivate && (
-            <Button
-              disabled={busy}
-              onClick={() => action("/api/subscriptions/reactivate")}
-            >
-              Reativar
-            </Button>
-          )}
-          {subscription?.managedByProvider &&
-            !["CANCELED", "EXPIRED"].includes(subscription.status) && (
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => action("/api/subscriptions/sync")}
-              >
-                Atualizar situação
-              </Button>
-            )}
-          {subscription &&
-            !["CANCELED", "EXPIRED"].includes(subscription.status) && (
+          {hasLegacyRecurring && (
+            <>
+              <p className="w-full text-sm text-muted">
+                Esta conta ainda usa a assinatura recorrente anterior. Cancele-a
+                antes de migrar para pagamentos avulsos.
+              </p>
               <Button variant="danger" onClick={() => setCancelOpen(true)}>
-                Cancelar assinatura
+                Cancelar assinatura recorrente
               </Button>
-            )}
+            </>
+          )}
         </div>
       </Card>
+
       <Card className="p-6">
         <h2 className="font-display text-xl font-extrabold">
           Histórico de pagamentos
@@ -351,12 +314,15 @@ export function SubscriptionDashboard() {
                 <div>
                   <p className="font-bold">{money.format(payment.amount)}</p>
                   <p className="text-muted">
-                    {date(payment.paidAt ?? payment.createdAt)}
+                    {formatDate(payment.paidAt ?? payment.createdAt)}
+                    {payment.paymentMethod ? ` · ${payment.paymentMethod}` : ""}
                   </p>
                 </div>
                 <Badge
                   variant={
-                    payment.status === "approved" ? "success" : "neutral"
+                    payment.status.toUpperCase() === "APPROVED"
+                      ? "success"
+                      : "neutral"
                   }
                 >
                   {paymentLabels[payment.status] ?? payment.status}
@@ -366,34 +332,29 @@ export function SubscriptionDashboard() {
           </ul>
         ) : (
           <p className="mt-3 text-sm text-muted">
-            Nenhuma cobrança recorrente registrada.
+            Nenhum pagamento registrado.
           </p>
         )}
       </Card>
+
       <Dialog
-        open={cardOpen}
-        onClose={() => !busy && setCardOpen(false)}
-        title={
-          data.plan.trialDays > 0 && !subscription
-            ? "Ativar teste grátis"
-            : "Autorizar assinatura"
-        }
-        description={`${money.format(data.plan.monthlyPrice)} por mês · pagamento protegido pelo Mercado Pago`}
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        title="Escolha como pagar"
+        description="Após a confirmação do pagamento, seu acesso será liberado por 30 dias."
       >
-        <MercadoPagoCardForm
+        <MercadoPagoPaymentBrick
           amount={data.plan.monthlyPrice}
-          trialDays={
-            data.plan.trialDays > 0 && !subscription ? data.plan.trialDays : 0
-          }
-          disabled={busy}
-          onToken={submitCardToken}
+          payerEmail={data.payerEmail}
+          onPayment={onPayment}
         />
       </Dialog>
+
       <Dialog
         open={cancelOpen}
-        onClose={() => setCancelOpen(false)}
-        title="Cancelar assinatura?"
-        description="O acesso a novas operações será bloqueado. Corridas já em andamento não serão interrompidas."
+        onClose={() => !busy && setCancelOpen(false)}
+        title="Cancelar assinatura recorrente?"
+        description="Esta ação desativa apenas o contrato legado no Mercado Pago. Corridas em andamento não serão interrompidas."
       >
         <div className="flex gap-3">
           <Button
@@ -407,10 +368,7 @@ export function SubscriptionDashboard() {
             variant="danger"
             className="flex-1"
             disabled={busy}
-            onClick={() => {
-              setCancelOpen(false);
-              void action("/api/subscriptions/cancel", { confirm: true });
-            }}
+            onClick={cancelLegacy}
           >
             Confirmar cancelamento
           </Button>
