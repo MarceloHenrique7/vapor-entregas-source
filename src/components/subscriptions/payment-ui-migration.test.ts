@@ -46,6 +46,17 @@ describe("Payment Brick checkout UI", () => {
     expect(motoboyPage).toContain("<SubscriptionDashboard");
   });
 
+  it("keeps the payment action reachable in a viewport-limited dialog", () => {
+    const dialog = readProjectFile("src/components/ui/dialog.tsx");
+
+    expect(dialog).toContain("max-h-[calc(100dvh-1rem)]");
+    expect(dialog).toContain("sm:max-h-[calc(100dvh-3rem)]");
+    expect(dialog).toContain(
+      "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+    );
+    expect(dialog).toContain('document.body.style.overflow = "hidden"');
+  });
+
   it("routes the active checkout through one-off payments", () => {
     const checkoutRoute = readProjectFile(
       "src/app/api/subscriptions/checkout/route.ts",
