@@ -33,6 +33,7 @@ export type SubscriptionProviderErrorDetails = {
   endpoint?: string | null;
   method?: string | null;
   responseBody?: unknown;
+  providerRequestId?: string | null;
 };
 
 export class SubscriptionProviderError extends Error {
@@ -43,6 +44,7 @@ export class SubscriptionProviderError extends Error {
   public readonly endpoint: string | null;
   public readonly method: string | null;
   public readonly responseBody: unknown;
+  public readonly providerRequestId: string | null;
 
   constructor(
     details: number | null | SubscriptionProviderErrorDetails = null,
@@ -60,6 +62,7 @@ export class SubscriptionProviderError extends Error {
     this.endpoint = values.endpoint ?? null;
     this.method = values.method ?? null;
     this.responseBody = values.responseBody ?? null;
+    this.providerRequestId = values.providerRequestId ?? null;
   }
 }
 export class InvalidWebhookSignatureError extends Error {

@@ -17,6 +17,19 @@ import {
   SubscriptionRequiredError,
 } from "./errors";
 
+function providerPublicMessage(error: SubscriptionProviderError) {
+  const providerCode = error.providerCode?.toUpperCase();
+  if (providerCode === "GUEST_SITE_MISMATCH") {
+    return "O comprador de teste pertence a outro país no Mercado Pago. Use uma conta compradora de teste do Brasil vinculada ao mesmo ambiente do vendedor.";
+  }
+  if (providerCode?.startsWith("LOCAL_")) {
+    return "A configuração do Mercado Pago está incompatível neste ambiente. Consulte o diagnóstico pelo código de correlação.";
+  }
+  return [400, 422].includes(error.providerStatus ?? 0)
+    ? "Não foi possível autorizar este cartão. Revise os dados ou tente outro cartão."
+    : error.message;
+}
+
 export function subscriptionErrorResponse(error: unknown) {
   if (error instanceof SyntaxError || error instanceof ZodError) {
     return NextResponse.json({ error: "Dados inválidos." }, { status: 422 });
@@ -47,11 +60,8 @@ export function subscriptionErrorResponse(error: unknown) {
   }
   if (error instanceof SubscriptionProviderError) {
     const correlationId = logServerError("api.subscriptions.provider", error);
-    const publicMessage = [400, 422].includes(error.providerStatus ?? 0)
-      ? "Não foi possível autorizar este cartão. Revise os dados ou tente outro cartão."
-      : error.message;
     return NextResponse.json(
-      { error: publicMessage, correlationId },
+      { error: providerPublicMessage(error), correlationId },
       { status: 502 },
     );
   }

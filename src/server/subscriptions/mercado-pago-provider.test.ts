@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/server/config/env", () => ({
   getSubscriptionEnv: () => ({
-    NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY: "TEST-public-key-not-real",
-    MERCADO_PAGO_ACCESS_TOKEN: "TEST-access-token-not-a-real-secret",
+    NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY: "TEST-1234567890-public-key-not-real",
+    MERCADO_PAGO_ACCESS_TOKEN: "TEST-1234567890-access-token-not-a-real-secret",
     MERCADO_PAGO_API_BASE_URL: "https://api.mercadopago.test",
     MERCADO_PAGO_MODE: "test",
   }),
@@ -17,7 +17,9 @@ import { MercadoPagoSubscriptionProvider } from "./mercado-pago-provider";
 
 const planBody = {
   id: "provider-plan-1",
-  reason: "Assinatura mensal Vapor Entregas - Motoboy",
+  application_id: 1234567890,
+  collector_id: 987654321,
+  reason: "Vapor Entregas - Plano Motoboy",
   status: "active",
   back_url: "https://app.example.test/app/motoboy/assinatura/retorno",
   auto_recurring: {
@@ -44,7 +46,7 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(JSON.stringify(planBody)));
-    await new MercadoPagoSubscriptionProvider().createPlan({
+    const result = await new MercadoPagoSubscriptionProvider().createPlan({
       idempotencyKey: "plan:test:internal:19.90",
       reason: planBody.reason,
       monthlyPrice: 19.9,
@@ -65,25 +67,152 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
         currency_id: "BRL",
       },
     });
+    expect(result).toMatchObject({
+      applicationId: "1234567890",
+      collectorId: "987654321",
+      belongsToCurrentApplication: true,
+    });
+  });
+
+  it("consulta o plano e registra somente diagnostico sanitizado", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(planBody)),
+    );
+
+    await expect(
+      new MercadoPagoSubscriptionProvider().getPlan("provider-plan-1"),
+    ).resolves.toMatchObject({
+      applicationId: "1234567890",
+      collectorId: "987654321",
+      belongsToCurrentApplication: true,
+    });
+
+    const diagnostic = JSON.parse(
+      String(vi.mocked(console.info).mock.calls[0]?.[0]),
+    ) as Record<string, unknown>;
+    expect(diagnostic).toMatchObject({
+      scope: "api.subscriptions.plan-diagnostic",
+      providerPlanIdPresent: true,
+      providerPlanIdMasked: "provid***an-1",
+      lookupStatus: 200,
+      planFound: true,
+      planStatus: "active",
+      applicationIdPresent: true,
+      collectorIdPresent: true,
+    });
+    const serialized = JSON.stringify(diagnostic);
+    expect(serialized).not.toContain("provider-plan-1");
+    expect(serialized).not.toContain("987654321");
+  });
+
+  it("registra GET de plano inexistente sem expor o ID", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "Resource not found" }), {
+        status: 400,
+      }),
+    );
+
+    await expect(
+      new MercadoPagoSubscriptionProvider().getPlan("missing-plan-secret"),
+    ).rejects.toMatchObject({
+      providerStatus: 400,
+      providerMessage: "Resource not found",
+    });
+
+    const diagnostic = JSON.parse(
+      String(vi.mocked(console.info).mock.calls[0]?.[0]),
+    ) as Record<string, unknown>;
+    expect(diagnostic).toMatchObject({
+      scope: "api.subscriptions.plan-diagnostic",
+      providerPlanIdPresent: true,
+      providerPlanIdMasked: "missin***cret",
+      lookupStatus: 400,
+      planFound: false,
+      planStatus: null,
+      applicationIdPresent: false,
+      collectorIdPresent: false,
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain("missing-plan-secret");
+  });
+
+  it("busca planos pelo endpoint oficial sem mutação", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ paging: { total: 1 }, results: [planBody] }),
+        ),
+      );
+
+    await expect(
+      new MercadoPagoSubscriptionProvider().searchPlans(),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: "provider-plan-1",
+        status: "active",
+      }),
+    ]);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://api.mercadopago.test/preapproval_plan/search",
+    );
+    expect(fetchMock.mock.calls[0][1]?.method).toBeUndefined();
+  });
+
+  it("resolve vendedor, site e tipo de conta pelo Access Token", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 987654321,
+          email: "seller@example.test",
+          site_id: "MLB",
+          test_user: true,
+        }),
+      ),
+    );
+
+    await expect(
+      new MercadoPagoSubscriptionProvider().getSellerAccount(),
+    ).resolves.toEqual({
+      id: "987654321",
+      email: "seller@example.test",
+      siteId: "MLB",
+      testUser: true,
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.mercadopago.test/users/me",
+    );
   });
 
   it("cria preapproval autorizado com o token gerado pelo SDK", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify(subscriptionBody)));
+      .mockImplementation(async (input) =>
+        String(input).includes("/users/")
+          ? new Response(
+              JSON.stringify({
+                id: 987654321,
+                email: "seller@example.test",
+                site_id: "MLB",
+                test_user: true,
+              }),
+            )
+          : new Response(JSON.stringify(subscriptionBody)),
+      );
     await expect(
       new MercadoPagoSubscriptionProvider().createAuthorized({
         providerPlanId: "provider-plan-1",
+        sellerAccountId: "987654321",
         cardTokenId: "card-token-valid-1234567890",
         clientDiagnostics: {
           publicKeyConfigured: true,
           publicKeyEnvironment: "test",
           publicKeyHash: createHash("sha256")
-            .update("TEST-public-key-not-real")
+            .update("TEST-1234567890-public-key-not-real")
             .digest("hex"),
         },
         externalReference: "subscription:local-subscription-1",
         payerEmail: "payer@example.test",
+        payerEmailMatchesLoggedUser: true,
         reason: "Plano mensal",
         backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
         notificationUrl:
@@ -93,7 +222,10 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       id: "preapproval-1",
       planId: "provider-plan-1",
     });
-    const sent = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const preapprovalCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/preapproval"),
+    );
+    const sent = JSON.parse(String(preapprovalCall?.[1]?.body));
     expect(sent).toMatchObject({
       preapproval_plan_id: "provider-plan-1",
       card_token_id: "card-token-valid-1234567890",
@@ -120,6 +252,13 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       publicKeyEnvironment: "test",
       accessTokenEnvironment: "test",
       publicKeyBuildMatchesRuntime: true,
+      publicKeyApplicationIdPresent: true,
+      accessTokenApplicationIdPresent: true,
+      credentialApplicationIdsMatch: true,
+      sellerAccountResolved: true,
+      sellerSiteId: "MLB",
+      sellerTestUser: true,
+      planCollectorMatchesSeller: true,
       cardTokenIdPresent: true,
       preapprovalPlanIdPresent: true,
     });
@@ -130,14 +269,70 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     );
     expect(serializedDiagnostic).not.toContain("card-token-valid-1234567890");
     expect(serializedDiagnostic).not.toContain("provider-plan-1");
+
+    const diagnostics = vi
+      .mocked(console.info)
+      .mock.calls.map(
+        ([value]) => JSON.parse(String(value)) as Record<string, unknown>,
+      );
+    const payerDiagnostic = diagnostics.find(
+      (value) => value.scope === "api.subscriptions.payer-diagnostic",
+    );
+    expect(payerDiagnostic).toMatchObject({
+      mode: "test",
+      sellerSiteId: "MLB",
+      sellerSiteMatchesBrazil: true,
+      payerEmailPresent: true,
+      payerEmailDomain: "example.test",
+      payerEmailMatchesLoggedUser: true,
+      payerEmailMatchesSellerAccount: false,
+      payerDifferentFromSeller: true,
+      cardTokenIdPresent: true,
+      preapprovalPlanIdPresent: true,
+      status: "authorized",
+    });
+    const serializedPayerDiagnostic = JSON.stringify(payerDiagnostic);
+    expect(serializedPayerDiagnostic).not.toContain("payer@example.test");
+    expect(serializedPayerDiagnostic).not.toContain("seller@example.test");
+    expect(serializedPayerDiagnostic).not.toContain("987654321");
+
+    const payloadDiagnostic = diagnostics.find(
+      (value) =>
+        value.scope === "api.subscriptions.preapproval-payload-diagnostic",
+    );
+    expect(payloadDiagnostic).toMatchObject({
+      scope: "api.subscriptions.preapproval-payload-diagnostic",
+      preapprovalPlanIdPresent: true,
+      cardTokenIdPresent: true,
+      payerEmailPresent: true,
+      status: "authorized",
+      autoRecurringPresent: false,
+      backUrlPresent: true,
+    });
+    const serializedPayloadDiagnostic = JSON.stringify(payloadDiagnostic);
+    expect(serializedPayloadDiagnostic).not.toContain("provider-plan-1");
+    expect(serializedPayloadDiagnostic).not.toContain(
+      "card-token-valid-1234567890",
+    );
+    expect(serializedPayloadDiagnostic).not.toContain("payer@example.test");
   });
 
   it("detecta Public Key antiga no bundle sem registrar a chave", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(subscriptionBody)),
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      String(input).endsWith("/users/me")
+        ? new Response(
+            JSON.stringify({
+              id: 987654321,
+              email: "seller@example.test",
+              site_id: "MLB",
+              test_user: true,
+            }),
+          )
+        : new Response(JSON.stringify(subscriptionBody)),
     );
     await new MercadoPagoSubscriptionProvider().createAuthorized({
       providerPlanId: "provider-plan-1",
+      sellerAccountId: null,
       cardTokenId: "card-token-valid-1234567890",
       clientDiagnostics: {
         publicKeyConfigured: true,
@@ -148,6 +343,7 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       },
       externalReference: "subscription:local-subscription-1",
       payerEmail: "payer@example.test",
+      payerEmailMatchesLoggedUser: true,
       reason: "Plano mensal",
       backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
       notificationUrl:
@@ -159,6 +355,40 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     ) as Record<string, unknown>;
     expect(diagnostic.publicKeyBuildMatchesRuntime).toBe(false);
     expect(JSON.stringify(diagnostic)).not.toContain("old-public-key");
+  });
+
+  it("bloqueia plano pertencente a outro vendedor antes do preapproval", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 111111111,
+          email: "seller@example.test",
+          site_id: "MLB",
+          test_user: true,
+        }),
+      ),
+    );
+
+    await expect(
+      new MercadoPagoSubscriptionProvider().createAuthorized({
+        providerPlanId: "provider-plan-1",
+        sellerAccountId: "987654321",
+        cardTokenId: "card-token-valid-1234567890",
+        externalReference: "subscription:local-subscription-1",
+        payerEmail: "payer@example.test",
+        payerEmailMatchesLoggedUser: true,
+        reason: "Plano mensal",
+        backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
+        notificationUrl:
+          "https://app.example.test/api/webhooks/mercadopago?source_news=webhooks",
+      }),
+    ).rejects.toMatchObject({
+      providerCode: "LOCAL_PLAN_COLLECTOR_MISMATCH",
+      endpoint: "/preapproval",
+      method: "POST",
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/users\/me$/);
   });
 
   it("configura sete dias de teste gratis no plano remoto", async () => {
@@ -264,21 +494,33 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response(
         JSON.stringify({
+          id: 987654321,
+          email: "seller@example.test",
+          site_id: "MLB",
+          test_user: true,
+        }),
+      ),
+    );
+    vi.mocked(globalThis.fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
           message: "invalid preapproval payload",
           error: "bad_request",
           status: 400,
           cause: [{ code: 1234, description: "payer_email is invalid" }],
           access_token: "TEST-provider-private-token",
         }),
-        { status: 400 },
+        { status: 400, headers: { "x-request-id": "provider-request-123" } },
       ),
     );
     await expect(
       adapter.createAuthorized({
         providerPlanId: "provider-plan-1",
+        sellerAccountId: null,
         cardTokenId: "card-token-valid-1234567890",
         externalReference: "subscription:local-subscription-1",
         payerEmail: "payer@example.test",
+        payerEmailMatchesLoggedUser: true,
         reason: "Plano mensal",
         backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
         notificationUrl:
@@ -292,6 +534,7 @@ describe("adapter oficial de Assinaturas do Mercado Pago", () => {
       endpoint: "/preapproval",
       method: "POST",
       responseBody: expect.objectContaining({ status: 400 }),
+      providerRequestId: "provider-request-123",
     });
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(
       new Response("not-json", { status: 200 }),

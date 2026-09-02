@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import {
+  mercadoPagoCardResolutionDiagnostic,
+  mercadoPagoDiagnosticStage,
+  mercadoPagoSdkErrorDiagnostic,
+} from "@/components/subscriptions/mercado-pago-client-diagnostics";
 
 type CardFormData = {
   token?: string | null;
+  paymentMethodId?: string | null;
+  issuerId?: string | null;
 };
 
 type CardFormController = {
@@ -35,8 +42,12 @@ type MercadoPagoInstance = {
     };
     callbacks: {
       onFormMounted(error?: unknown): void;
+      onPaymentMethodsReceived(error?: unknown, data?: unknown): void;
+      onIssuersReceived(error?: unknown, data?: unknown): void;
+      onCardTokenReceived(error?: unknown, data?: unknown): void;
+      onError(error?: unknown, event?: ErrorEvent): void;
       onSubmit(event: SubmitEvent): Promise<void>;
-      onFetching(): () => void;
+      onFetching(resource?: string): () => void;
     };
   }): CardFormController;
 };
@@ -58,11 +69,7 @@ declare global {
 
 const publicKey = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY?.trim();
 const publicKeyEnvironment: MercadoPagoClientDiagnostics["publicKeyEnvironment"] =
-  publicKey?.startsWith("TEST-")
-    ? "test"
-    : publicKey?.startsWith("APP_USR-")
-      ? "production"
-      : "unknown";
+  publicKey?.startsWith("TEST-") ? "test" : "unknown";
 const secureFieldClass =
   "h-12 w-full overflow-hidden rounded-2xl border border-line bg-white px-4 py-3 shadow-sm transition hover:border-brand/35 focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/10";
 
@@ -96,6 +103,9 @@ export function MercadoPagoCardForm({
   const [error, setError] = useState("");
   const [formGeneration, setFormGeneration] = useState(0);
   const tokenizingRef = useRef(false);
+  const fetchingStageRef = useRef<
+    "payment-methods" | "issuer" | "card-token" | "card-form"
+  >("card-form");
 
   useEffect(() => {
     let active = true;
@@ -168,6 +178,52 @@ export function MercadoPagoCardForm({
               }
               setReady(true);
             },
+            onPaymentMethodsReceived(sdkError, data) {
+              if (sdkError) {
+                console.error(
+                  JSON.stringify(
+                    mercadoPagoSdkErrorDiagnostic("payment-methods", sdkError),
+                  ),
+                );
+                return;
+              }
+              if (active && data) fetchingStageRef.current = "card-form";
+            },
+            onIssuersReceived(sdkError, data) {
+              if (sdkError) {
+                console.error(
+                  JSON.stringify(
+                    mercadoPagoSdkErrorDiagnostic("issuer", sdkError),
+                  ),
+                );
+                return;
+              }
+              if (active && data) fetchingStageRef.current = "card-form";
+            },
+            onCardTokenReceived(sdkError, data) {
+              if (sdkError) {
+                console.error(
+                  JSON.stringify(
+                    mercadoPagoSdkErrorDiagnostic("card-token", sdkError),
+                  ),
+                );
+                return;
+              }
+              if (active && data) fetchingStageRef.current = "card-form";
+            },
+            onError(sdkError) {
+              console.error(
+                JSON.stringify(
+                  mercadoPagoSdkErrorDiagnostic(
+                    mercadoPagoDiagnosticStage(
+                      sdkError,
+                      fetchingStageRef.current,
+                    ),
+                    sdkError,
+                  ),
+                ),
+              );
+            },
             async onSubmit(event) {
               event.preventDefault();
               if (!cardForm || tokenizingRef.current) return;
@@ -175,7 +231,11 @@ export function MercadoPagoCardForm({
               setTokenizing(true);
               setError("");
               try {
-                const cardTokenId = cardForm.getCardFormData().token?.trim();
+                const formData = cardForm.getCardFormData();
+                console.info(
+                  JSON.stringify(mercadoPagoCardResolutionDiagnostic(formData)),
+                );
+                const cardTokenId = formData.token?.trim();
                 if (!cardTokenId) {
                   setError("Revise os dados do cartão e tente novamente.");
                   return;
@@ -205,7 +265,15 @@ export function MercadoPagoCardForm({
                 setTokenizing(false);
               }
             },
-            onFetching() {
+            onFetching(resource) {
+              const normalizedResource = resource?.toLowerCase() ?? "";
+              fetchingStageRef.current = normalizedResource.includes("payment")
+                ? "payment-methods"
+                : normalizedResource.includes("issuer")
+                  ? "issuer"
+                  : normalizedResource.includes("token")
+                    ? "card-token"
+                    : "card-form";
               if (active) setTokenizing(true);
               return () => {
                 if (active) setTokenizing(false);

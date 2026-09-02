@@ -80,6 +80,9 @@ export interface SubscriptionPaymentRecord {
 
 export interface ProviderPlan {
   id: string;
+  applicationId: string | null;
+  collectorId: string | null;
+  belongsToCurrentApplication: boolean | null;
   reason: string;
   amount: number;
   currency: string;
@@ -133,10 +136,12 @@ export interface SubscriptionProviderClient {
   ): Promise<ProviderPlan>;
   createAuthorized(input: {
     providerPlanId: string;
+    sellerAccountId: string | null;
     cardTokenId: string;
     clientDiagnostics?: MercadoPagoClientDiagnostics;
     externalReference: string;
     payerEmail: string;
+    payerEmailMatchesLoggedUser: boolean;
     reason: string;
     backUrl: string;
     notificationUrl: string;

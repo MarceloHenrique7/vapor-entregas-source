@@ -58,6 +58,13 @@ describe("server error logging", () => {
       publicKeyEnvironment: "test",
       accessTokenEnvironment: "test",
       publicKeyBuildMatchesRuntime: true,
+      publicKeyApplicationIdPresent: true,
+      accessTokenApplicationIdPresent: true,
+      credentialApplicationIdsMatch: true,
+      sellerAccountResolved: true,
+      sellerSiteId: "MLB",
+      sellerTestUser: true,
+      planCollectorMatchesSeller: true,
       cardTokenIdPresent: true,
       preapprovalPlanIdPresent: true,
     });
@@ -172,6 +179,7 @@ describe("server error logging", () => {
         authorization: "Bearer private-token",
         card_number: "5031433215406351",
       },
+      providerRequestId: "safe-provider-request-id",
     });
 
     const correlationId = logServerError("api.subscriptions.provider", error);
@@ -182,10 +190,13 @@ describe("server error logging", () => {
       scope: "api.subscriptions.provider",
       correlationId,
       errorType: "SubscriptionProviderError",
+      upstream: true,
+      apiStatus: 502,
       providerStatus: 400,
       providerCode: "bad_request",
       endpoint: "/preapproval",
       method: "POST",
+      providerRequestId: "safe-provider-request-id",
     });
     expect(serialized).toContain("1234");
     expect(serialized).not.toContain("buyer@example.test");
@@ -194,5 +205,29 @@ describe("server error logging", () => {
     expect(serialized).not.toContain("card-token-valid-1234567890");
     expect(serialized).not.toContain("private-provider-token");
     expect(serialized).not.toContain("Bearer private-token");
+  });
+
+  it("classifica divergência de país do pagador", () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    logServerError(
+      "api.subscriptions.provider",
+      new SubscriptionProviderError({
+        providerStatus: 400,
+        providerCode: "guest_site_mismatch",
+        providerMessage: "Payer is associated with a different site",
+        endpoint: "/preapproval",
+        method: "POST",
+      }),
+    );
+
+    const logged = JSON.parse(
+      String(consoleError.mock.calls[0]?.[0]),
+    ) as Record<string, unknown>;
+    expect(logged).toMatchObject({
+      providerCode: "guest_site_mismatch",
+      providerFailureCategory: "PAYER_SITE_MISMATCH",
+    });
   });
 });

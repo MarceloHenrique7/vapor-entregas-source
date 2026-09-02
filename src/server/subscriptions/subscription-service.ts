@@ -150,17 +150,36 @@ function returnUrl(role: BillableRole) {
   return `${NEXT_PUBLIC_APP_URL}/app/${area}/assinatura/retorno`;
 }
 
+function providerPlanBackUrl() {
+  return getSubscriptionEnv().NEXT_PUBLIC_APP_URL;
+}
+
 function notificationUrl() {
   return `${getSubscriptionEnv().NEXT_PUBLIC_APP_URL}/api/webhooks/mercadopago?source_news=webhooks`;
 }
 
 function expectedProviderPlan(plan: SubscriptionPlanRecord) {
   return {
-    reason: `Assinatura mensal Vapor Entregas - ${plan.name}`,
+    reason: `Vapor Entregas - Plano ${plan.name}`,
     monthlyPrice: plan.monthlyPrice,
     trialDays: plan.trialDays,
-    backUrl: returnUrl(plan.role),
+    backUrl: providerPlanBackUrl(),
   };
+}
+
+export function isProviderPlanNotFoundError(error: unknown) {
+  if (!(error instanceof SubscriptionProviderError)) return false;
+  if (error.providerStatus === 404) return true;
+  if (error.providerStatus !== 400) return false;
+  const providerText =
+    `${error.providerCode ?? ""} ${error.providerMessage ?? ""}`
+      .trim()
+      .toLowerCase();
+  return (
+    providerText.includes("resource not found") ||
+    providerText.includes("not_found") ||
+    providerText.includes("not found")
+  );
 }
 
 function providerPlanMatches(
@@ -208,14 +227,16 @@ export async function ensureProviderPlan(
     try {
       providerPlan = await provider.getPlan(plan.externalPlanId);
     } catch (error) {
-      if (
-        !(error instanceof SubscriptionProviderError) ||
-        error.providerStatus !== 404
-      ) {
+      if (!isProviderPlanNotFoundError(error)) {
         throw error;
       }
     }
-    if (providerPlan && !providerPlanBillingMatches(providerPlan, expected)) {
+    if (providerPlan?.belongsToCurrentApplication === false) {
+      providerPlan = null;
+    } else if (
+      providerPlan &&
+      !providerPlanBillingMatches(providerPlan, expected)
+    ) {
       providerPlan = null;
     } else if (providerPlan && providerPlan.trialDays !== expected.trialDays) {
       providerPlan = null;
@@ -224,12 +245,16 @@ export async function ensureProviderPlan(
     }
   }
   if (!providerPlan) {
-    providerPlan = await provider.createPlan({
+    const createdPlan = await provider.createPlan({
       ...expected,
       idempotencyKey: `plan:${MERCADO_PAGO_MODE}:${plan.id}:${plan.monthlyPrice.toFixed(2)}:${plan.externalPlanId ?? "initial"}`,
     });
+    providerPlan = await provider.getPlan(createdPlan.id);
   }
-  if (!providerPlanMatches(providerPlan, expected)) {
+  if (
+    providerPlan.belongsToCurrentApplication === false ||
+    !providerPlanMatches(providerPlan, expected)
+  ) {
     throw new SubscriptionConflictError(
       "O plano retornado pelo provedor diverge da configuracao interna.",
     );
@@ -239,7 +264,7 @@ export async function ensureProviderPlan(
     providerPlan.id,
     MERCADO_PAGO_MODE,
   );
-  return providerPlan.id;
+  return providerPlan;
 }
 
 async function ensureProviderPlanWithoutTrial(
@@ -248,16 +273,20 @@ async function ensureProviderPlanWithoutTrial(
 ) {
   const { MERCADO_PAGO_MODE } = getSubscriptionEnv();
   const expected = { ...expectedProviderPlan(plan), trialDays: 0 };
-  const providerPlan = await provider.createPlan({
+  const createdPlan = await provider.createPlan({
     ...expected,
     idempotencyKey: `plan:${MERCADO_PAGO_MODE}:${plan.id}:${plan.monthlyPrice.toFixed(2)}:without-trial`,
   });
-  if (!providerPlanMatches(providerPlan, expected)) {
+  const providerPlan = await provider.getPlan(createdPlan.id);
+  if (
+    providerPlan.belongsToCurrentApplication === false ||
+    !providerPlanMatches(providerPlan, expected)
+  ) {
     throw new SubscriptionConflictError(
       "O plano sem teste retornado pelo provedor diverge da configuracao interna.",
     );
   }
-  return providerPlan.id;
+  return providerPlan;
 }
 
 export async function synchronizeProviderPlans(
@@ -335,11 +364,12 @@ export async function startSubscription(
   const eligibleForTrial =
     plan.trialDays > 0 &&
     !(await repository.hasPriorSubscription(user.userId, draft?.id ?? null));
-  const providerPlanId = eligibleForTrial
+  const providerPlan = eligibleForTrial
     ? await ensureProviderPlan(plan, repository, provider)
     : plan.trialDays > 0
       ? await ensureProviderPlanWithoutTrial(plan, provider)
       : await ensureProviderPlan(plan, repository, provider);
+  const providerPlanId = providerPlan.id;
   draft ??= await repository.createDraft(user.userId, plan, now);
   if (!draft.externalReference) {
     await repository.expireDraft(draft.id, now);
@@ -347,11 +377,13 @@ export async function startSubscription(
   }
   const providerValue = await provider.createAuthorized({
     providerPlanId,
+    sellerAccountId: providerPlan.collectorId,
     cardTokenId: checkout.cardTokenId,
     clientDiagnostics: checkout.clientDiagnostics,
     externalReference: draft.externalReference,
     payerEmail: billingUser.email,
-    reason: `Assinatura mensal Vapor Entregas - ${plan.name}`,
+    payerEmailMatchesLoggedUser: billingUser.id === user.userId,
+    reason: `Vapor Entregas - Plano ${plan.name}`,
     backUrl: returnUrl(user.role),
     notificationUrl: notificationUrl(),
   });

@@ -5,7 +5,12 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 import { getSubscriptionEnv } from "@/server/config/env";
-import { logMercadoPagoSubscriptionDiagnostic } from "@/server/observability/logger";
+import {
+  logMercadoPagoPayerDiagnostic,
+  logMercadoPagoPlanDiagnostic,
+  logMercadoPagoPreapprovalPayloadDiagnostic,
+  logMercadoPagoSubscriptionDiagnostic,
+} from "@/server/observability/logger";
 
 import {
   SubscriptionProviderError,
@@ -28,6 +33,8 @@ const optionalDate = z.string().nullable().optional();
 const planSchema = z
   .object({
     id: z.union([z.string(), z.number()]),
+    application_id: z.union([z.string(), z.number()]).nullable().optional(),
+    collector_id: z.union([z.string(), z.number()]).nullable().optional(),
     reason: z.string(),
     status: z.string().nullable().optional(),
     back_url: z.string().nullable().optional(),
@@ -44,6 +51,12 @@ const planSchema = z
         .nullable()
         .optional(),
     }),
+  })
+  .passthrough();
+
+const planSearchSchema = z
+  .object({
+    results: z.array(planSchema).default([]),
   })
   .passthrough();
 
@@ -109,6 +122,27 @@ const paymentSchema = z
       .optional(),
   })
   .passthrough();
+
+const sellerAccountSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    email: z.string().trim().email().nullable().optional(),
+    site_id: z.string().trim().nullable().optional(),
+    test_user: z.boolean().nullable().optional(),
+  })
+  .passthrough();
+
+function normalizedEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function emailDomain(value: string) {
+  const normalized = normalizedEmail(value);
+  const separator = normalized.lastIndexOf("@");
+  return separator > 0 && separator < normalized.length - 1
+    ? normalized.slice(separator + 1)
+    : null;
+}
 
 function toDate(value: string | null | undefined) {
   if (!value) return null;
@@ -188,6 +222,11 @@ function endpointPath(path: string) {
   return path.split(/[?#]/, 1)[0] || "/";
 }
 
+function maskedProviderId(value: string) {
+  if (value.length <= 10) return `${value.slice(0, 2)}***${value.slice(-2)}`;
+  return `${value.slice(0, 6)}***${value.slice(-4)}`;
+}
+
 function credentialClassification(value: string | undefined): {
   prefix: "TEST" | "APP_USR" | "unknown" | "not_configured";
   environment: MercadoPagoCredentialEnvironment;
@@ -197,7 +236,9 @@ function credentialClassification(value: string | undefined): {
     return { prefix: "TEST", environment: "test" };
   }
   if (value.startsWith("APP_USR-")) {
-    return { prefix: "APP_USR", environment: "production" };
+    // Mercado Pago also issues APP_USR credentials to test sellers. The
+    // prefix alone cannot prove whether a credential is test or production.
+    return { prefix: "APP_USR", environment: "unknown" };
   }
   return { prefix: "unknown", environment: "unknown" };
 }
@@ -215,10 +256,37 @@ function publicKeyBuildMatchesRuntime(
   );
 }
 
-function toProviderPlan(raw: unknown): ProviderPlan {
+function credentialApplicationId(value: string | undefined) {
+  const match = /^(?:TEST|APP_USR)-(\d+)-/.exec(value ?? "");
+  return match?.[1] ?? null;
+}
+
+function providerRequestId(headers: Headers) {
+  return (
+    headers.get("x-request-id") ??
+    headers.get("x-correlation-id") ??
+    headers.get("x-meli-request-id") ??
+    null
+  );
+}
+
+function toProviderPlan(
+  raw: unknown,
+  accessToken: string | undefined,
+): ProviderPlan {
   const value = parse(planSchema, raw);
+  const applicationId = value.application_id
+    ? String(value.application_id)
+    : null;
+  const currentApplicationId = credentialApplicationId(accessToken);
   return {
     id: String(value.id),
+    applicationId,
+    collectorId: value.collector_id ? String(value.collector_id) : null,
+    belongsToCurrentApplication:
+      applicationId && currentApplicationId
+        ? applicationId === currentApplicationId
+        : null,
     reason: value.reason,
     amount: value.auto_recurring.transaction_amount,
     currency: value.auto_recurring.currency_id,
@@ -271,6 +339,28 @@ function toProviderPayment(raw: unknown): ProviderPayment {
 }
 
 export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClient {
+  async getSellerAccount() {
+    return this.request("/users/me", undefined, (raw) => {
+      const value = parse(sellerAccountSchema, raw);
+      return {
+        id: String(value.id),
+        email: value.email ? normalizedEmail(value.email) : null,
+        siteId: value.site_id ?? null,
+        testUser: value.test_user ?? null,
+      };
+    });
+  }
+
+  private async lookupSellerAccount() {
+    try {
+      return await this.getSellerAccount();
+    } catch {
+      // This lookup is diagnostic and provider failures are handled by the
+      // actual checkout request below.
+      return null;
+    }
+  }
+
   private async request<T>(
     path: string,
     init: RequestInit | undefined,
@@ -315,6 +405,7 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
         endpoint,
         method,
         responseBody: responseText || null,
+        providerRequestId: providerRequestId(response.headers),
       });
     }
     if (!response.ok) {
@@ -324,6 +415,7 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
         endpoint,
         method,
         responseBody,
+        providerRequestId: providerRequestId(response.headers),
       });
     }
     try {
@@ -338,6 +430,7 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
         endpoint,
         method,
         responseBody,
+        providerRequestId: providerRequestId(response.headers),
       });
     }
   }
@@ -366,15 +459,51 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
           back_url: input.backUrl,
         }),
       },
-      toProviderPlan,
+      (raw) =>
+        toProviderPlan(raw, getSubscriptionEnv().MERCADO_PAGO_ACCESS_TOKEN),
     );
   }
 
   async getPlan(id: string) {
-    return this.request(
-      `/preapproval_plan/${encodeURIComponent(id)}`,
-      undefined,
-      toProviderPlan,
+    try {
+      const plan = await this.request(
+        `/preapproval_plan/${encodeURIComponent(id)}`,
+        undefined,
+        (raw) =>
+          toProviderPlan(raw, getSubscriptionEnv().MERCADO_PAGO_ACCESS_TOKEN),
+      );
+      logMercadoPagoPlanDiagnostic({
+        providerPlanIdPresent: Boolean(id.trim()),
+        providerPlanIdMasked: maskedProviderId(id),
+        lookupStatus: 200,
+        planFound: true,
+        planStatus: plan.status,
+        applicationIdPresent: plan.applicationId !== null,
+        collectorIdPresent: plan.collectorId !== null,
+      });
+      return plan;
+    } catch (error) {
+      logMercadoPagoPlanDiagnostic({
+        providerPlanIdPresent: Boolean(id.trim()),
+        providerPlanIdMasked: maskedProviderId(id),
+        lookupStatus:
+          error instanceof SubscriptionProviderError
+            ? error.providerStatus
+            : null,
+        planFound: false,
+        planStatus: null,
+        applicationIdPresent: false,
+        collectorIdPresent: false,
+      });
+      throw error;
+    }
+  }
+
+  async searchPlans() {
+    return this.request("/preapproval_plan/search", undefined, (raw) =>
+      parse(planSearchSchema, raw).results.map((plan) =>
+        toProviderPlan(plan, getSubscriptionEnv().MERCADO_PAGO_ACCESS_TOKEN),
+      ),
     );
   }
 
@@ -403,16 +532,19 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
           back_url: input.backUrl,
         }),
       },
-      toProviderPlan,
+      (raw) =>
+        toProviderPlan(raw, getSubscriptionEnv().MERCADO_PAGO_ACCESS_TOKEN),
     );
   }
 
   async createAuthorized(input: {
     providerPlanId: string;
+    sellerAccountId: string | null;
     cardTokenId: string;
     clientDiagnostics?: MercadoPagoClientDiagnostics;
     externalReference: string;
     payerEmail: string;
+    payerEmailMatchesLoggedUser: boolean;
     reason: string;
     backUrl: string;
     notificationUrl: string;
@@ -432,6 +564,17 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
         }
       : credentialClassification(undefined);
     const accessTokenClassification = credentialClassification(accessToken);
+    const publicKeyApplicationId = credentialApplicationId(runtimePublicKey);
+    const accessTokenApplicationId = credentialApplicationId(accessToken);
+    const credentialApplicationIdsMatch =
+      publicKeyApplicationId && accessTokenApplicationId
+        ? publicKeyApplicationId === accessTokenApplicationId
+        : null;
+    const sellerAccount = await this.lookupSellerAccount();
+    const planCollectorMatchesSeller =
+      sellerAccount && input.sellerAccountId
+        ? sellerAccount.id === input.sellerAccountId
+        : null;
     logMercadoPagoSubscriptionDiagnostic({
       mode: env.MERCADO_PAGO_MODE,
       publicKeyConfigured:
@@ -445,24 +588,98 @@ export class MercadoPagoSubscriptionProvider implements SubscriptionProviderClie
         input.clientDiagnostics,
         runtimePublicKey,
       ),
+      publicKeyApplicationIdPresent: Boolean(publicKeyApplicationId),
+      accessTokenApplicationIdPresent: Boolean(accessTokenApplicationId),
+      credentialApplicationIdsMatch,
+      sellerAccountResolved: Boolean(sellerAccount),
+      sellerSiteId: sellerAccount?.siteId ?? null,
+      sellerTestUser: sellerAccount?.testUser ?? null,
+      planCollectorMatchesSeller,
       cardTokenIdPresent: Boolean(input.cardTokenId.trim()),
       preapprovalPlanIdPresent: Boolean(input.providerPlanId.trim()),
+    });
+    if (credentialApplicationIdsMatch === false) {
+      throw new SubscriptionProviderError({
+        providerCode: "LOCAL_CREDENTIAL_APPLICATION_MISMATCH",
+        providerMessage:
+          "Public Key and Access Token identify different applications.",
+        endpoint: "/preapproval",
+        method: "POST",
+      });
+    }
+    if (planCollectorMatchesSeller === false) {
+      throw new SubscriptionProviderError({
+        providerCode: "LOCAL_PLAN_COLLECTOR_MISMATCH",
+        providerMessage:
+          "The subscription plan belongs to a different seller account.",
+        endpoint: "/preapproval",
+        method: "POST",
+      });
+    }
+    if (sellerAccount?.siteId && sellerAccount.siteId !== "MLB") {
+      throw new SubscriptionProviderError({
+        providerCode: "LOCAL_SELLER_SITE_MISMATCH",
+        providerMessage: "The seller account is not associated with Brazil.",
+        endpoint: "/preapproval",
+        method: "POST",
+      });
+    }
+    if (env.MERCADO_PAGO_MODE === "production" && sellerAccount?.testUser) {
+      throw new SubscriptionProviderError({
+        providerCode: "LOCAL_MODE_SELLER_MISMATCH",
+        providerMessage:
+          "A test seller account cannot be used while production mode is enabled.",
+        endpoint: "/preapproval",
+        method: "POST",
+      });
+    }
+    const payload = {
+      preapproval_plan_id: input.providerPlanId,
+      card_token_id: input.cardTokenId,
+      reason: input.reason,
+      external_reference: input.externalReference,
+      payer_email: input.payerEmail,
+      back_url: input.backUrl,
+      notification_url: input.notificationUrl,
+      status: "authorized" as const,
+    };
+    const normalizedPayerEmail = normalizedEmail(payload.payer_email);
+    const payerEmailMatchesSellerAccount = sellerAccount
+      ? sellerAccount.email !== null &&
+        normalizedPayerEmail === sellerAccount.email
+      : null;
+    logMercadoPagoPayerDiagnostic({
+      mode: env.MERCADO_PAGO_MODE,
+      sellerSiteId: sellerAccount?.siteId ?? null,
+      sellerSiteMatchesBrazil: sellerAccount?.siteId
+        ? sellerAccount.siteId === "MLB"
+        : null,
+      payerEmailPresent: Boolean(normalizedPayerEmail),
+      payerEmailDomain: emailDomain(normalizedPayerEmail),
+      payerEmailMatchesLoggedUser: input.payerEmailMatchesLoggedUser,
+      payerEmailMatchesSellerAccount,
+      payerDifferentFromSeller:
+        payerEmailMatchesSellerAccount === null
+          ? null
+          : !payerEmailMatchesSellerAccount,
+      cardTokenIdPresent: Boolean(payload.card_token_id.trim()),
+      preapprovalPlanIdPresent: Boolean(payload.preapproval_plan_id.trim()),
+      status: payload.status,
+    });
+    logMercadoPagoPreapprovalPayloadDiagnostic({
+      preapprovalPlanIdPresent: Boolean(payload.preapproval_plan_id.trim()),
+      cardTokenIdPresent: Boolean(payload.card_token_id.trim()),
+      payerEmailPresent: Boolean(payload.payer_email.trim()),
+      status: payload.status,
+      autoRecurringPresent: Object.hasOwn(payload, "auto_recurring"),
+      backUrlPresent: Boolean(payload.back_url.trim()),
     });
     return this.request(
       "/preapproval",
       {
         method: "POST",
         headers: { "X-Idempotency-Key": input.externalReference },
-        body: JSON.stringify({
-          preapproval_plan_id: input.providerPlanId,
-          card_token_id: input.cardTokenId,
-          reason: input.reason,
-          external_reference: input.externalReference,
-          payer_email: input.payerEmail,
-          back_url: input.backUrl,
-          notification_url: input.notificationUrl,
-          status: "authorized",
-        }),
+        body: JSON.stringify(payload),
       },
       toProviderSubscription,
     );

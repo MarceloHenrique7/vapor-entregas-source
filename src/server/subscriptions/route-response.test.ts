@@ -32,4 +32,49 @@ describe("subscription provider public errors", () => {
     expect(body).not.toHaveProperty("providerStatus");
     expect(body).not.toHaveProperty("responseBody");
   });
+
+  it("explica divergência de país sem expor a resposta privada", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const response = subscriptionErrorResponse(
+      new SubscriptionProviderError({
+        providerStatus: 400,
+        providerCode: "guest_site_mismatch",
+        providerMessage: "Payer is associated with a different site",
+        endpoint: "/preapproval",
+        method: "POST",
+      }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({
+      error:
+        "O comprador de teste pertence a outro país no Mercado Pago. Use uma conta compradora de teste do Brasil vinculada ao mesmo ambiente do vendedor.",
+      correlationId: expect.any(String),
+    });
+    expect(JSON.stringify(body)).not.toContain(
+      "Payer is associated with a different site",
+    );
+  });
+
+  it("explica incompatibilidade local sem expor IDs ou credenciais", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const response = subscriptionErrorResponse(
+      new SubscriptionProviderError({
+        providerCode: "LOCAL_PLAN_COLLECTOR_MISMATCH",
+        providerMessage: "private seller and plan identifiers",
+        endpoint: "/preapproval",
+        method: "POST",
+      }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({
+      error:
+        "A configuração do Mercado Pago está incompatível neste ambiente. Consulte o diagnóstico pelo código de correlação.",
+      correlationId: expect.any(String),
+    });
+    expect(JSON.stringify(body)).not.toContain("private seller");
+  });
 });

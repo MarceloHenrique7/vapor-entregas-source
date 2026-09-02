@@ -9,7 +9,11 @@ vi.mock("@/server/config/env", () => ({
 
 import { ForbiddenError } from "@/server/auth/errors";
 
-import { SubscriptionConflictError, SubscriptionRequiredError } from "./errors";
+import {
+  SubscriptionConflictError,
+  SubscriptionProviderError,
+  SubscriptionRequiredError,
+} from "./errors";
 import {
   assertOperationalSubscription,
   cancelMySubscription,
@@ -59,14 +63,17 @@ const companyPlan: SubscriptionPlanRecord = {
 };
 const providerPlan: ProviderPlan = {
   id: "provider-plan-motoboy",
-  reason: "Assinatura mensal Vapor Entregas - Motoboy",
+  applicationId: "1234567890",
+  collectorId: "987654321",
+  belongsToCurrentApplication: true,
+  reason: "Vapor Entregas - Plano Motoboy",
   amount: 19.9,
   currency: "BRL",
   frequency: 1,
   frequencyType: "months",
   trialDays: 0,
   status: "active",
-  backUrl: "https://app.example.test/app/motoboy/assinatura/retorno",
+  backUrl: "https://app.example.test",
 };
 const providerValue: ProviderSubscription = {
   id: "preapproval-test-1",
@@ -230,9 +237,9 @@ describe("assinaturas recorrentes da plataforma", () => {
         getPlan: vi.fn().mockResolvedValue({
           ...providerPlan,
           id: expectedPlan.externalPlanId!,
-          reason: `Assinatura mensal Vapor Entregas - ${expectedPlan.name}`,
+          reason: `Vapor Entregas - Plano ${expectedPlan.name}`,
           amount: expectedPlan.monthlyPrice,
-          backUrl: `https://app.example.test/app/${actor.role === "MOTOBOY" ? "motoboy" : "empresa"}/assinatura/retorno`,
+          backUrl: "https://app.example.test",
         }),
         createAuthorized: vi.fn().mockResolvedValue({
           ...providerValue,
@@ -244,8 +251,10 @@ describe("assinaturas recorrentes da plataforma", () => {
       expect(client.createAuthorized).toHaveBeenCalledWith(
         expect.objectContaining({
           providerPlanId: expectedPlan.externalPlanId,
+          sellerAccountId: providerPlan.collectorId,
           cardTokenId,
           payerEmail: email,
+          payerEmailMatchesLoggedUser: true,
         }),
       );
     },
@@ -300,6 +309,7 @@ describe("assinaturas recorrentes da plataforma", () => {
         clientDiagnostics,
         externalReference: "subscription:subscription-id",
         payerEmail: "payer@example.test",
+        payerEmailMatchesLoggedUser: true,
       }),
     );
     expect(client.createAuthorized).not.toHaveBeenCalledWith(
@@ -347,10 +357,80 @@ describe("assinaturas recorrentes da plataforma", () => {
     );
   });
 
+  it("recria plano quando o Mercado Pago responde 400 Resource not found", async () => {
+    const repo = repository();
+    const client = provider({
+      getPlan: vi
+        .fn()
+        .mockRejectedValueOnce(
+          new SubscriptionProviderError({
+            providerStatus: 400,
+            providerMessage: "Resource not found",
+          }),
+        )
+        .mockResolvedValueOnce({
+          ...providerPlan,
+          id: "provider-plan-recreated",
+        }),
+      createPlan: vi.fn().mockResolvedValue({
+        ...providerPlan,
+        id: "provider-plan-recreated",
+      }),
+    });
+
+    await ensureProviderPlan(motoboyPlan, repo, client);
+
+    expect(client.createPlan).toHaveBeenCalledOnce();
+    expect(client.getPlan).toHaveBeenNthCalledWith(
+      2,
+      "provider-plan-recreated",
+    );
+    expect(repo.saveProviderPlan).toHaveBeenCalledWith(
+      motoboyPlan.id,
+      "provider-plan-recreated",
+      "test",
+    );
+  });
+
+  it("nao reutiliza plano pertencente a outra aplicacao", async () => {
+    const repo = repository();
+    const client = provider({
+      getPlan: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ...providerPlan,
+          belongsToCurrentApplication: false,
+        })
+        .mockResolvedValueOnce({
+          ...providerPlan,
+          id: "provider-plan-current-app",
+        }),
+      createPlan: vi.fn().mockResolvedValue({
+        ...providerPlan,
+        id: "provider-plan-current-app",
+      }),
+    });
+
+    await ensureProviderPlan(motoboyPlan, repo, client);
+
+    expect(client.createPlan).toHaveBeenCalledOnce();
+    expect(repo.saveProviderPlan).toHaveBeenCalledWith(
+      motoboyPlan.id,
+      "provider-plan-current-app",
+      "test",
+    );
+  });
+
   it("versiona o plano remoto quando o preco muda", async () => {
     const repo = repository();
     const client = provider({
-      getPlan: vi.fn().mockResolvedValue({ ...providerPlan, amount: 20 }),
+      getPlan: vi
+        .fn()
+        .mockResolvedValueOnce({ ...providerPlan, amount: 20 })
+        .mockResolvedValueOnce({
+          ...providerPlan,
+          id: "provider-plan-new-price",
+        }),
       createPlan: vi.fn().mockResolvedValue({
         ...providerPlan,
         id: "provider-plan-new-price",

@@ -42,6 +42,13 @@ export type MercadoPagoSubscriptionDiagnostic = {
   publicKeyEnvironment: MercadoPagoCredentialEnvironment;
   accessTokenEnvironment: MercadoPagoCredentialEnvironment;
   publicKeyBuildMatchesRuntime: boolean | null;
+  publicKeyApplicationIdPresent: boolean;
+  accessTokenApplicationIdPresent: boolean;
+  credentialApplicationIdsMatch: boolean | null;
+  sellerAccountResolved: boolean;
+  sellerSiteId: string | null;
+  sellerTestUser: boolean | null;
+  planCollectorMatchesSeller: boolean | null;
   cardTokenIdPresent: boolean;
   preapprovalPlanIdPresent: boolean;
 };
@@ -55,6 +62,81 @@ export function logMercadoPagoSubscriptionDiagnostic(
       level: "info",
       scope: "api.subscriptions.credential-diagnostic",
       ...diagnostic,
+    }),
+  );
+}
+
+export type MercadoPagoPlanDiagnostic = {
+  providerPlanIdPresent: boolean;
+  providerPlanIdMasked: string;
+  lookupStatus: number | null;
+  planFound: boolean;
+  planStatus: string | null;
+  applicationIdPresent: boolean;
+  collectorIdPresent: boolean;
+};
+
+export function logMercadoPagoPlanDiagnostic(
+  diagnostic: MercadoPagoPlanDiagnostic,
+) {
+  console.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "info",
+      scope: "api.subscriptions.plan-diagnostic",
+      ...diagnostic,
+    }),
+  );
+}
+
+export type MercadoPagoPreapprovalPayloadDiagnostic = {
+  preapprovalPlanIdPresent: boolean;
+  cardTokenIdPresent: boolean;
+  payerEmailPresent: boolean;
+  status: string;
+  autoRecurringPresent: boolean;
+  backUrlPresent: boolean;
+};
+
+export function logMercadoPagoPreapprovalPayloadDiagnostic(
+  diagnostic: MercadoPagoPreapprovalPayloadDiagnostic,
+) {
+  console.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "info",
+      scope: "api.subscriptions.preapproval-payload-diagnostic",
+      ...diagnostic,
+    }),
+  );
+}
+
+export type MercadoPagoPayerDiagnostic = {
+  mode: MercadoPagoMode;
+  sellerSiteId: string | null;
+  sellerSiteMatchesBrazil: boolean | null;
+  payerEmailPresent: boolean;
+  payerEmailDomain: string | null;
+  payerEmailMatchesLoggedUser: boolean;
+  payerEmailMatchesSellerAccount: boolean | null;
+  payerDifferentFromSeller: boolean | null;
+  cardTokenIdPresent: boolean;
+  preapprovalPlanIdPresent: boolean;
+  status: "authorized";
+};
+
+export function logMercadoPagoPayerDiagnostic(
+  diagnostic: MercadoPagoPayerDiagnostic,
+) {
+  console.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "info",
+      scope: "api.subscriptions.payer-diagnostic",
+      ...diagnostic,
+      payerEmailDomain: diagnostic.payerEmailDomain
+        ? sanitizeText(diagnostic.payerEmailDomain)
+        : null,
     }),
   );
 }
@@ -153,10 +235,24 @@ function safeErrorDetails(error: unknown) {
     endpoint?: unknown;
     method?: unknown;
     responseBody?: unknown;
+    providerRequestId?: unknown;
   };
   if (error.name === "SubscriptionProviderError") {
+    const providerCode =
+      typeof candidate.providerCode === "string"
+        ? candidate.providerCode.toLowerCase()
+        : null;
     return {
       errorType: error.name,
+      upstream: true,
+      apiStatus: 502,
+      providerFailureCategory: providerCode?.startsWith("local_")
+        ? "INTEGRATION_CONFIGURATION"
+        : providerCode === "guest_site_mismatch"
+          ? "PAYER_SITE_MISMATCH"
+          : providerCode?.includes("card")
+            ? "CARD_OR_TOKEN"
+            : "PROVIDER_REJECTED",
       providerStatus:
         typeof candidate.providerStatus === "number"
           ? candidate.providerStatus
@@ -167,6 +263,7 @@ function safeErrorDetails(error: unknown) {
       endpoint: sanitizeEndpoint(candidate.endpoint),
       method: sanitizeLogValue(candidate.method),
       responseBody: sanitizeLogValue(candidate.responseBody),
+      providerRequestId: sanitizeLogValue(candidate.providerRequestId),
     };
   }
   return {

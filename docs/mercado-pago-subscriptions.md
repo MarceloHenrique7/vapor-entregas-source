@@ -67,12 +67,26 @@ frontend.
 
 Em cada tentativa de autorização, o servidor registra um diagnóstico seguro no
 scope `api.subscriptions.credential-diagnostic`. Ele contém somente modo,
-presença das configurações, prefixos/ambientes classificados, presença do token
-e do plano e o booleano `publicKeyBuildMatchesRuntime`. Nenhuma chave, token ou
-ID é registrado. `false` nesse último campo indica que o bundle foi compilado
-com outra Public Key; `null` indica que a comparação não pôde ser feita, por
-exemplo porque a variável não existe no runtime ou a tentativa veio de um
-bundle anterior a esse diagnóstico.
+presença das configurações, prefixos, presença dos identificadores de
+aplicação, resultado da comparação entre credenciais, conta vendedora resolvida,
+`site_id`, tipo de usuário vendedor e compatibilidade entre vendedor e
+`collector_id` do plano. Também inclui a presença do token/plano e o booleano
+`publicKeyBuildMatchesRuntime`. Nenhuma chave, token, e-mail ou ID completo é
+registrado. `false` nesse último campo indica que o bundle foi compilado com
+outra Public Key; `null` indica que a comparação não pôde ser feita.
+
+Erros HTTP do provedor também preservam somente a presença de um request ID
+oficial (`providerRequestId`), quando esse header for devolvido pelo Mercado
+Pago. Esse identificador ajuda o suporte do provedor sem revelar Authorization
+ou o corpo sensível da requisição.
+
+O CardForm também intercepta `onError`, `onPaymentMethodsReceived`,
+`onIssuersReceived`, `onCardTokenReceived`, `onFetching` e `onSubmit`. Os logs
+do navegador contêm apenas código/status/mensagem sanitizada do SDK e os
+booleanos `paymentMethodResolved`, `issuerResolved` e `tokenGenerated`; BIN,
+documento, e-mail, dados do cartão e token nunca são registrados. Antes do
+`POST /preapproval`, o servidor registra somente a presença estrutural dos
+campos, o status `authorized` e se `auto_recurring` está presente.
 
 ## Sincronização dos planos
 
@@ -81,16 +95,57 @@ rate limit. O mesmo processo é executado para o plano da role antes de iniciar
 uma nova assinatura.
 
 - Com ID salvo no mesmo ambiente: executa `GET /preapproval_plan/{id}`.
+- O GET também confirma a presença de `application_id`/`collector_id` e, quando
+  o formato da credencial permite a comparação, rejeita plano de outra
+  aplicação sem registrar esses identificadores.
 - Plano compatível: reutiliza.
 - Somente nome/back URL divergentes: atualiza por
   `PUT /preapproval_plan/{id}`.
-- Valor/frequência/moeda divergentes, ID ausente, 404 ou troca de ambiente: cria
-  novo plano com chave de idempotência e salva o ID.
+- Valor/frequência/moeda divergentes, ID ausente, 404, resposta 400
+  `Resource not found`, plano de outra aplicação ou troca de ambiente: cria
+  novo plano com chave de idempotência, faz um GET de confirmação e salva o ID
+  real retornado pelo Mercado Pago.
 
 Criar outro plano quando o valor muda preserva assinaturas existentes no plano
 anterior. Cada `Subscription` guarda o `providerPlanId` contratado. A configuração
-remota usa frequência `1`, tipo `months`, moeda `BRL`, preço do banco e
-`back_url` da área autenticada.
+remota usa frequência `1`, tipo `months`, moeda `BRL`, preço/trial do banco e
+`back_url` igual à URL pública raiz da aplicação.
+
+O diagnóstico manual padrão é somente leitura:
+
+```bash
+npm run mp:check-plans
+```
+
+Para verificar o encadeamento completo entre credenciais, vendedor e planos,
+execute também o diagnóstico determinístico, que é somente leitura:
+
+```bash
+npm run mp:doctor
+```
+
+O comando consulta `GET /users/me` com o Access Token do runtime, confirma
+`site_id`, tipo da conta, presença dos identificadores de aplicação e compara
+o vendedor resolvido com o `collector_id` de cada plano. Também compara a
+configuração remota com preço, frequência, trial e URL salvos pela Vapor. Ele
+não cria assinatura, não cobra, não altera o banco e não imprime credenciais,
+e-mail, IDs completos ou token de cartão. Resultado `ok: false` traz códigos
+seguros em `issues`; corrija esses códigos antes de testar outro cartão.
+
+O prefixo `APP_USR` não é usado isoladamente para decidir se uma credencial é
+de teste ou produção: contas vendedoras de teste também podem receber
+credenciais com esse prefixo. A decisão considera a conta retornada pela API,
+o modo configurado e os recursos pertencentes a ela.
+
+Ele lê `subscription_plans.externalPlanId`, consulta cada plano com o mesmo
+Access Token do runtime e informa `OK`, `INCOMPATÍVEL` ou `NÃO ENCONTRADO`
+para Motoboy e Empresa. Também consulta
+`GET /preapproval_plan/search` para confirmar que os IDs aparecem na listagem.
+IDs são mascarados e credenciais não são impressas. Para reparar explicitamente
+planos ausentes/incompatíveis em um
+ambiente já conferido, execute `npm run mp:check-plans -- --repair`; essa forma
+cria/atualiza recursos no Mercado Pago e persiste o ID real no MySQL, portanto
+não deve ser usada com credenciais de produção sem autorização.
 
 ## Endpoints locais
 
@@ -230,12 +285,20 @@ real sem autorização explícita.
   servidor.
 - **404 `Card token service not found`:** confira o log
   `api.subscriptions.credential-diagnostic`. Em modo `test`, Public Key e Access
-  Token precisam aparecer como ambiente/prefixo de teste, as duas presenças de
-  IDs devem ser `true` e `publicKeyBuildMatchesRuntime` deve ser `true`. Se tudo
-  isso estiver correto, confirme no painel que as duas credenciais pertencem à
-  mesma aplicação e recrie/sincronize o plano com esse Access Token. Public Key
-  e Access Token não possuem um identificador público comum que permita ao
-  backend provar sozinho que formam o mesmo par.
+  Token precisam estar configurados e `publicKeyBuildMatchesRuntime` deve ser
+  `true`. Execute `npm run mp:doctor` para validar conta, site, aplicação,
+  vendedor e planos. Não conclua o ambiente apenas pelo prefixo `APP_USR`.
+- **400 `guest_site_mismatch`:** execute `npm run mp:doctor`. Se vendedor,
+  `site_id=MLB`, aplicação e `collector_id` estiverem corretos, a divergência
+  restante está na identidade do comprador/token efêmero. Use o e-mail real
+  fornecido pela conta compradora de teste brasileira, e não o username, nome
+  de exibição ou e-mail pessoal do operador.
+- **400 `Resource not found` em `/preapproval`:** execute
+  `npm run mp:check-plans`. O ID vem de
+  `subscription_plans.externalPlanId`, nunca do UUID/slug/preço. O fluxo
+  considera 404 e o 400 específico como plano ausente, cria um plano idempotente
+  com as credenciais atuais, confirma por GET e substitui somente o ID externo
+  persistido.
 - **502 geral:** timeout, HTTP ou resposta inválida; não cancele localmente.
 - **401 webhook:** confira segredo, `data.id`, headers e URL configurada.
 - **409 ambiente:** `live_mode` não coincide com o modo.
