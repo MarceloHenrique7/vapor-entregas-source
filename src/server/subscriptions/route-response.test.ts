@@ -57,6 +57,29 @@ describe("subscription provider public errors", () => {
     );
   });
 
+  it("explica usuários inválidos no Sandbox sem expor o provider", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const response = subscriptionErrorResponse(
+      new SubscriptionProviderError({
+        providerStatus: 400,
+        providerCode: "bad_request",
+        providerMessage: "Invalid users involved",
+        providerCause: [{ code: 2034, description: "Invalid users involved" }],
+        endpoint: "/v1/payments",
+        method: "POST",
+      }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({
+      error:
+        "Os usuários do teste são incompatíveis. Informe no Brick um e-mail comum, diferente da conta vendedora e que não termine em @testuser.com.",
+      correlationId: expect.any(String),
+    });
+    expect(JSON.stringify(body)).not.toContain("Invalid users involved");
+  });
+
   it("explica incompatibilidade local sem expor IDs ou credenciais", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const response = subscriptionErrorResponse(

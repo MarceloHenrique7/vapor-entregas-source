@@ -19,6 +19,18 @@ import {
 
 function providerPublicMessage(error: SubscriptionProviderError) {
   const providerCode = error.providerCode?.toUpperCase();
+  const providerCauseCode = Array.isArray(error.providerCause)
+    ? error.providerCause.find(
+        (cause): cause is { code: number } =>
+          typeof cause === "object" &&
+          cause !== null &&
+          "code" in cause &&
+          cause.code === 2034,
+      )?.code
+    : null;
+  if (providerCauseCode === 2034) {
+    return "Os usuários do teste são incompatíveis. Informe no Brick um e-mail comum, diferente da conta vendedora e que não termine em @testuser.com.";
+  }
   if (providerCode === "GUEST_SITE_MISMATCH") {
     return "O comprador de teste pertence a outro país no Mercado Pago. Use uma conta compradora de teste do Brasil vinculada ao mesmo ambiente do vendedor.";
   }

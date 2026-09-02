@@ -8,8 +8,10 @@ Public Key. Access Token e segredo do webhook permanecem no servidor.
 
 1. `GET /api/subscriptions/me` retorna o plano permitido para o papel autenticado.
 2. O Payment Brick oferece explicitamente Pix e cartão de crédito.
-3. `POST /api/subscriptions/checkout` ignora preço, plano e e-mail enviados pelo
-   navegador e busca novamente esses dados no MySQL.
+3. `POST /api/subscriptions/checkout` ignora preço e plano enviados pelo
+   navegador e busca novamente esses dados no MySQL. Em produção, também usa o
+   e-mail autenticado; no Sandbox, usa o e-mail informado no Brick conforme a
+   regra de testes do Mercado Pago.
 4. O backend cria uma tentativa em `subscription_payments`, envia uma UUID em
    `X-Idempotency-Key` e cria o pagamento em `/v1/payments`.
 5. O backend consulta `/v1/payments/{id}`. Somente `approved`, com valor, moeda,
@@ -61,8 +63,10 @@ retornar `approved`.
 
 Número completo e CVV ficam nos campos seguros do Mercado Pago. O Brick fornece
 um token temporário ao callback e ele é encaminhado para `/v1/payments`. A Vapor
-não persiste nem registra esse token. O backend usa o e-mail da conta autenticada,
-e não o e-mail manipulável do formulário.
+não persiste nem registra esse token. Em produção, o backend usa o e-mail da
+conta autenticada. Com credenciais TEST, o e-mail informado no Brick é usado
+somente na requisição ao provider, não é persistido e não pode terminar em
+`@testuser.com`; ele também deve ser diferente do e-mail da conta vendedora.
 
 ## Webhook
 

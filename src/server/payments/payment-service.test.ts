@@ -296,7 +296,11 @@ describe("pagamentos avulsos do acesso", () => {
       {
         attemptId,
         selectedPaymentMethod: "bank_transfer",
-        formData: { payment_method_id: "pix", transaction_amount: 0.01 },
+        formData: {
+          payment_method_id: "pix",
+          transaction_amount: 0.01,
+          payer: { email: "sandbox.buyer@example.com" },
+        },
       },
       subscriptionRepository(),
       payments.repository,
@@ -323,7 +327,7 @@ describe("pagamentos avulsos do acesso", () => {
     expect(payments.accessGrants).toBe(0);
   });
 
-  it("ignora preço, plano e e-mail manipulados pelo frontend", async () => {
+  it("ignora preço e plano, mas usa o e-mail do Brick somente no Sandbox", async () => {
     const payments = paymentRepository();
     const mp = provider("approved");
     await createAccessPayment(
@@ -338,8 +342,55 @@ describe("pagamentos avulsos do acesso", () => {
     expect(mp.createdInput).toMatchObject({
       amount: 19.9,
       planId,
-      payerEmail: "buyer@example.test",
+      payerEmail: "attacker@example.test",
       role: "MOTOBOY",
+    });
+  });
+
+  it("rejeita e-mail @testuser.com no Sandbox antes de chamar o provider", async () => {
+    const payments = paymentRepository();
+    const mp = provider("approved");
+
+    await expect(
+      createAccessPayment(
+        { userId, role: "MOTOBOY", status: "ACTIVE" },
+        cardInput({
+          formData: {
+            payment_method_id: "visa",
+            token: "temporary-card-token-123456",
+            installments: 1,
+            payer: { email: "test@testuser.com" },
+          },
+        }),
+        subscriptionRepository(),
+        payments.repository,
+        mp.client,
+        now,
+      ),
+    ).rejects.toThrow("não termine em @testuser.com");
+    expect(mp.client.createPayment).not.toHaveBeenCalled();
+    expect(payments.attempts.size).toBe(0);
+  });
+
+  it("em produção mantém o e-mail da conta autenticada", async () => {
+    process.env.MERCADO_PAGO_MODE = "production";
+    process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY =
+      "APP_USR-123456-public-key-value";
+    process.env.MERCADO_PAGO_ACCESS_TOKEN = "APP_USR-123456-access-token-value";
+    const payments = paymentRepository();
+    const mp = provider("approved");
+
+    await createAccessPayment(
+      { userId, role: "MOTOBOY", status: "ACTIVE" },
+      cardInput(),
+      subscriptionRepository(),
+      payments.repository,
+      mp.client,
+      now,
+    );
+
+    expect(mp.createdInput).toMatchObject({
+      payerEmail: "buyer@example.test",
     });
   });
 

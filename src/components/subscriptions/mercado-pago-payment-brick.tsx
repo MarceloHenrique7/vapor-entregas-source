@@ -226,7 +226,11 @@ export function MercadoPagoPaymentBrick({
         </p>
       )}
       <Payment
-        initialization={{ amount, payer: { email: payerEmail } }}
+        initialization={
+          publicKey.startsWith("TEST-")
+            ? { amount }
+            : { amount, payer: { email: payerEmail } }
+        }
         customization={{
           paymentMethods: {
             creditCard: "all",

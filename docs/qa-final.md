@@ -87,6 +87,8 @@ Esta seção requer credenciais TEST e uma URL HTTPS acessível ao Mercado Pago.
    provider;
 3. abra a compra de acesso como empresa e motoboy e confirme que o Payment Brick
    oficial oferece somente Pix e cartão de crédito;
+   no campo de e-mail, use um endereço comum diferente da conta vendedora e não
+   use um endereço terminado em `@testuser.com`;
 4. conclua pagamentos de teste pelos dois meios e confirme `ACTIVE` somente
    depois de a API do Mercado Pago retornar `approved`;
 5. envie novamente o mesmo evento e confirme resposta de duplicidade sem novo

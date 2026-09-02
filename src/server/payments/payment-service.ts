@@ -119,6 +119,22 @@ function assertCredentialCoherence() {
       providerCode: "LOCAL_CREDENTIAL_ENVIRONMENT_MISMATCH",
     });
   }
+  return env;
+}
+
+function paymentPayerEmail(
+  mode: "test" | "production",
+  authenticatedEmail: string,
+  submittedEmail: string | undefined,
+) {
+  if (mode === "production") return authenticatedEmail;
+  const email = submittedEmail?.trim().toLowerCase();
+  if (!email || email.endsWith("@testuser.com")) {
+    throw new SubscriptionConflictError(
+      "No teste do Mercado Pago, informe no Brick um e-mail comum, diferente da conta vendedora e que não termine em @testuser.com.",
+    );
+  }
+  return email;
 }
 
 function logPayment(
@@ -228,7 +244,12 @@ export async function createAccessPayment(
   }
   const plan = await subscriptions.getPlanForRole(user.role);
   if (!plan?.active) throw new SubscriptionNotFoundError();
-  assertCredentialCoherence();
+  const env = assertCredentialCoherence();
+  const payerEmail = paymentPayerEmail(
+    env.MERCADO_PAGO_MODE,
+    billingUser.email,
+    checkout.formData.payer?.email,
+  );
 
   let subscription = await subscriptions.getCurrent(user.userId);
   if (subscription?.providerSubscriptionId) {
@@ -266,7 +287,7 @@ export async function createAccessPayment(
           amount: plan.monthlyPrice,
           description: `Vapor Entregas - 30 dias - Plano ${plan.name}`,
           externalReference: attempt.externalReference ?? externalReference,
-          payerEmail: billingUser.email,
+          payerEmail,
           paymentMethodId: checkout.formData.payment_method_id,
           token: checkout.formData.token ?? null,
           issuerId: checkout.formData.issuer_id
@@ -274,7 +295,7 @@ export async function createAccessPayment(
             : null,
           installments: checkout.formData.installments ?? null,
           identification: checkout.formData.payer?.identification ?? null,
-          notificationUrl: `${getSubscriptionEnv().NEXT_PUBLIC_APP_URL}/api/webhooks/mercadopago?source_news=webhooks`,
+          notificationUrl: `${env.NEXT_PUBLIC_APP_URL}/api/webhooks/mercadopago?source_news=webhooks`,
         });
 
     // The create response is not trusted as the final source of truth.
