@@ -30,6 +30,8 @@ const deliverySelect = {
   destinationLongitude: true,
   distanceEstimateKm: true,
   distanceMethod: true,
+  routeDurationSeconds: true,
+  routeCalculatedAt: true,
   suggestedPrice: true,
   offeredPrice: true,
   paymentMethod: true,
@@ -104,7 +106,9 @@ function toRecord(
     destinationLatitude: { toNumber(): number };
     destinationLongitude: { toNumber(): number };
     distanceEstimateKm: { toNumber(): number };
-    distanceMethod: "STRAIGHT_LINE";
+    distanceMethod: "STRAIGHT_LINE" | "GOOGLE_ROUTES";
+    routeDurationSeconds: number | null;
+    routeCalculatedAt: Date | null;
     suggestedPrice: { toNumber(): number } | null;
     offeredPrice: { toNumber(): number };
     paymentMethod: "PIX" | "CASH" | "COMPANY_SETTLEMENT" | "OTHER";
@@ -165,6 +169,7 @@ function toRecord(
     destinationLatitude: delivery.destinationLatitude.toNumber(),
     destinationLongitude: delivery.destinationLongitude.toNumber(),
     distanceEstimateKm: delivery.distanceEstimateKm.toNumber(),
+    routeCalculatedAt: delivery.routeCalculatedAt?.toISOString() ?? null,
     suggestedPrice: delivery.suggestedPrice?.toNumber() ?? null,
     ...(companyRating
       ? {
@@ -289,6 +294,8 @@ export const prismaDeliveryRepository: DeliveryRepository = {
           ...deliveryInput,
           distanceEstimateKm: pricing.distanceEstimateKm,
           distanceMethod: pricing.distanceMethod,
+          routeDurationSeconds: pricing.routeDurationSeconds,
+          routeCalculatedAt: pricing.routeCalculatedAt,
           suggestedPrice: pricing.suggestedPrice,
           pricingRuleId: pricing.pricingRuleId,
           expiresAt,

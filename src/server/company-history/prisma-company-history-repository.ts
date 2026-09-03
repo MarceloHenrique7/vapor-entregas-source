@@ -79,7 +79,7 @@ function toHistoryItem(delivery: {
   destinationCity: string;
   destinationState: string;
   distanceEstimateKm: { toNumber(): number };
-  distanceMethod: "STRAIGHT_LINE";
+  distanceMethod: "STRAIGHT_LINE" | "GOOGLE_ROUTES";
   suggestedPrice: { toNumber(): number } | null;
   offeredPrice: { toNumber(): number };
   paymentMethod: string;

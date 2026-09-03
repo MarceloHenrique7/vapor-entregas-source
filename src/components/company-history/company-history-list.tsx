@@ -30,6 +30,7 @@ interface HistoryItem {
   destinationNeighborhood: string;
   destinationCity: string;
   distanceEstimateKm: number;
+  distanceMethod: "STRAIGHT_LINE" | "GOOGLE_ROUTES";
   suggestedPrice: number | null;
   offeredPrice: number;
   paymentMethod: keyof typeof PAYMENT_METHOD_LABELS;
@@ -287,10 +288,14 @@ export function CompanyHistoryList() {
                   {delivery.destinationNumber}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                  <span>{delivery.motoboyName ?? "Sem motoboy vinculado"}</span>
+                  <span className="font-bold text-ink">
+                    {delivery.motoboyName ?? "Sem motoboy vinculado"}
+                  </span>
                   <span>
-                    {delivery.distanceEstimateKm.toLocaleString("pt-BR")} km em
-                    linha reta
+                    {delivery.distanceEstimateKm.toLocaleString("pt-BR")} km
+                    {delivery.distanceMethod === "GOOGLE_ROUTES"
+                      ? " por rota"
+                      : " em linha reta"}
                   </span>
                   <span>
                     R${" "}

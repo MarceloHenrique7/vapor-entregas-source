@@ -1,44 +1,71 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import { Icon } from "@/components/icons/icon";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { cn } from "@/lib/cn";
 
-interface InstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+import { usePwaInstall } from "./use-pwa-install";
 
-export function InstallAppButton() {
-  const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
-  useEffect(() => {
-    const capture = (event: Event) => {
-      event.preventDefault();
-      setPrompt(event as InstallPromptEvent);
-    };
-    const complete = () => {
-      setInstalled(true);
-      setPrompt(null);
-    };
-    window.addEventListener("beforeinstallprompt", capture);
-    window.addEventListener("appinstalled", complete);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", capture);
-      window.removeEventListener("appinstalled", complete);
-    };
-  }, []);
-  if (!prompt || installed) return null;
+export function InstallAppButton({ className }: { className?: string }) {
+  const { ready, installed, isIos, canPrompt, install } = usePwaInstall();
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+
+  if (!ready || installed) return null;
+
+  const handleInstall = async () => {
+    if (canPrompt) {
+      await install();
+      return;
+    }
+    setInstructionsOpen(true);
+  };
+
   return (
-    <Button
-      variant="outline"
-      onClick={async () => {
-        await prompt.prompt();
-        const choice = await prompt.userChoice;
-        if (choice.outcome === "accepted") setPrompt(null);
-      }}
-    >
-      Instalar Vapor
-    </Button>
+    <>
+      <Button
+        variant="outline"
+        className={cn("primary-action-attention", className)}
+        onClick={handleInstall}
+      >
+        <Icon name="smartphone" className="size-5" />
+        Instalar Vapor
+      </Button>
+      <Dialog
+        open={instructionsOpen}
+        onClose={() => setInstructionsOpen(false)}
+        title="Instalar Vapor no celular"
+        description="A Vapor é um aplicativo web e não precisa ser baixada em uma loja."
+      >
+        {isIos ? (
+          <ol className="space-y-4 text-sm leading-6 text-ink-soft">
+            <li>
+              <strong className="text-ink">1.</strong> Abra esta página no
+              Safari e toque no botão Compartilhar.
+            </li>
+            <li>
+              <strong className="text-ink">2.</strong> Escolha “Adicionar à Tela
+              de Início”.
+            </li>
+            <li>
+              <strong className="text-ink">3.</strong> Confirme em “Adicionar”.
+            </li>
+          </ol>
+        ) : (
+          <div className="space-y-3 text-sm leading-6 text-ink-soft">
+            <p>
+              Abra o menu do navegador e escolha “Instalar aplicativo” ou
+              “Adicionar à tela inicial”.
+            </p>
+            <p>
+              No Android, prefira o Chrome atualizado. A opção aparece quando o
+              navegador confirma os requisitos de instalação.
+            </p>
+          </div>
+        )}
+      </Dialog>
+    </>
   );
 }

@@ -136,10 +136,16 @@ export function CompanyMotoboysList() {
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-display text-xl font-extrabold">
+                  <Link
+                    href={`/app/empresa/motoboys/${motoboy.id}`}
+                    className="motoboy-name-highlight rounded-lg font-display text-xl font-extrabold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-2"
+                  >
                     {motoboy.name}
-                  </h2>
-                  <Badge variant={motoboy.isOnline ? "success" : "neutral"}>
+                  </Link>
+                  <Badge
+                    variant={motoboy.isOnline ? "success" : "neutral"}
+                    className={motoboy.isOnline ? "online-status-badge" : ""}
+                  >
                     {motoboy.isOnline ? "Online" : "Offline"}
                   </Badge>
                   {motoboy.favoriteId && (

@@ -96,6 +96,25 @@ export function logMercadoPagoPaymentDiagnostic(
   );
 }
 
+export type RouteDiagnostic = {
+  provider: "straight_line" | "google_routes";
+  cacheHit: boolean;
+  routeType: "courier_to_pickup" | "pickup_to_dropoff";
+  success: boolean;
+  durationMs: number;
+};
+
+export function logRouteDiagnostic(diagnostic: RouteDiagnostic) {
+  console.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "info",
+      scope: "api.routes.estimate",
+      ...diagnostic,
+    }),
+  );
+}
+
 export type MercadoPagoPlanDiagnostic = {
   providerPlanIdPresent: boolean;
   providerPlanIdMasked: string;

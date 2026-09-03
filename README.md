@@ -627,6 +627,13 @@ adapter em `src/server/routing` permite substituir a implementação futuramente
 acoplar o fluxo de entregas. Google Maps e Waze continuam sendo apenas links de
 navegação externa nas corridas.
 
+O adapter também suporta `DISTANCE_PROVIDER=google_routes`, com chamada
+server-side à Google Routes API, duração estimada, cache, deduplicação, timeout e
+fallback automático para Haversine. A rota coleta-destino fica persistida na
+entrega; a rota do motoboy até a coleta é carregada apenas para cards visíveis e
+usa cache curto. Configuração, migration e operação do PWA estão detalhadas em
+[`docs/routes-pwa-ux.md`](docs/routes-pwa-ux.md).
+
 As regras provisórias ficam em `PricingRule`, separadas por cidade, com preço-base,
 preço por quilômetro, mínimo e período de vigência. Um ADMIN ativo pode criar uma
 nova versão em `/admin/precificacao`; a versão anterior é encerrada e a ação entra

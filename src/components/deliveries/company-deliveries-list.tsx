@@ -142,8 +142,10 @@ export function CompanyDeliveriesList() {
             </div>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4 text-xs font-semibold text-muted">
               <span>
-                {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km em
-                linha reta
+                {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km
+                {delivery.routeDurationSeconds
+                  ? ` · ~${Math.max(1, Math.ceil(delivery.routeDurationSeconds / 60))} min por rota`
+                  : " em linha reta"}
               </span>
               <span>
                 Expira às{" "}
@@ -153,7 +155,7 @@ export function CompanyDeliveriesList() {
                 })}
               </span>
               {delivery.status === "ACCEPTED" && (
-                <span className="text-brand">Motoboy confirmado</span>
+                <span className="font-bold text-brand">Motoboy confirmado</span>
               )}
               <Link
                 href={`/app/empresa/entregas/${delivery.id}`}

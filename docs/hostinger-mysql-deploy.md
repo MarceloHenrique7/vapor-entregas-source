@@ -56,6 +56,9 @@ Cadastre no painel Node.js todas as chaves de `.env.example`. No mínimo, revise
 - `PRELAUNCH_MODE=true`;
 - `PRELAUNCH_TEST_USER_IDS` somente com UUIDs autorizados;
 - mapa/geocoding, contato jurídico e assinatura já documentados no exemplo.
+- rotas viárias opcionais: `DISTANCE_PROVIDER`, `GOOGLE_MAPS_API_KEY`,
+  `GOOGLE_ROUTES_API_BASE_URL`, `GOOGLE_ROUTES_TIMEOUT_MS` e
+  `ROUTE_CACHE_TTL_SECONDS`; a chave da Google é somente server-side.
 
 Para Mercado Pago, revise explicitamente `MERCADO_PAGO_MODE`, Public Key, Access
 Token, segredo de webhook, API base e `NEXT_PUBLIC_APP_URL` HTTPS. Public Key e

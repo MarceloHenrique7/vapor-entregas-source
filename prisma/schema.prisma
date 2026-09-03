@@ -100,6 +100,7 @@ enum PreRegistrationType {
 
 enum DistanceCalculationMethod {
   STRAIGHT_LINE
+  GOOGLE_ROUTES
 }
 
 enum LegalDocumentType {
@@ -398,6 +399,8 @@ model Delivery {
   destinationLongitude    Decimal                   @db.Decimal(9, 6)
   distanceEstimateKm      Decimal                   @db.Decimal(8, 2)
   distanceMethod          DistanceCalculationMethod @default(STRAIGHT_LINE)
+  routeDurationSeconds    Int?
+  routeCalculatedAt       DateTime?                 @db.DateTime(3)
   suggestedPrice          Decimal?                  @db.Decimal(10, 2)
   pricingRuleId           String?                   @db.Char(36)
   offeredPrice            Decimal                   @db.Decimal(10, 2)

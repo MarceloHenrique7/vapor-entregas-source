@@ -22,6 +22,14 @@ Use valores reais e protegidos para `DATABASE_URL`, `AUTH_RATE_LIMIT_SECRET`,
 `LEGAL_CONTACT_EMAIL` e um contato real em `GEOCODING_USER_AGENT` antes da produção.
 Defina `NODE_ENV=production` e ajuste `NEXT_PUBLIC_APP_URL` para o domínio HTTPS.
 
+Rotas viárias são opcionais e permanecem desligadas com
+`DISTANCE_PROVIDER=straight_line`. Para habilitá-las, cadastre
+`GOOGLE_MAPS_API_KEY` somente no servidor, mantenha
+`GOOGLE_ROUTES_API_BASE_URL=https://routes.googleapis.com` e então use
+`DISTANCE_PROVIDER=google_routes`. Restrinja a chave à Routes API e nunca crie
+uma variável `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`. Consulte
+`docs/routes-pwa-ux.md` para cache, timeout e fallback.
+
 Durante o pré-lançamento, configure `PRELAUNCH_MODE=true`. Preencha
 `PRELAUNCH_TEST_USER_IDS` somente com UUIDs de contas de homologação, separados por
 vírgula; deixe vazio se apenas administradores puderem entrar. Reinicie o processo

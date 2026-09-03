@@ -88,7 +88,9 @@ export interface DeliveryRepository {
     input: CreateDeliveryInput,
     pricing: {
       distanceEstimateKm: number;
-      distanceMethod: "STRAIGHT_LINE";
+      distanceMethod: "STRAIGHT_LINE" | "GOOGLE_ROUTES";
+      routeDurationSeconds: number | null;
+      routeCalculatedAt: Date;
       suggestedPrice: number | null;
       pricingRuleId: string | null;
     },

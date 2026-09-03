@@ -1,4 +1,5 @@
 import type { Role } from "@/server/auth/types";
+import type { DistanceMethod } from "@/server/routing/types";
 
 export const DELIVERY_STATUSES = [
   "SEARCHING_MOTOBOY",
@@ -88,7 +89,9 @@ export interface DeliveryView {
   destinationCity: "PETROLINA_PE" | "JUAZEIRO_BA";
   destinationState: string;
   distanceEstimateKm: number;
-  distanceMethod: "STRAIGHT_LINE";
+  distanceMethod: DistanceMethod;
+  routeDurationSeconds: number | null;
+  routeCalculatedAt: string | null;
   suggestedPrice: number | null;
   companyRatingAverage?: number | null;
   companyRatingCount?: number;

@@ -8,6 +8,7 @@ const limits = {
   cancel: 10,
   extra: 20,
   quote: 30,
+  route: 30,
 } as const;
 const attempts = new Map<string, number[]>();
 

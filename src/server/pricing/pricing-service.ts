@@ -44,13 +44,19 @@ export async function buildDeliveryQuote(
   distanceProvider: DistanceProvider,
   now: Date,
 ): Promise<DeliveryQuote> {
-  const estimate = await distanceProvider.estimate(pickup, destination);
+  const estimate = await distanceProvider.estimate(pickup, destination, {
+    routeType: "pickup_to_dropoff",
+  });
   const distanceEstimateKm = roundDistance(estimate.distanceKm);
   const rule = await repository.getActiveRule(pickup.city, now);
   return {
     distanceEstimateKm,
     distanceMethod: estimate.method,
-    distanceLabel: "Estimativa em linha reta; não representa distância viária.",
+    routeDurationSeconds: estimate.durationSeconds ?? null,
+    routeCalculatedAt: now,
+    distanceLabel: estimate.isRoadDistance
+      ? "Estimativa pela rota viária mais adequada no momento."
+      : "Estimativa em linha reta; não representa distância viária.",
     suggestedPrice: rule
       ? calculateSuggestedPrice(rule, distanceEstimateKm)
       : null,

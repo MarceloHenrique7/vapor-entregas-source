@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-elements";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -372,6 +373,16 @@ export function AccountSettings() {
                   {new Date(acceptance.acceptedAt).toLocaleDateString("pt-BR")}
                 </p>
               ))}
+            </div>
+            <div className="mt-6 border-t border-line pt-5">
+              <p className="font-display text-lg font-extrabold text-ink">
+                Vapor no seu celular
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Instale para abrir mais rápido e usar com aparência de
+                aplicativo.
+              </p>
+              <InstallAppButton className="mt-4 w-full sm:w-auto" />
             </div>
           </Card>
           <Card className="border-red-200 p-6">

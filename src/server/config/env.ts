@@ -53,7 +53,30 @@ const presenceEnvSchema = z.object({
 });
 
 const distanceEnvSchema = z.object({
-  DISTANCE_PROVIDER: z.enum(["straight_line"]).default("straight_line"),
+  DISTANCE_PROVIDER: z
+    .enum(["straight_line", "google_routes"])
+    .default("straight_line"),
+  GOOGLE_MAPS_API_KEY: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().trim().min(10).optional(),
+  ),
+  GOOGLE_ROUTES_API_BASE_URL: z
+    .string()
+    .url()
+    .default("https://routes.googleapis.com"),
+  GOOGLE_ROUTES_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(500)
+    .max(10_000)
+    .default(2_500),
+  ROUTE_CACHE_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(60)
+    .max(900)
+    .default(180),
 });
 
 const subscriptionEnvSchema = z.object({

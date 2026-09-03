@@ -147,6 +147,54 @@ a {
   animation: pulse-soft 1.8s ease-in-out infinite;
 }
 
+@keyframes opportunity-highlight {
+  0%,
+  100% {
+    box-shadow: var(--shadow-card);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(234, 29, 44, 0.12),
+      var(--shadow-card);
+  }
+}
+
+@keyframes attention-badge {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+.opportunity-card-attention {
+  animation: opportunity-highlight 1.25s ease-out 2;
+}
+
+.new-opportunity-badge {
+  animation: attention-badge 1.25s ease-out 2;
+}
+
+.primary-action-attention {
+  box-shadow: 0 10px 24px rgba(234, 29, 44, 0.22);
+}
+
+.motoboy-name-highlight {
+  transition:
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.motoboy-name-highlight:hover {
+  color: var(--color-brand);
+}
+
+.online-status-badge {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

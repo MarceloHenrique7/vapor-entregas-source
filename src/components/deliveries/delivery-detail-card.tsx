@@ -275,7 +275,8 @@ export function DeliveryDetailCard({
             </h2>
             {delivery.motoboyName && (
               <p className="mt-2 text-sm text-white/80">
-                Motoboy responsável: {delivery.motoboyName}
+                Motoboy responsável:{" "}
+                <strong className="text-white">{delivery.motoboyName}</strong>
               </p>
             )}
           </div>
@@ -309,11 +310,15 @@ export function DeliveryDetailCard({
                 Distância estimada
               </p>
               <p className="mt-2 font-bold">
-                {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km em
-                linha reta
+                {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km
+                {delivery.routeDurationSeconds
+                  ? ` · ~${Math.max(1, Math.ceil(delivery.routeDurationSeconds / 60))} min`
+                  : " em linha reta"}
               </p>
               <p className="mt-1 text-xs text-muted">
-                Estimativa geográfica, não distância viária.
+                {delivery.distanceMethod === "GOOGLE_ROUTES"
+                  ? "Estimativa pela rota viária calculada."
+                  : "Estimativa geográfica, não distância viária."}
               </p>
             </div>
             <div>

@@ -282,7 +282,10 @@ export function SubscriptionDashboard() {
         </dl>
         <div className="mt-6 flex flex-wrap gap-3">
           {!hasLegacyRecurring && (
-            <Button onClick={() => setPaymentOpen(true)}>
+            <Button
+              className="primary-action-attention"
+              onClick={() => setPaymentOpen(true)}
+            >
               {paymentActionLabel}
             </Button>
           )}

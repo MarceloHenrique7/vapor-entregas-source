@@ -35,7 +35,8 @@ interface PlannedExtra {
 
 interface DeliveryQuote {
   distanceEstimateKm: number;
-  distanceMethod: "STRAIGHT_LINE";
+  distanceMethod: "STRAIGHT_LINE" | "GOOGLE_ROUTES";
+  routeDurationSeconds: number | null;
   distanceLabel: string;
   suggestedPrice: number | null;
   pricingRuleId: string | null;
@@ -756,7 +757,7 @@ export function NewDeliveryForm({
               <dt className="font-bold text-muted">Distância estimada</dt>
               <dd className="mt-1 text-ink">
                 {pinConfirmed
-                  ? `${(quote?.distanceEstimateKm ?? distance).toFixed(1).replace(".", ",")} km em linha reta`
+                  ? `${(quote?.distanceEstimateKm ?? distance).toFixed(1).replace(".", ",")} km${quote?.routeDurationSeconds ? ` · ~${Math.max(1, Math.ceil(quote.routeDurationSeconds / 60))} min` : ""}`
                   : "Confirme o PIN"}
               </dd>
               {pinConfirmed && (

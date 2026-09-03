@@ -1,5 +1,6 @@
 import type { Role, UserStatus } from "@/server/auth/types";
 import type { CompanyPickupContext } from "@/server/deliveries/types";
+import type { DistanceMethod } from "@/server/routing/types";
 
 export type PricingCity = "PETROLINA_PE" | "JUAZEIRO_BA";
 
@@ -32,7 +33,9 @@ export interface PricingActor {
 
 export interface DeliveryQuote {
   distanceEstimateKm: number;
-  distanceMethod: "STRAIGHT_LINE";
+  distanceMethod: DistanceMethod;
+  routeDurationSeconds: number | null;
+  routeCalculatedAt: Date;
   distanceLabel: string;
   suggestedPrice: number | null;
   pricingRuleId: string | null;

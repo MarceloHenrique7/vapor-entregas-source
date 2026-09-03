@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons/icon";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,113 @@ const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
+
+type RouteEstimate = {
+  distanceKm: number;
+  durationSeconds: number | null;
+  method: "STRAIGHT_LINE" | "GOOGLE_ROUTES";
+  isRoadDistance: boolean;
+};
+
+function compactRouteLabel(distanceKm: number, durationSeconds: number | null) {
+  const distance = distanceKm.toFixed(1).replace(".", ",");
+  return durationSeconds
+    ? `${distance} km · ~${Math.max(1, Math.ceil(durationSeconds / 60))} min`
+    : `${distance} km`;
+}
+
+function OpportunityRouteDetails({ delivery }: { delivery: DeliveryView }) {
+  const container = useRef<HTMLDivElement>(null);
+  const requested = useRef(false);
+  const [route, setRoute] = useState<RouteEstimate | null>(null);
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    const target = container.current;
+    if (!target) return;
+
+    const load = async () => {
+      if (requested.current) return;
+      requested.current = true;
+      try {
+        const response = await fetch(
+          `/api/routes/opportunities/${delivery.id}`,
+          { cache: "no-store" },
+        );
+        const payload = (await response.json()) as { route?: RouteEstimate };
+        if (response.ok && payload.route) setRoute(payload.route);
+      } catch {
+        // The straight-line estimate already present in the opportunity is safe fallback UI.
+      } finally {
+        setSettled(true);
+      }
+    };
+
+    if (!("IntersectionObserver" in window)) {
+      void load();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          void load();
+        }
+      },
+      { rootMargin: "180px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [delivery.id]);
+
+  const persistedRoadRoute = delivery.distanceMethod === "GOOGLE_ROUTES";
+  const toPickupDistance =
+    route?.distanceKm ?? delivery.distanceToPickupKm ?? null;
+  const totalDistance =
+    toPickupDistance === null
+      ? null
+      : toPickupDistance + delivery.distanceEstimateKm;
+
+  return (
+    <div
+      ref={container}
+      className="grid gap-3 sm:col-span-2 sm:grid-cols-3"
+      aria-live="polite"
+    >
+      <div className="rounded-xl bg-white/75 p-3">
+        <p className="text-xs font-bold text-muted">Até a coleta</p>
+        <p className="mt-1 font-extrabold text-ink">
+          {!settled
+            ? "Calculando rota..."
+            : route?.isRoadDistance
+              ? compactRouteLabel(route.distanceKm, route.durationSeconds)
+              : delivery.distanceToPickupKm == null
+                ? "Distância aproximada indisponível"
+                : `~${delivery.distanceToPickupKm.toFixed(1).replace(".", ",")} km em linha reta`}
+        </p>
+      </div>
+      <div className="rounded-xl bg-white/75 p-3">
+        <p className="text-xs font-bold text-muted">Coleta → destino</p>
+        <p className="mt-1 font-extrabold text-ink">
+          {persistedRoadRoute
+            ? compactRouteLabel(
+                delivery.distanceEstimateKm,
+                delivery.routeDurationSeconds,
+              )
+            : `~${delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km em linha reta`}
+        </p>
+      </div>
+      <div className="rounded-xl border border-brand/15 bg-brand-light/35 p-3">
+        <p className="text-xs font-bold text-brand-dark">Total aproximado</p>
+        <p className="mt-1 font-display text-lg font-extrabold text-brand-dark">
+          {totalDistance === null
+            ? "Calculando..."
+            : `${totalDistance.toFixed(1).replace(".", ",")} km`}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export function MotoboyOpportunitiesList() {
   const [opportunities, setOpportunities] = useState<DeliveryView[] | null>(
@@ -165,11 +272,16 @@ export function MotoboyOpportunitiesList() {
         </Card>
       ) : (
         opportunities.map((delivery) => (
-          <Card key={delivery.id} className="overflow-hidden">
+          <Card
+            key={delivery.id}
+            className="opportunity-card-attention overflow-hidden"
+          >
             <div className="p-5 sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <Badge variant="info">Nova oportunidade</Badge>
+                  <Badge variant="info" className="new-opportunity-badge">
+                    Nova entrega
+                  </Badge>
                   <h2 className="mt-3 font-display text-xl font-extrabold">
                     {delivery.companyName}
                   </h2>
@@ -212,26 +324,7 @@ export function MotoboyOpportunitiesList() {
                     {delivery.destinationAddress}, {delivery.destinationNumber}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-muted">Até a coleta</p>
-                  <p className="mt-1 font-semibold">
-                    ≈{" "}
-                    {delivery.distanceToPickupKm?.toFixed(1).replace(".", ",")}{" "}
-                    km em linha reta
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-muted">
-                    Coleta → destino
-                  </p>
-                  <p className="mt-1 font-semibold">
-                    ≈ {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")}{" "}
-                    km em linha reta
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    Não representa distância viária.
-                  </p>
-                </div>
+                <OpportunityRouteDetails delivery={delivery} />
               </div>
               {delivery.notes && (
                 <p className="mt-4 text-sm leading-6 text-muted">
@@ -274,7 +367,7 @@ export function MotoboyOpportunitiesList() {
                 Aceite confirmado somente após resposta do servidor.
               </p>
               <Button
-                className="w-full sm:w-auto"
+                className="primary-action-attention w-full sm:w-auto"
                 onClick={() => accept(delivery.id)}
                 disabled={
                   accepting !== null ||

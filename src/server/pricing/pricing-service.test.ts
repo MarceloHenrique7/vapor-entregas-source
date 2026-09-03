@@ -79,6 +79,8 @@ describe("precificação sugerida", () => {
     ).resolves.toEqual({
       distanceEstimateKm: 3.46,
       distanceMethod: "STRAIGHT_LINE",
+      routeDurationSeconds: null,
+      routeCalculatedAt: now,
       distanceLabel:
         "Estimativa em linha reta; não representa distância viária.",
       suggestedPrice: 14.92,
