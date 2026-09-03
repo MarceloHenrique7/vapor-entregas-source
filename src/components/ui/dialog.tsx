@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { Icon } from "@/components/icons/icon";
 import { Button } from "./button";
 export function Dialog({
@@ -15,6 +15,7 @@ export function Dialog({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const titleId = useId();
   useEffect(() => {
     if (!open) return;
 
@@ -39,16 +40,13 @@ export function Dialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="dialog-title"
+        aria-labelledby={titleId}
         className="flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] bg-white shadow-soft sm:max-h-[calc(100dvh-3rem)] sm:rounded-[2rem]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-start justify-between gap-4 px-6 pt-6">
           <div>
-            <h2
-              id="dialog-title"
-              className="font-display text-xl font-extrabold"
-            >
+            <h2 id={titleId} className="font-display text-xl font-extrabold">
               {title}
             </h2>
             {description && (

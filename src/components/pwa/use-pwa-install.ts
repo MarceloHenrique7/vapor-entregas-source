@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  getAppInstalled,
   getInstallPrompt,
+  setAppInstalled,
   setInstallPrompt,
   subscribeToInstallPrompt,
   type InstallPromptEvent,
@@ -39,7 +41,7 @@ export function usePwaInstall() {
     const media = window.matchMedia("(display-mode: standalone)");
     const sync = () => {
       setPrompt(getInstallPrompt());
-      setInstalled(isStandalone());
+      setInstalled(isStandalone() || getAppInstalled());
       setIos(
         isIosDevice(
           navigator.userAgent,
@@ -49,24 +51,11 @@ export function usePwaInstall() {
       );
       setReady(true);
     };
-    const capture = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as InstallPromptEvent);
-    };
-    const complete = () => {
-      setInstallPrompt(null);
-      setInstalled(true);
-    };
-
     sync();
     const unsubscribe = subscribeToInstallPrompt(sync);
-    window.addEventListener("beforeinstallprompt", capture);
-    window.addEventListener("appinstalled", complete);
     media.addEventListener?.("change", sync);
     return () => {
       unsubscribe();
-      window.removeEventListener("beforeinstallprompt", capture);
-      window.removeEventListener("appinstalled", complete);
       media.removeEventListener?.("change", sync);
     };
   }, []);
@@ -78,7 +67,7 @@ export function usePwaInstall() {
       await current.prompt();
       const choice = await current.userChoice;
       setInstallPrompt(null);
-      if (choice.outcome === "accepted") setInstalled(true);
+      if (choice.outcome === "accepted") setAppInstalled(true);
       return choice.outcome;
     } catch {
       setInstallPrompt(null);

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireRole } from "@/server/auth/guards";
-import { listNotifications } from "@/server/notifications/notification-service";
+import {
+  listNotifications,
+  runNotificationTask,
+  syncPlanLifecycleNotifications,
+} from "@/server/notifications/notification-service";
 import { notificationErrorResponse } from "@/server/notifications/route-response";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +13,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const user = await requireRole(["MOTOBOY", "COMPANY", "ADMIN"]);
+    if (user.role !== "ADMIN") {
+      await runNotificationTask("plan-lifecycle", () =>
+        syncPlanLifecycleNotifications(user.id),
+      );
+    }
     const data = await listNotifications(user.id, {
       page: request.nextUrl.searchParams.get("page") ?? undefined,
       pageSize: request.nextUrl.searchParams.get("pageSize") ?? undefined,

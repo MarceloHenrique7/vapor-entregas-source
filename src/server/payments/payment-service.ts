@@ -24,6 +24,13 @@ import type {
   ProviderOneOffPayment,
 } from "./types";
 
+export type AccessGrantedNotifier = (input: {
+  userId: string;
+  providerPaymentId: string;
+}) => Promise<void>;
+
+const noopAccessGrantedNotifier: AccessGrantedNotifier = async () => {};
+
 function requireActor(actor: PaymentActor | null) {
   if (!actor) throw new UnauthenticatedError();
   if (
@@ -203,6 +210,7 @@ async function confirmAndApply(
   eventType: string,
   repository: PaymentRepository,
   now: Date,
+  onAccessGranted: AccessGrantedNotifier,
 ) {
   validatePayment(providerPayment, attempt, expected);
   const status = mapPaymentStatus(providerPayment.status);
@@ -220,6 +228,12 @@ async function confirmAndApply(
     providerPayment,
     result === "access_granted",
   );
+  if (status === "APPROVED") {
+    await onAccessGranted({
+      userId: expected.userId,
+      providerPaymentId: providerPayment.id,
+    });
+  }
   return result;
 }
 
@@ -230,6 +244,7 @@ export async function createAccessPayment(
   payments: PaymentRepository,
   provider: PaymentProviderClient,
   now = new Date(),
+  onAccessGranted = noopAccessGrantedNotifier,
 ) {
   const user = requireActor(actor);
   const checkout = paymentCheckoutSchema.parse(input);
@@ -313,6 +328,7 @@ export async function createAccessPayment(
       "payment.created.confirmed",
       payments,
       now,
+      onAccessGranted,
     );
     return {
       payment: paymentView(attempt, providerPayment),
@@ -333,6 +349,7 @@ export async function refreshAccessPayment(
   payments: PaymentRepository,
   provider: PaymentProviderClient,
   now = new Date(),
+  onAccessGranted = noopAccessGrantedNotifier,
 ) {
   const user = requireActor(actor);
   const attempt = await payments.findAttemptById(paymentId);
@@ -364,6 +381,7 @@ export async function refreshAccessPayment(
     "payment.refreshed",
     payments,
     now,
+    onAccessGranted,
   );
   return {
     payment: paymentView(attempt, providerPayment),
@@ -379,6 +397,7 @@ export async function processAccessPaymentWebhook(
   payments: PaymentRepository,
   provider: PaymentProviderClient,
   now = new Date(),
+  onAccessGranted = noopAccessGrantedNotifier,
 ) {
   const providerPayment = await provider.getPayment(webhook.resourceId);
   if (providerPayment.id !== webhook.resourceId) {
@@ -414,5 +433,6 @@ export async function processAccessPaymentWebhook(
     webhook.action ? `payment:${webhook.action}` : "payment",
     payments,
     now,
+    onAccessGranted,
   );
 }

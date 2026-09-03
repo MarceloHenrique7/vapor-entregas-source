@@ -4,17 +4,26 @@ const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   count: vi.fn(),
   updateMany: vi.fn(),
+  createMany: vi.fn(),
+  deliveryFindUnique: vi.fn(),
+  userFindMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/server/config/env", () => ({
+  getPresenceEnv: () => ({ ONLINE_PRESENCE_TTL_MINUTES: 5 }),
+}));
 vi.mock("@/server/db/prisma", () => ({
   getPrisma: () => ({
     notification: {
       findMany: mocks.findMany,
       count: mocks.count,
       updateMany: mocks.updateMany,
+      createMany: mocks.createMany,
     },
+    delivery: { findUnique: mocks.deliveryFindUnique },
+    user: { findMany: mocks.userFindMany },
     $transaction: mocks.transaction,
   }),
 }));
@@ -23,6 +32,8 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  notifyDeliveryEvent,
+  notifyNewOpportunity,
 } from "./notification-service";
 
 const userId = "b87bc42d-771c-4e5e-ac49-ab40a4d9a651";
@@ -85,5 +96,55 @@ describe("central de notificações", () => {
     await expect(
       listNotifications(userId, { page: 1, pageSize: 500 }),
     ).rejects.toThrow();
+  });
+
+  it("usa uma chave persistente e skipDuplicates em reenvios do mesmo evento", async () => {
+    mocks.deliveryFindUnique.mockResolvedValue({ pickupCity: "PETROLINA_PE" });
+    mocks.userFindMany.mockResolvedValue([{ id: userId }]);
+    mocks.createMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    await notifyNewOpportunity("delivery-1");
+    await notifyNewOpportunity("delivery-1");
+
+    expect(mocks.createMany).toHaveBeenCalledTimes(2);
+    expect(mocks.createMany).toHaveBeenLastCalledWith({
+      data: [
+        expect.objectContaining({
+          userId,
+          eventKey: "opportunity-created:delivery-1",
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("notifica a empresa quando uma entrega é aceita e aponta para os detalhes", async () => {
+    mocks.deliveryFindUnique.mockResolvedValue({
+      company: { userId },
+      motoboy: {
+        userId: "a87bc42d-771c-4e5e-ac49-ab40a4d9a652",
+      },
+      status: "ACCEPTED",
+    });
+    mocks.createMany.mockResolvedValue({ count: 1 });
+
+    await notifyDeliveryEvent("delivery-accepted", "accepted");
+
+    expect(mocks.createMany).toHaveBeenNthCalledWith(1, {
+      data: [
+        expect.objectContaining({
+          userId,
+          type: "DELIVERY_ACCEPTED",
+          eventKey: "delivery:delivery-accepted:accepted:ACCEPTED",
+          metadata: {
+            deliveryId: "delivery-accepted",
+            targetUrl: "/app/empresa/entregas/delivery-accepted",
+          },
+        }),
+      ],
+      skipDuplicates: true,
+    });
   });
 });

@@ -2,7 +2,11 @@
 
 import { useEffect } from "react";
 
-import { setInstallPrompt, type InstallPromptEvent } from "./pwa-install-store";
+import {
+  setAppInstalled,
+  setInstallPrompt,
+  type InstallPromptEvent,
+} from "./pwa-install-store";
 
 export function PwaRegistration() {
   useEffect(() => {
@@ -10,7 +14,10 @@ export function PwaRegistration() {
       event.preventDefault();
       setInstallPrompt(event as InstallPromptEvent);
     };
-    const complete = () => setInstallPrompt(null);
+    const complete = () => {
+      setInstallPrompt(null);
+      setAppInstalled(true);
+    };
     const register = () => {
       if (!("serviceWorker" in navigator)) return;
       void navigator.serviceWorker

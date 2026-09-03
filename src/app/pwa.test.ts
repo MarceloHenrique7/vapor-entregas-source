@@ -73,6 +73,10 @@ describe("PWA segura", () => {
   });
 
   it("trata standalone, instalação concluída e instruções do iOS", async () => {
+    const registration = await readFile(
+      join(process.cwd(), "src/components/pwa/pwa-registration.tsx"),
+      "utf8",
+    );
     const hook = await readFile(
       join(process.cwd(), "src/components/pwa/use-pwa-install.ts"),
       "utf8",
@@ -82,7 +86,7 @@ describe("PWA segura", () => {
       "utf8",
     );
     expect(hook).toContain('matchMedia("(display-mode: standalone)")');
-    expect(hook).toContain('window.addEventListener("appinstalled"');
+    expect(registration).toContain('window.addEventListener("appinstalled"');
     expect(button).toMatch(/Adicionar à\s+Tela\s+de\s+Início/);
     expect(button).toContain("Instalar Vapor");
   });
@@ -107,7 +111,8 @@ describe("PWA segura", () => {
       ),
       "utf8",
     );
-    expect(opportunities).toContain("Nova entrega");
+    expect(opportunities).toContain("NOVA");
+    expect(opportunities).toContain("Aceitar entrega");
     expect(opportunities).toContain("new-opportunity-badge");
     expect(opportunities).toContain('aria-live="polite"');
   });

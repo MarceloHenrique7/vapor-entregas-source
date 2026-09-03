@@ -1,34 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Icon } from "@/components/icons/icon";
+import { useNotificationEvents } from "@/components/notifications/use-notification-events";
 
 export function NotificationShortcut({ href }: { href: string }) {
   const [unread, setUnread] = useState(0);
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const response = await fetch("/api/notifications?pageSize=1", {
-          cache: "no-store",
-        });
-        if (response.ok && active) {
-          const data = (await response.json()) as { unread?: number };
-          setUnread(data.unread ?? 0);
-        }
-      } catch {
-        // A navegação permanece disponível mesmo sem conexão.
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch("/api/notifications?pageSize=1", {
+        cache: "no-store",
+      });
+      if (response.ok) {
+        const data = (await response.json()) as { unread?: number };
+        setUnread(data.unread ?? 0);
       }
-    };
-    void load();
-    const interval = window.setInterval(load, 60_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
+    } catch {
+      // Navigation remains available while the polling fallback retries.
+    }
   }, []);
+  useEffect(() => {
+    async function loadInitialUnreadCount() {
+      await load();
+    }
+    void loadInitialUnreadCount();
+  }, [load]);
+  useNotificationEvents(load);
   return (
     <Link
       href={href}

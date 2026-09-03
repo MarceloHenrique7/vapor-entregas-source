@@ -62,7 +62,15 @@ export const geocodingQuerySchema = locationAddressObjectSchema
     path: ["state"],
   });
 
+export const geocodingSuggestionSchema = z.object({
+  query: z.string().trim().min(3).max(200),
+  city: z.enum(["PETROLINA_PE", "JUAZEIRO_BA"]),
+});
+
 export type SaveCompanyLocationInput = z.infer<
   typeof saveCompanyLocationSchema
 >;
 export type GeocodingQuery = z.infer<typeof geocodingQuerySchema>;
+export type GeocodingSuggestionQuery = z.infer<
+  typeof geocodingSuggestionSchema
+>;

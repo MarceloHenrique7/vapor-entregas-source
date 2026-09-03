@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireRole } from "@/server/auth/guards";
 import { hasValidRequestOrigin } from "@/server/http/origin";
+import {
+  notifyPlanPaymentApproved,
+  runNotificationTask,
+} from "@/server/notifications/notification-service";
 import { mercadoPagoPaymentProvider } from "@/server/payments/mercado-pago-payment-provider";
 import { createAccessPayment } from "@/server/payments/payment-service";
 import { prismaPaymentRepository } from "@/server/payments/prisma-payment-repository";
@@ -23,6 +27,10 @@ export async function POST(request: NextRequest) {
       prismaPaymentRepository,
       mercadoPagoPaymentProvider,
       new Date(),
+      ({ userId, providerPaymentId }) =>
+        runNotificationTask("plan-payment-approved", () =>
+          notifyPlanPaymentApproved({ userId, paymentId: providerPaymentId }),
+        ),
     );
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

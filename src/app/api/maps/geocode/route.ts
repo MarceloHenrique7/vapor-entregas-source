@@ -4,6 +4,7 @@ import { requireRole } from "@/server/auth/guards";
 import { hasValidRequestOrigin } from "@/server/http/origin";
 import { locationErrorResponse } from "@/server/locations/route-response";
 import { geocodingQuerySchema } from "@/server/locations/schemas";
+import { enforceLocationRateLimit } from "@/server/locations/rate-limit";
 import { getGeocodingProvider } from "@/server/maps/geocoding-service";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,8 @@ export async function POST(request: NextRequest) {
     );
   }
   try {
-    await requireRole(["COMPANY", "ADMIN"]);
+    const user = await requireRole(["COMPANY", "ADMIN"]);
+    enforceLocationRateLimit(user.id);
     const query = geocodingQuerySchema.parse(await request.json());
     const result = await getGeocodingProvider().geocode(query);
     if (!result) {

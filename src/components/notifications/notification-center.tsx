@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-elements";
 import { Icon } from "@/components/icons/icon";
@@ -9,12 +10,14 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
+import { useNotificationEvents } from "./use-notification-events";
 
 interface Item {
   id: string;
   type: string;
   title: string;
   message: string;
+  metadata: { targetUrl?: string } | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -59,6 +62,7 @@ export function NotificationCenter() {
     }
     void loadInitialNotifications();
   }, [load]);
+  useNotificationEvents(load);
   async function markRead(id: string) {
     const response = await fetch(`/api/notifications/${id}/read`, {
       method: "PATCH",
@@ -144,14 +148,24 @@ export function NotificationCenter() {
                       }).format(new Date(item.createdAt))}
                     </time>
                   </div>
-                  {!item.readAt && (
-                    <button
-                      className="mt-3 min-h-11 text-sm font-bold text-brand underline-offset-4 hover:underline"
-                      onClick={() => markRead(item.id)}
-                    >
-                      Marcar como lida
-                    </button>
-                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-4">
+                    {item.metadata?.targetUrl && (
+                      <Link
+                        className="inline-flex min-h-11 items-center text-sm font-bold text-brand underline-offset-4 hover:underline"
+                        href={item.metadata.targetUrl}
+                      >
+                        Ver detalhes
+                      </Link>
+                    )}
+                    {!item.readAt && (
+                      <button
+                        className="min-h-11 text-sm font-bold text-brand underline-offset-4 hover:underline"
+                        onClick={() => markRead(item.id)}
+                      >
+                        Marcar como lida
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </Card>

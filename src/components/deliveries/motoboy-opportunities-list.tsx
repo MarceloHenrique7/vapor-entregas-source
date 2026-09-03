@@ -280,7 +280,7 @@ export function MotoboyOpportunitiesList() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <Badge variant="info" className="new-opportunity-badge">
-                    Nova entrega
+                    NOVA
                   </Badge>
                   <h2 className="mt-3 font-display text-xl font-extrabold">
                     {delivery.companyName}
@@ -380,7 +380,7 @@ export function MotoboyOpportunitiesList() {
                 <Icon name="check" className="size-5" />
                 {accepting === delivery.id
                   ? "Confirmando..."
-                  : "Aceitar livremente"}
+                  : "Aceitar entrega"}
               </Button>
             </div>
           </Card>

@@ -4,6 +4,7 @@ import {
   buildGoogleMapsUrl,
   buildWazeUrl,
   calculateStraightLineDistance,
+  parseCoordinatesInput,
 } from "./geo";
 
 describe("utilitários geográficos", () => {
@@ -24,5 +25,33 @@ describe("utilitários geográficos", () => {
       3.01,
       1,
     );
+  });
+
+  it("interpreta coordenadas diretas e links completos do Google Maps", () => {
+    expect(parseCoordinatesInput("-9.355326, -40.507307")).toEqual({
+      latitude: -9.355326,
+      longitude: -40.507307,
+    });
+    expect(parseCoordinatesInput("-9.3891, -40.5031")).toEqual({
+      latitude: -9.3891,
+      longitude: -40.5031,
+    });
+    expect(
+      parseCoordinatesInput(
+        "https://www.google.com/maps/place/Petrolina/@-9.392,-40.501,17z",
+      ),
+    ).toEqual({ latitude: -9.392, longitude: -40.501 });
+    expect(
+      parseCoordinatesInput(
+        "https://www.google.com/maps/search/?api=1&query=-9.4%2C-40.5",
+      ),
+    ).toEqual({ latitude: -9.4, longitude: -40.5 });
+  });
+
+  it("rejeita coordenadas fora da faixa e links de outros domínios", () => {
+    expect(parseCoordinatesInput("-91, -40")).toBeNull();
+    expect(
+      parseCoordinatesInput("https://example.com/?q=-9.4,-40.5"),
+    ).toBeNull();
   });
 });

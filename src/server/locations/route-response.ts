@@ -5,7 +5,7 @@ import { ForbiddenError, UnauthenticatedError } from "@/server/auth/errors";
 import { GeocodingUnavailableError } from "@/server/maps/errors";
 import { internalErrorResponse } from "@/server/observability/logger";
 
-import { LocationNotFoundError } from "./errors";
+import { LocationNotFoundError, LocationRateLimitError } from "./errors";
 
 export function locationErrorResponse(error: unknown) {
   if (error instanceof ZodError) {
@@ -25,6 +25,15 @@ export function locationErrorResponse(error: unknown) {
   }
   if (error instanceof LocationNotFoundError) {
     return NextResponse.json({ error: error.message }, { status: 404 });
+  }
+  if (error instanceof LocationRateLimitError) {
+    return NextResponse.json(
+      { error: error.message },
+      {
+        status: 429,
+        headers: { "Retry-After": String(error.retryAfterSeconds) },
+      },
+    );
   }
   if (error instanceof GeocodingUnavailableError) {
     return NextResponse.json({ error: error.message }, { status: 503 });

@@ -4,10 +4,20 @@ export interface InstallPromptEvent extends Event {
 }
 
 let deferredPrompt: InstallPromptEvent | null = null;
+let installed = false;
 const listeners = new Set<() => void>();
 
 export function getInstallPrompt() {
   return deferredPrompt;
+}
+
+export function getAppInstalled() {
+  return installed;
+}
+
+export function setAppInstalled(value: boolean) {
+  installed = value;
+  for (const listener of listeners) listener();
 }
 
 export function setInstallPrompt(prompt: InstallPromptEvent | null) {

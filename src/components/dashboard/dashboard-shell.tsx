@@ -6,6 +6,9 @@ import { useState } from "react";
 import { Logo } from "@/components/brand/logo";
 import { Icon } from "@/components/icons/icon";
 import { NotificationShortcut } from "@/components/notifications/notification-shortcut";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/cn";
 import type { NavigationItem } from "./navigation";
 
@@ -23,6 +26,7 @@ export function DashboardShell({
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const activeHref = navigation
     .filter(
       (item) =>
@@ -38,13 +42,19 @@ export function DashboardShell({
       window.dispatchEvent(new Event("vapor-entregas:logout"));
       window.dispatchEvent(new Event("entregavale:logout"));
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/entrar");
+      setMobileMenuOpen(false);
+      router.replace("/entrar");
       router.refresh();
     } finally {
       setLoggingOut(false);
     }
   }
-  const mobileItems = navigation.filter((item) => item.mobile).slice(0, 5);
+  const mobileItems = navigation.filter((item) => item.mobile).slice(0, 4);
+  const mobileMenuIsActive = navigation.some(
+    (item) =>
+      !mobileItems.some(({ href }) => href === item.href) &&
+      isActive(item.href),
+  );
   const notificationsHref = navigation.find(
     (item) => item.icon === "bell",
   )?.href;
@@ -104,7 +114,7 @@ export function DashboardShell({
         <nav
           className="fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-white/95 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_30px_rgba(31,31,31,.08)] backdrop-blur lg:hidden"
           style={{
-            gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))`,
+            gridTemplateColumns: `repeat(${mobileItems.length + 1}, minmax(0, 1fr))`,
           }}
           aria-label="Navegação inferior"
         >
@@ -121,7 +131,57 @@ export function DashboardShell({
               <span className="truncate">{item.label}</span>
             </Link>
           ))}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className={cn(
+              "flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-bold",
+              mobileMenuIsActive ? "text-brand" : "text-muted",
+            )}
+            aria-label="Abrir menu completo"
+            aria-expanded={mobileMenuOpen}
+          >
+            <Icon name="menu" className="size-5" />
+            <span>Menu</span>
+          </button>
         </nav>
+        <Dialog
+          open={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          title="Menu"
+          description={`${roleLabel} · ${user.name}`}
+        >
+          <nav className="grid gap-2" aria-label="Menu completo do painel">
+            {navigation.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={cn(
+                  "flex min-h-12 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold transition",
+                  isActive(item.href)
+                    ? "bg-brand text-white"
+                    : "border border-line text-ink-soft hover:border-brand/30 hover:bg-brand-light/40 hover:text-brand-dark",
+                )}
+              >
+                <Icon name={item.icon} className="size-5 shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+          <div className="mt-5 grid gap-3 border-t border-line pt-5">
+            <InstallAppButton className="w-full" />
+            <Button
+              variant="outline"
+              className="w-full justify-center text-red-700"
+              onClick={logout}
+              disabled={loggingOut}
+            >
+              <Icon name="log-out" className="size-5" />
+              {loggingOut ? "Saindo..." : "Sair da conta"}
+            </Button>
+          </div>
+        </Dialog>
       </div>
     </div>
   );

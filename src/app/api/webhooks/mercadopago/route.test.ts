@@ -32,6 +32,10 @@ vi.mock("@/server/payments/prisma-payment-repository", () => ({
 vi.mock("@/server/payments/payment-service", () => ({
   processAccessPaymentWebhook: mocks.processPaymentWebhook,
 }));
+vi.mock("@/server/notifications/notification-service", () => ({
+  notifyPlanPaymentApproved: vi.fn(),
+  runNotificationTask: vi.fn(async (_scope, task) => task()),
+}));
 
 import { buildWebhookManifest } from "@/server/subscriptions/webhook-signature";
 
@@ -134,6 +138,7 @@ describe("webhook Mercado Pago", () => {
       {},
       {},
       expect.any(Date),
+      expect.any(Function),
     );
     expect(mocks.processWebhook).not.toHaveBeenCalled();
   });

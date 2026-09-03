@@ -74,16 +74,28 @@ describe("política do pré-lançamento", () => {
   });
 
   it("bloqueia visitante e usuário comum durante o pré-lançamento", () => {
+    const protectedPaths = [
+      "/app/empresa?tentativa=1",
+      "/app/motoboy",
+      "/admin",
+      "/entrar",
+      "/cadastro/motoboy",
+      "/api/notifications",
+      "/api/maps/suggestions",
+    ];
     for (const user of [null, activeCompany]) {
-      expect(
-        evaluatePrelaunchGate({
-          enabled: true,
-          pathname: "/app/empresa?tentativa=1",
-          method: "GET",
-          user,
-          testUserIds: [],
-        }),
-      ).toBe("BLOCKED");
+      for (const pathname of protectedPaths) {
+        expect(
+          evaluatePrelaunchGate({
+            enabled: true,
+            pathname,
+            method: pathname.startsWith("/api/") ? "POST" : "GET",
+            user,
+            testUserIds: [],
+          }),
+          pathname,
+        ).toBe("BLOCKED");
+      }
     }
   });
 

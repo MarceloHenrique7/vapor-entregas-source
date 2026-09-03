@@ -16,11 +16,24 @@ interface NominatimItem {
   lat?: string;
   lon?: string;
   display_name?: string;
+  address?: {
+    road?: string;
+    pedestrian?: string;
+    house_number?: string;
+    neighbourhood?: string;
+    suburb?: string;
+    quarter?: string;
+    postcode?: string;
+    city?: string;
+    town?: string;
+    municipality?: string;
+    state?: string;
+  };
 }
 
 interface CacheEntry {
   expiresAt: number;
-  value: GeocodingResult | null;
+  value: GeocodingResult[];
 }
 
 const MAX_CACHE_ENTRIES = 500;
@@ -46,11 +59,7 @@ function getCached(key: string) {
   return entry.value;
 }
 
-function setCached(
-  key: string,
-  value: GeocodingResult | null,
-  ttlSeconds: number,
-) {
+function setCached(key: string, value: GeocodingResult[], ttlSeconds: number) {
   if (cache.size >= MAX_CACHE_ENTRIES) {
     const oldest = cache.keys().next().value as string | undefined;
     if (oldest) cache.delete(oldest);
@@ -86,6 +95,20 @@ function parseResult(item: NominatimItem | undefined): GeocodingResult | null {
     latitude,
     longitude,
     displayName: item.display_name ?? "Endereço aproximado",
+    address: item.address
+      ? {
+          road: item.address.road ?? item.address.pedestrian,
+          houseNumber: item.address.house_number,
+          neighborhood:
+            item.address.neighbourhood ??
+            item.address.suburb ??
+            item.address.quarter,
+          postalCode: item.address.postcode,
+          city:
+            item.address.city ?? item.address.town ?? item.address.municipality,
+          state: item.address.state,
+        }
+      : undefined,
   };
 }
 
@@ -116,9 +139,12 @@ export function createNominatimProvider({
     if (!response.ok) throw new GeocodingUnavailableError();
 
     const payload = (await response.json()) as NominatimItem | NominatimItem[];
-    const result = parseResult(Array.isArray(payload) ? payload[0] : payload);
-    setCached(cacheKey, result, cacheTtlSeconds);
-    return result;
+    const items = Array.isArray(payload) ? payload : [payload];
+    const results = items
+      .map((item) => parseResult(item))
+      .filter((item): item is GeocodingResult => Boolean(item));
+    setCached(cacheKey, results, cacheTtlSeconds);
+    return results;
   }
 
   return {
@@ -139,7 +165,23 @@ export function createNominatimProvider({
       url.searchParams.set("addressdetails", "1");
       url.searchParams.set("countrycodes", "br");
       url.searchParams.set("limit", "1");
-      return request(url, `search:${normalize(searchText)}`);
+      return (
+        (await request(url, `search:${normalize(searchText)}:1`))[0] ?? null
+      );
+    },
+
+    async search(query, limit = 5) {
+      const city =
+        query.city === "PETROLINA_PE" ? "Petrolina, PE" : "Juazeiro, BA";
+      const safeLimit = Math.max(1, Math.min(5, Math.trunc(limit)));
+      const searchText = `${query.query}, ${city}, Brasil`;
+      const url = new URL("search", `${baseUrl.replace(/\/$/, "")}/`);
+      url.searchParams.set("q", searchText);
+      url.searchParams.set("format", "jsonv2");
+      url.searchParams.set("addressdetails", "1");
+      url.searchParams.set("countrycodes", "br");
+      url.searchParams.set("limit", String(safeLimit));
+      return request(url, `suggestions:${normalize(searchText)}:${safeLimit}`);
     },
 
     async reverse({ latitude, longitude }) {
@@ -151,7 +193,11 @@ export function createNominatimProvider({
       url.searchParams.set("format", "jsonv2");
       url.searchParams.set("addressdetails", "1");
       url.searchParams.set("zoom", "18");
-      return request(url, `reverse:${roundedLatitude}:${roundedLongitude}`);
+      return (
+        (
+          await request(url, `reverse:${roundedLatitude}:${roundedLongitude}`)
+        )[0] ?? null
+      );
     },
   };
 }

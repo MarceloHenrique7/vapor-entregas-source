@@ -4,6 +4,10 @@ import { getSubscriptionEnv } from "@/server/config/env";
 import { mercadoPagoPaymentProvider } from "@/server/payments/mercado-pago-payment-provider";
 import { processAccessPaymentWebhook } from "@/server/payments/payment-service";
 import { prismaPaymentRepository } from "@/server/payments/prisma-payment-repository";
+import {
+  notifyPlanPaymentApproved,
+  runNotificationTask,
+} from "@/server/notifications/notification-service";
 import { mercadoPagoSubscriptionProvider } from "@/server/subscriptions/mercado-pago-provider";
 import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
 import { subscriptionErrorResponse } from "@/server/subscriptions/route-response";
@@ -57,6 +61,13 @@ export async function POST(request: NextRequest) {
             prismaPaymentRepository,
             mercadoPagoPaymentProvider,
             new Date(),
+            ({ userId, providerPaymentId }) =>
+              runNotificationTask("plan-payment-approved", () =>
+                notifyPlanPaymentApproved({
+                  userId,
+                  paymentId: providerPaymentId,
+                }),
+              ),
           )
         : await processMercadoPagoWebhook(
             {

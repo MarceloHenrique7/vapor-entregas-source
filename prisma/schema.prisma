@@ -115,6 +115,9 @@ enum NotificationType {
   DELIVERY_CANCELLED
   DELIVERY_COMPLETED
   REPORT_UPDATED
+  PLAN_PAYMENT_APPROVED
+  PLAN_EXPIRING
+  PLAN_EXPIRED
   ADMIN_NOTICE
 }
 
@@ -632,6 +635,7 @@ model AccountClosure {
 model Notification {
   id        String           @id @default(uuid()) @db.Char(36)
   userId    String           @db.Char(36)
+  eventKey  String?          @db.VarChar(191)
   type      NotificationType
   title     String           @db.VarChar(120)
   message   String           @db.VarChar(500)
@@ -640,6 +644,7 @@ model Notification {
   createdAt DateTime         @default(now()) @db.DateTime(3)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, eventKey])
   @@index([userId, readAt, createdAt])
   @@index([userId, createdAt])
   @@map("notifications")
