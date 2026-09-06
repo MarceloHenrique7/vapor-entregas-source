@@ -11,7 +11,7 @@ import { mercadoPagoPaymentProvider } from "@/server/payments/mercado-pago-payme
 import { refreshAccessPayment } from "@/server/payments/payment-service";
 import { prismaPaymentRepository } from "@/server/payments/prisma-payment-repository";
 import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
-import { enforceSubscriptionRateLimit } from "@/server/subscriptions/rate-limit";
+import { enforceSubscriptionStatusRateLimit } from "@/server/subscriptions/rate-limit";
 import { subscriptionErrorResponse } from "@/server/subscriptions/route-response";
 
 const inputSchema = z.object({ paymentId: z.string().uuid() });
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const user = await requireRole(["MOTOBOY", "COMPANY"]);
-    enforceSubscriptionRateLimit(user.id);
+    enforceSubscriptionStatusRateLimit(user.id);
     const input = inputSchema.parse(await request.json());
     const result = await refreshAccessPayment(
       { userId: user.id, role: user.role, status: user.status },

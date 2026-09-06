@@ -80,11 +80,12 @@ export function MercadoPagoPaymentBrick({
     if (result?.status !== "PENDING") return;
     let active = true;
     let attempts = 0;
-    const timer = window.setInterval(async () => {
-      if (!active || attempts >= 24) {
-        window.clearInterval(timer);
-        return;
-      }
+    let timer: number | undefined;
+    const schedule = (delayMs: number): void => {
+      timer = window.setTimeout(poll, delayMs);
+    };
+    const poll = async (): Promise<void> => {
+      if (!active || attempts >= 30) return;
       attempts += 1;
       try {
         const response = await fetch("/api/subscriptions/payments/status", {
@@ -92,22 +93,37 @@ export function MercadoPagoPaymentBrick({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ paymentId: result.id }),
         });
+        if (response.status === 429) {
+          const retryAfter = Number(response.headers.get("Retry-After"));
+          schedule(
+            Number.isFinite(retryAfter) && retryAfter > 0
+              ? retryAfter * 1_000
+              : 15_000,
+          );
+          return;
+        }
         const body = (await response
           .json()
           .catch(() => ({}))) as Partial<CheckoutResponse>;
-        if (!active || !response.ok || !body.payment) return;
+        if (!active) return;
+        if (!response.ok || !body.payment) {
+          schedule(15_000);
+          return;
+        }
         setResult(body.payment);
         if (body.payment.status !== "PENDING") {
-          window.clearInterval(timer);
           await onPayment(body.payment);
+          return;
         }
       } catch {
         // Temporary polling failures do not change the payment or access state.
       }
-    }, 5_000);
+      if (active) schedule(10_000);
+    };
+    schedule(10_000);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      if (timer) window.clearTimeout(timer);
     };
   }, [onPayment, result?.id, result?.status]);
 
