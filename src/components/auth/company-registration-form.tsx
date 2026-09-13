@@ -13,6 +13,10 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import {
+  trackMetaCustomEventOnce,
+  trackMetaEventOnce,
+} from "@/lib/analytics/meta-pixel";
 
 export function CompanyRegistrationForm() {
   const router = useRouter();
@@ -54,6 +58,17 @@ export function CompanyRegistrationForm() {
         setFields(data.fields ?? {});
         return;
       }
+      const registrationId =
+        typeof data?.user?.id === "string" ? data.user.id : "session";
+      trackMetaEventOnce(
+        `registration:company:${registrationId}`,
+        "CompleteRegistration",
+        { registration_type: "company", platform: "vapor" },
+      );
+      trackMetaCustomEventOnce(
+        `registration:company-custom:${registrationId}`,
+        "CompanyRegistrationCompleted",
+      );
       router.push("/app/empresa");
       router.refresh();
     } catch {

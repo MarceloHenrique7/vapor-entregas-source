@@ -12,14 +12,14 @@ const nextConfig: NextConfig = {
       "frame-ancestors 'none'",
       "form-action 'self'",
       isDevelopment
-        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com"
-        : "script-src 'self' 'unsafe-inline' https://sdk.mercadopago.com",
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://connect.facebook.net"
+        : "script-src 'self' 'unsafe-inline' https://sdk.mercadopago.com https://connect.facebook.net",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
-      "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
+      "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://www.facebook.com",
       isDevelopment
-        ? "connect-src 'self' ws: wss: https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br"
-        : "connect-src 'self' https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br",
+        ? "connect-src 'self' ws: wss: https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br https://connect.facebook.net https://www.facebook.com"
+        : "connect-src 'self' https://api.mercadopago.com https://*.mercadopago.com https://*.mercadopago.com.br https://connect.facebook.net https://www.facebook.com",
       "frame-src 'self' https://*.mercadopago.com https://*.mercadopago.com.br",
       "worker-src 'self' blob:",
       "manifest-src 'self'",

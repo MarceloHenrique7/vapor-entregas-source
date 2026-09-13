@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import "./globals.css";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
 import { PwaRegistration } from "@/components/pwa/pwa-registration";
 
 const description =
@@ -59,6 +60,7 @@ export default function RootLayout({
     <html lang="pt-BR" data-scroll-behavior="smooth">
       <body>
         {children}
+        <MetaPixel />
         <PwaRegistration />
       </body>
     </html>

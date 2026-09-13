@@ -5,11 +5,12 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { trackMetaEventOnce } from "@/lib/analytics/meta-pixel";
 
 type AccountType = "MOTOBOY" | "COMPANY";
 
 export function PreRegistrationForm() {
-  const [type, setType] = useState<AccountType>("MOTOBOY");
+  const [type, setType] = useState<AccountType>("COMPANY");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<"created" | "existing" | null>(null);
@@ -36,6 +37,13 @@ export function PreRegistrationForm() {
       };
       if (!response.ok || !body.status) {
         throw new Error(body.error ?? "Não foi possível enviar agora.");
+      }
+      if (body.status === "created") {
+        const leadType = type === "COMPANY" ? "company" : "motoboy";
+        trackMetaEventOnce(`pre-registration:${leadType}`, "Lead", {
+          lead_type: leadType,
+          source: "prelaunch_form",
+        });
       }
       setResult(body.status);
     } catch (reason) {
@@ -97,7 +105,7 @@ export function PreRegistrationForm() {
           Como você quer participar?
         </legend>
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-canvas p-1.5">
-          {(["MOTOBOY", "COMPANY"] as const).map((value) => (
+          {(["COMPANY", "MOTOBOY"] as const).map((value) => (
             <label
               key={value}
               className={`cursor-pointer rounded-xl px-3 py-3 text-center text-sm font-bold transition ${
