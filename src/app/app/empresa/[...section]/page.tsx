@@ -20,10 +20,6 @@ const content: Record<string, { title: string; description: string }> = {
     title: "Favoritos",
     description: "Motoboys favoritos poderão ser organizados neste espaço.",
   },
-  assinatura: {
-    title: "Assinatura",
-    description: "Plano, situação e vencimento serão exibidos aqui.",
-  },
   perfil: {
     title: "Perfil da empresa",
     description: "Dados do estabelecimento e coleta serão gerenciados aqui.",

@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface Plan {
   id: string;
-  role: "MOTOBOY" | "COMPANY";
+  role: "MOTOBOY";
   name: string;
   description: string;
   monthlyPrice: number;
@@ -75,8 +75,8 @@ export function SubscriptionPlansAdmin() {
     <div className="space-y-6">
       <DashboardHeader
         eyebrow="Administração"
-        title="Planos de acesso"
-        description="Valores configuráveis para novas assinaturas. Assinaturas existentes preservam o preço contratado."
+        title="Plano de acesso do motoboy"
+        description="Valor e período de teste configuráveis para motoboys. Empresas não possuem plano de assinatura neste momento."
       />
       {error && (
         <p role="alert" className="rounded-2xl bg-red-50 p-4 text-red-700">
@@ -86,10 +86,9 @@ export function SubscriptionPlansAdmin() {
       {!plans ? (
         <div className="grid gap-4 md:grid-cols-2">
           <Skeleton className="h-60 rounded-3xl" />
-          <Skeleton className="h-60 rounded-3xl" />
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid max-w-2xl gap-4">
           {plans.map((plan) => (
             <Card key={plan.id} className="p-6">
               <div className="flex justify-between gap-3">

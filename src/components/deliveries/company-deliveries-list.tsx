@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DELIVERY_STATUS_LABELS,
+  DELIVERY_PAYMENT_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
 } from "@/config/delivery";
 import type { DeliveryView } from "@/server/deliveries/types";
@@ -130,6 +131,18 @@ export function CompanyDeliveriesList() {
                 <p className="mt-1 text-xs font-bold text-muted">
                   {PAYMENT_METHOD_LABELS[delivery.paymentMethod]}
                 </p>
+                <Badge
+                  className="mt-2"
+                  variant={
+                    delivery.paymentStatus === "CONFIRMED"
+                      ? "success"
+                      : delivery.paymentStatus === "DISPUTED"
+                        ? "warning"
+                        : "neutral"
+                  }
+                >
+                  {DELIVERY_PAYMENT_STATUS_LABELS[delivery.paymentStatus]}
+                </Badge>
                 {delivery.suggestedPrice !== null && (
                   <p className="mt-1 text-xs text-muted">
                     Sugestão: {currency.format(delivery.suggestedPrice)}

@@ -1,4 +1,5 @@
-import { SubscriptionDashboard } from "@/components/subscriptions/subscription-dashboard";
+import { redirect } from "next/navigation";
+
 export default function CompanySubscriptionPage() {
-  return <SubscriptionDashboard />;
+  redirect("/app/empresa");
 }

@@ -16,6 +16,7 @@ import {
   DELIVERY_STATUS_LABELS,
   DELIVERY_EXTRA_STATUS_LABELS,
   DELIVERY_EXTRA_TYPE_LABELS,
+  DELIVERY_PAYMENT_STATUS_LABELS,
   DIRECT_PAYMENT_NOTICE,
   PAYMENT_METHOD_LABELS,
 } from "@/config/delivery";
@@ -23,11 +24,13 @@ import type {
   DeliveryStatus,
   DeliveryStatusHistoryView,
   DeliveryExtraView,
+  DeliveryPaymentEventView,
   DeliveryView,
 } from "@/server/deliveries/types";
 
 import { useDeliveryEvents } from "./use-delivery-events";
 import { DeliveryExtrasPanel } from "./delivery-extras-panel";
+import { DeliveryPaymentPanel } from "./delivery-payment-panel";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -97,9 +100,11 @@ function NavigationButtons({
 function Timeline({
   history,
   extras,
+  paymentEvents,
 }: {
   history: DeliveryStatusHistoryView[];
   extras: DeliveryExtraView[];
+  paymentEvents: DeliveryPaymentEventView[];
 }) {
   const events = [
     ...history.map((item) => ({
@@ -118,6 +123,13 @@ function Timeline({
         createdAt: item.createdAt,
       })),
     ),
+    ...paymentEvents.map((item) => ({
+      id: `payment-${item.id}`,
+      title: `Pagamento · ${DELIVERY_PAYMENT_STATUS_LABELS[item.newStatus]}`,
+      actorRole: item.actorRole,
+      note: item.note,
+      createdAt: item.createdAt,
+    })),
   ].sort(
     (left, right) =>
       new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
@@ -352,6 +364,14 @@ export function DeliveryDetailCard({
           </p>
         </Card>
 
+        <Card className="p-5 sm:p-6">
+          <DeliveryPaymentPanel
+            delivery={delivery}
+            actorRole={actorRole}
+            onUpdated={setDelivery}
+          />
+        </Card>
+
         {(action || canCancel || error) && (
           <Card className="p-5 sm:p-6">
             {error && (
@@ -407,6 +427,7 @@ export function DeliveryDetailCard({
           <Timeline
             history={delivery.history ?? []}
             extras={delivery.extras ?? []}
+            paymentEvents={delivery.paymentEvents ?? []}
           />
         </div>
       </Card>

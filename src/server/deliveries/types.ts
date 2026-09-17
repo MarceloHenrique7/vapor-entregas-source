@@ -16,6 +16,24 @@ export const DELIVERY_STATUSES = [
 ] as const;
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
+export const DELIVERY_PAYMENT_STATUSES = [
+  "UNTRACKED",
+  "PENDING",
+  "REPORTED_PAID",
+  "CONFIRMED",
+  "DISPUTED",
+] as const;
+export type DeliveryPaymentStatus = (typeof DELIVERY_PAYMENT_STATUSES)[number];
+
+export interface DeliveryPaymentEventView {
+  id: string;
+  previousStatus: DeliveryPaymentStatus;
+  newStatus: DeliveryPaymentStatus;
+  actorRole: Role;
+  note: string | null;
+  createdAt: string;
+}
+
 export interface DeliveryStatusHistoryView {
   id: string;
   previousStatus: DeliveryStatus | null;
@@ -98,6 +116,10 @@ export interface DeliveryView {
   distanceToPickupKm?: number;
   offeredPrice: number;
   paymentMethod: "PIX" | "CASH" | "COMPANY_SETTLEMENT" | "OTHER";
+  paymentStatus: DeliveryPaymentStatus;
+  paymentReportedAt: string | null;
+  paymentConfirmedAt: string | null;
+  paymentStatusUpdatedAt: string | null;
   notes: string | null;
   status: DeliveryStatus;
   acceptedAt: string | null;
@@ -110,6 +132,7 @@ export interface DeliveryView {
   destinationNavigation?: NavigationLinks;
   history?: DeliveryStatusHistoryView[];
   extras?: DeliveryExtraView[];
+  paymentEvents?: DeliveryPaymentEventView[];
 }
 
 export interface DeliveryRecord extends DeliveryView {

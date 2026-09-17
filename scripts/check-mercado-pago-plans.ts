@@ -21,7 +21,7 @@ function maskedId(value: string | null) {
 }
 
 function roleLabel(role: SubscriptionPlanRecord["role"]) {
-  return role === "MOTOBOY" ? "Motoboy" : "Empresa";
+  return role === "MOTOBOY" ? "Motoboy" : "Legado";
 }
 
 function isActiveProviderPlan(plan: ProviderPlan) {
@@ -109,7 +109,7 @@ async function inspectPlan(plan: SubscriptionPlanRecord) {
 async function main() {
   const repair = process.argv.includes("--repair");
   const plans = (await prismaSubscriptionRepository.listPlans()).filter(
-    (plan) => plan.active,
+    (plan) => plan.active && plan.role === "MOTOBOY",
   );
   let valid = true;
 

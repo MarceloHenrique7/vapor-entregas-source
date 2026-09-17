@@ -408,8 +408,8 @@ export default function Home() {
           <div className="page-shell">
             <SectionHeading
               eyebrow="Preços provisórios"
-              title="Acesso simples, sem comissão sobre a corrida."
-              description="Os valores abaixo liberam 30 dias de acesso à plataforma. O valor de cada entrega continua sendo pago diretamente entre empresa e motoboy."
+              title="Plano simples para motoboys, sem comissão sobre a corrida."
+              description="O plano abaixo libera 30 dias de acesso para motoboys. Empresas usam a plataforma sem assinatura neste momento. O valor de cada entrega continua sendo pago diretamente entre empresa e motoboy."
               centered
             />
             <div className="mx-auto mt-12 max-w-3xl">

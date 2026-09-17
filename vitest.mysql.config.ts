@@ -1,6 +1,18 @@
 import { fileURLToPath } from "node:url";
 
+import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
+
+const mysqlTestUrl =
+  process.env.MYSQL_TEST_DATABASE_URL ??
+  loadEnv("test", process.cwd(), "").MYSQL_TEST_DATABASE_URL;
+
+// Esta atribuição precisa acontecer durante o carregamento da configuração,
+// antes que os imports ESM dos repositories possam inicializar o Prisma.
+if (mysqlTestUrl) {
+  process.env.MYSQL_TEST_DATABASE_URL = mysqlTestUrl;
+  process.env.DATABASE_URL = mysqlTestUrl;
+}
 
 export default defineConfig({
   resolve: {

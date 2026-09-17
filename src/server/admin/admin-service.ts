@@ -15,6 +15,7 @@ import {
 import {
   adminIdSchema,
   auditSearchSchema,
+  companyProActionSchema,
   deliverySearchSchema,
   reportSearchSchema,
   reportStatusActionSchema,
@@ -272,6 +273,7 @@ export async function getAdminUser(
           fantasyName: true,
           legalDocumentLastDigits: true,
           city: true,
+          proEnabled: true,
           _count: { select: { deliveries: true } },
           locations: {
             where: { isDefault: true },
@@ -372,7 +374,58 @@ export async function getAdminUser(
     cancellations: cancelled,
     reportsReceived,
     reportsCreated,
+    companyProEnabled: user.companyProfile?.proEnabled ?? null,
   };
+}
+
+export async function changeCompanyProAccess(
+  actor: AdminActor,
+  rawId: unknown,
+  raw: unknown,
+) {
+  assertAdminAccess(actor);
+  const targetUserId = adminIdSchema.parse(rawId);
+  const input = companyProActionSchema.parse(raw);
+  return prisma.$transaction(async (transaction) => {
+    const target = await transaction.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        role: true,
+        companyProfile: { select: { id: true, proEnabled: true } },
+      },
+    });
+    if (!target?.companyProfile || target.role !== "COMPANY") {
+      throw new AdminResourceNotFoundError("Empresa não encontrada.");
+    }
+    if (target.companyProfile.proEnabled === input.enabled) {
+      throw new AdminActionConflictError(
+        input.enabled
+          ? "O Vapor Gestão Pro já está habilitado."
+          : "O Vapor Gestão Pro já está desabilitado.",
+      );
+    }
+    const now = new Date();
+    await transaction.companyProfile.update({
+      where: { id: target.companyProfile.id },
+      data: {
+        proEnabled: input.enabled,
+        proEnabledAt: input.enabled ? now : null,
+      },
+    });
+    const audit = await transaction.adminAction.create({
+      data: {
+        adminUserId: actor.userId,
+        targetUserId,
+        actionType: "COMPANY_PRO_CHANGED",
+        reason: input.reason,
+        metadata: {
+          previousEnabled: target.companyProfile.proEnabled,
+          newEnabled: input.enabled,
+        },
+      },
+    });
+    return { enabled: input.enabled, auditId: audit.id };
+  });
 }
 
 export async function changeAdminUserStatus(
@@ -536,6 +589,7 @@ export async function getAdminDelivery(
     createdAt: row.createdAt.toISOString(),
     completedAt: iso(row.completedAt),
     paymentMethod: row.paymentMethod,
+    paymentStatus: row.paymentStatus,
     notes: row.notes,
     history: row.statusHistory.map((item) => ({
       id: item.id,

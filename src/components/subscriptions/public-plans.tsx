@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface Plan {
   id: string;
-  role: "MOTOBOY" | "COMPANY";
+  role: "MOTOBOY";
   name: string;
   description: string;
   monthlyPrice: number;
@@ -43,14 +43,13 @@ export function PublicPlans() {
     );
   if (!plans) {
     return (
-      <div className="grid gap-5 md:grid-cols-2">
-        <Skeleton className="h-72 rounded-3xl" />
+      <div className="mx-auto max-w-xl">
         <Skeleton className="h-72 rounded-3xl" />
       </div>
     );
   }
   return (
-    <div className="grid gap-5 md:grid-cols-2">
+    <div className="mx-auto max-w-xl">
       {plans.map((plan) => (
         <Card key={plan.id} className="p-7">
           <p className="font-display text-2xl font-extrabold">{plan.name}</p>
@@ -69,14 +68,10 @@ export function PublicPlans() {
             </p>
           )}
           <Link
-            href={
-              plan.role === "MOTOBOY"
-                ? "/cadastro/motoboy"
-                : "/cadastro/empresa"
-            }
+            href="/cadastro/motoboy"
             className={buttonStyles({ className: "mt-7 w-full" })}
           >
-            Criar cadastro
+            Criar cadastro de motoboy
           </Link>
         </Card>
       ))}

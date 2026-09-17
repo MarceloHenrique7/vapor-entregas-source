@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const user = await requireRole(["MOTOBOY", "COMPANY"]);
+    const user = await requireRole(["MOTOBOY"]);
     const result = await getMySubscription(
       { userId: user.id, role: user.role, status: user.status },
       prismaSubscriptionRepository,

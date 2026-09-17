@@ -16,6 +16,7 @@ import {
   DIRECT_PAYMENT_NOTICE,
   PAYMENT_METHOD_LABELS,
 } from "@/config/delivery";
+import { trackMetaCustomEvent } from "@/lib/analytics/meta-pixel";
 import {
   calculateStraightLineDistance,
   parseCoordinatesInput,
@@ -969,9 +970,12 @@ export function NewDeliveryForm({
               <Select
                 id="paymentMethod"
                 value={form.paymentMethod}
-                onChange={(event) =>
-                  update("paymentMethod", event.target.value)
-                }
+                onChange={(event) => {
+                  update("paymentMethod", event.target.value);
+                  trackMetaCustomEvent("PaymentMethodSelected", {
+                    method: event.target.value,
+                  });
+                }}
               >
                 {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>

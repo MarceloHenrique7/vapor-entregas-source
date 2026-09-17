@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { DELIVERY_EXTRA_TYPES, DELIVERY_STATUSES } from "./types";
+import {
+  DELIVERY_EXTRA_TYPES,
+  DELIVERY_PAYMENT_STATUSES,
+  DELIVERY_STATUSES,
+} from "./types";
 
 const optionalText = (maximum: number) =>
   z
@@ -99,9 +103,16 @@ export const transitionDeliverySchema = z.object({
 export const cancelDeliverySchema = z.object({
   reason: optionalText(300),
 });
+export const deliveryPaymentActionSchema = z
+  .object({
+    action: z.enum(["MARK_PAID", "CONFIRM_RECEIPT", "REPORT_NOT_RECEIVED"]),
+    note: optionalText(300),
+  })
+  .strict();
 export const deliveryHistoryFilterSchema = z
   .object({
     status: z.enum(DELIVERY_STATUSES).optional(),
+    paymentStatus: z.enum(DELIVERY_PAYMENT_STATUSES).optional(),
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
   })

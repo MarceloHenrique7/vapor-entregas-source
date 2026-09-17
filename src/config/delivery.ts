@@ -5,10 +5,18 @@ export const DIRECT_PAYMENT_NOTICE =
   "O valor informado será combinado e pago diretamente entre empresa e motoboy. A Vapor Entregas não recebe, retém ou repassa o valor da entrega.";
 
 export const PAYMENT_METHOD_LABELS = {
-  PIX: "PIX",
+  PIX: "Pix direto pela empresa",
   CASH: "Dinheiro",
-  COMPANY_SETTLEMENT: "Acerto com o estabelecimento",
-  OTHER: "Outro",
+  COMPANY_SETTLEMENT: "A combinar com o motoboy",
+  OTHER: "Outra forma",
+} as const;
+
+export const DELIVERY_PAYMENT_STATUS_LABELS = {
+  UNTRACKED: "Sem acompanhamento financeiro",
+  PENDING: "Pagamento pendente",
+  REPORTED_PAID: "Empresa informou pagamento",
+  CONFIRMED: "Recebimento confirmado",
+  DISPUTED: "Divergência",
 } as const;
 
 export const DELIVERY_STATUS_LABELS = {

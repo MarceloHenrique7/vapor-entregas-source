@@ -5,7 +5,12 @@ import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/server/db/prisma";
 
 import type { DeliveryRepository } from "./delivery-service";
-import type { DeliveryRecord, DeliveryStatus } from "./types";
+import type {
+  DeliveryPaymentStatus,
+  DeliveryRecord,
+  DeliveryStatus,
+} from "./types";
+import { resolveDeliveryPaymentTransition } from "./payment-policy";
 
 const deliverySelect = {
   id: true,
@@ -35,6 +40,10 @@ const deliverySelect = {
   suggestedPrice: true,
   offeredPrice: true,
   paymentMethod: true,
+  paymentStatus: true,
+  paymentReportedAt: true,
+  paymentConfirmedAt: true,
+  paymentStatusUpdatedAt: true,
   notes: true,
   status: true,
   acceptedAt: true,
@@ -81,6 +90,17 @@ const deliverySelect = {
       },
     },
   },
+  paymentEvents: {
+    orderBy: { createdAt: "asc" as const },
+    select: {
+      id: true,
+      previousStatus: true,
+      newStatus: true,
+      actorRole: true,
+      note: true,
+      createdAt: true,
+    },
+  },
 } as const;
 
 function toRecord(
@@ -112,6 +132,10 @@ function toRecord(
     suggestedPrice: { toNumber(): number } | null;
     offeredPrice: { toNumber(): number };
     paymentMethod: "PIX" | "CASH" | "COMPANY_SETTLEMENT" | "OTHER";
+    paymentStatus: DeliveryPaymentStatus;
+    paymentReportedAt: Date | null;
+    paymentConfirmedAt: Date | null;
+    paymentStatusUpdatedAt: Date | null;
     notes: string | null;
     status: DeliveryStatus;
     acceptedAt: Date | null;
@@ -156,10 +180,19 @@ function toRecord(
         createdAt: Date;
       }>;
     }>;
+    paymentEvents: Array<{
+      id: string;
+      previousStatus: DeliveryPaymentStatus;
+      newStatus: DeliveryPaymentStatus;
+      actorRole: "MOTOBOY" | "COMPANY" | "ADMIN";
+      note: string | null;
+      createdAt: Date;
+    }>;
   },
   companyRating?: { average: number | null; count: number },
 ): DeliveryRecord {
-  const { company, motoboy, statusHistory, extras, ...record } = delivery;
+  const { company, motoboy, statusHistory, extras, paymentEvents, ...record } =
+    delivery;
   return {
     ...record,
     companyName: company.fantasyName,
@@ -178,6 +211,10 @@ function toRecord(
         }
       : {}),
     offeredPrice: delivery.offeredPrice.toNumber(),
+    paymentReportedAt: delivery.paymentReportedAt?.toISOString() ?? null,
+    paymentConfirmedAt: delivery.paymentConfirmedAt?.toISOString() ?? null,
+    paymentStatusUpdatedAt:
+      delivery.paymentStatusUpdatedAt?.toISOString() ?? null,
     acceptedAt: delivery.acceptedAt?.toISOString() ?? null,
     pickedUpAt: delivery.pickedUpAt?.toISOString() ?? null,
     completedAt: delivery.completedAt?.toISOString() ?? null,
@@ -196,6 +233,10 @@ function toRecord(
         ...event,
         createdAt: event.createdAt.toISOString(),
       })),
+    })),
+    paymentEvents: paymentEvents.map((event) => ({
+      ...event,
+      createdAt: event.createdAt.toISOString(),
     })),
   };
 }
@@ -298,6 +339,8 @@ export const prismaDeliveryRepository: DeliveryRepository = {
           routeCalculatedAt: pricing.routeCalculatedAt,
           suggestedPrice: pricing.suggestedPrice,
           pricingRuleId: pricing.pricingRuleId,
+          paymentStatus: "PENDING",
+          paymentStatusUpdatedAt: pricing.routeCalculatedAt,
           expiresAt,
           ...(extras.length
             ? {
@@ -726,6 +769,109 @@ export const prismaDeliveryRepository: DeliveryRepository = {
     });
   },
 
+  async updateDeliveryPaymentAtomically(
+    userId,
+    role,
+    deliveryId,
+    action,
+    note,
+    now,
+  ) {
+    return getPrisma().$transaction(async (transaction) => {
+      const profile =
+        role === "COMPANY"
+          ? await transaction.companyProfile.findUnique({
+              where: { userId },
+              select: { id: true },
+            })
+          : await transaction.motoboyProfile.findUnique({
+              where: { userId },
+              select: { id: true },
+            });
+      if (!profile) return { kind: "forbidden" } as const;
+      const candidate = await transaction.delivery.findUnique({
+        where: { id: deliveryId },
+        select: {
+          companyId: true,
+          motoboyId: true,
+          status: true,
+          paymentStatus: true,
+        },
+      });
+      if (!candidate) return { kind: "not_found" } as const;
+      const participates =
+        role === "COMPANY"
+          ? candidate.companyId === profile.id
+          : candidate.motoboyId === profile.id;
+      if (!participates) return { kind: "forbidden" } as const;
+      if (candidate.status !== "COMPLETED") {
+        return { kind: "conflict" } as const;
+      }
+
+      const previousStatus = candidate.paymentStatus;
+      const transition = resolveDeliveryPaymentTransition(
+        role,
+        action,
+        previousStatus,
+      );
+      if (transition.kind === "forbidden") {
+        return { kind: "forbidden" } as const;
+      }
+      if (transition.kind === "conflict") {
+        return { kind: "conflict" } as const;
+      }
+      if (transition.kind === "noop") {
+        const current = await transaction.delivery.findUniqueOrThrow({
+          where: { id: deliveryId },
+          select: deliverySelect,
+        });
+        return {
+          kind: "updated",
+          delivery: toRecord(current),
+          changed: false,
+        } as const;
+      }
+      const newStatus = transition.status;
+
+      const updated = await transaction.delivery.updateMany({
+        where: { id: deliveryId, paymentStatus: previousStatus },
+        data: {
+          paymentStatus: newStatus,
+          paymentStatusUpdatedAt: now,
+          ...(newStatus === "REPORTED_PAID" ? { paymentReportedAt: now } : {}),
+          ...(newStatus === "CONFIRMED" ? { paymentConfirmedAt: now } : {}),
+        },
+      });
+      if (updated.count !== 1) return { kind: "conflict" } as const;
+      await transaction.deliveryPaymentEvent.create({
+        data: {
+          deliveryId,
+          previousStatus,
+          newStatus,
+          actorUserId: userId,
+          actorRole: role,
+          note:
+            note ??
+            (action === "MARK_PAID"
+              ? "Empresa declarou o pagamento direto ao motoboy."
+              : action === "CONFIRM_RECEIPT"
+                ? "Motoboy confirmou o recebimento."
+                : "Motoboy informou que ainda não recebeu."),
+          createdAt: now,
+        },
+      });
+      const delivery = await transaction.delivery.findUniqueOrThrow({
+        where: { id: deliveryId },
+        select: deliverySelect,
+      });
+      return {
+        kind: "updated",
+        delivery: toRecord(delivery),
+        changed: true,
+      } as const;
+    });
+  },
+
   async listDeliveryHistory(userId, role, filters) {
     const profile =
       role === "COMPANY"
@@ -750,6 +896,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
           ? { companyId: profile.id }
           : { motoboyId: profile.id }),
         status: filters.status ? filters.status : { in: defaultStatuses },
+        paymentStatus: filters.paymentStatus,
         createdAt:
           filters.from || to
             ? {

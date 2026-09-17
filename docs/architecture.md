@@ -400,7 +400,7 @@ desta etapa.
 
 ## Pagamentos de acesso da plataforma
 
-`SubscriptionPlan` representa a oferta de 30 dias por role. `Subscription` registra um
+`SubscriptionPlan` representa a oferta de 30 dias para motoboys. `Subscription` registra um
 snapshot do preço contratado, estado local, identificador opaco do provider e
 datas do ciclo. `SubscriptionEvent` é append-only e possui identificador de evento
 único para tornar a recepção repetida do webhook idempotente. Um índice parcial no
@@ -414,15 +414,15 @@ HMAC do webhook é validada com comparação constante e o ambiente TEST/produç
 também é conferido. O provider recorrente anterior existe somente para contratos
 legados.
 
-Somente `TRIAL` ainda vigente ou `ACTIVE` libera novas operações. A checagem fica
-nas fronteiras server-side de publicação, disponibilidade, atualização de presença
-e aceite. A listagem pode orientar a decisão de assinatura, mas não autoriza o
-aceite. A checagem não foi inserida nas transições de uma corrida já vinculada,
+Somente `TRIAL` ainda vigente ou `ACTIVE` libera novas operações do motoboy. A
+checagem fica nas fronteiras server-side de disponibilidade, atualização de
+presença e aceite. Empresas publicam sem assinatura. A listagem pode orientar a
+decisão de assinatura, mas não autoriza o aceite. A checagem não foi inserida nas transições de uma corrida já vinculada,
 nem em histórico, conta ou páginas jurídicas, evitando interromper uma operação em
 andamento. `PAST_DUE`, `CANCELED` e `EXPIRED` não são tratados como pagamento ativo.
 O pagamento informativo da entrega continua totalmente separado da mensalidade.
 
-Planos são administrados por API exclusiva de `ADMIN`, com Zod, validação de origem,
+O plano Motoboy é administrado por API exclusiva de `ADMIN`, com Zod, validação de origem,
 rate limit e `AdminAction`. Nenhum segredo ou identificador de assinatura é exposto
 na página pública. Docker não integra este fluxo; a persistência continua em
 MySQL e a chamada externa é restrita ao provider configurado.

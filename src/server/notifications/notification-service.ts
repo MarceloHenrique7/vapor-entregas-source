@@ -13,6 +13,9 @@ export type NotificationType =
   | "DELIVERY_STATUS_CHANGED"
   | "DELIVERY_CANCELLED"
   | "DELIVERY_COMPLETED"
+  | "DELIVERY_PAYMENT_REPORTED"
+  | "DELIVERY_PAYMENT_CONFIRMED"
+  | "DELIVERY_PAYMENT_DISPUTED"
   | "REPORT_UPDATED"
   | "PLAN_PAYMENT_APPROVED"
   | "PLAN_EXPIRING"
@@ -199,6 +202,62 @@ export async function notifyDeliveryEvent(
       eventKey,
     });
   }
+}
+
+export async function notifyDeliveryPaymentEvent(
+  deliveryId: string,
+  status: "REPORTED_PAID" | "CONFIRMED" | "DISPUTED",
+) {
+  const delivery = await getPrisma().delivery.findUnique({
+    where: { id: deliveryId },
+    select: {
+      company: { select: { userId: true } },
+      motoboy: { select: { userId: true } },
+      paymentEvents: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true },
+      },
+    },
+  });
+  if (!delivery?.motoboy?.userId) return;
+  const copy = {
+    REPORTED_PAID: {
+      type: "DELIVERY_PAYMENT_REPORTED" as const,
+      title: "Pagamento informado",
+      message:
+        "A empresa informou que pagou a entrega diretamente. Confirme quando receber.",
+    },
+    CONFIRMED: {
+      type: "DELIVERY_PAYMENT_CONFIRMED" as const,
+      title: "Recebimento confirmado",
+      message:
+        "O recebimento direto desta entrega foi confirmado pelo motoboy.",
+    },
+    DISPUTED: {
+      type: "DELIVERY_PAYMENT_DISPUTED" as const,
+      title: "Divergência no pagamento",
+      message:
+        "O motoboy informou que ainda não recebeu o valor declarado como pago.",
+    },
+  }[status];
+  const eventKey = `delivery-payment:${deliveryId}:${status}:${delivery.paymentEvents[0]?.id ?? "current"}`;
+  await createForUsers([delivery.company.userId], {
+    ...copy,
+    metadata: {
+      deliveryId,
+      targetUrl: "/app/empresa/historico",
+    },
+    eventKey,
+  });
+  await createForUsers([delivery.motoboy.userId], {
+    ...copy,
+    metadata: {
+      deliveryId,
+      targetUrl: "/app/motoboy/historico",
+    },
+    eventKey,
+  });
 }
 
 export async function notifyReportUpdate(reportId: string) {

@@ -15,8 +15,6 @@ import {
   notifyNewOpportunity,
   runNotificationTask,
 } from "@/server/notifications/notification-service";
-import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
-import { assertOperationalSubscription } from "@/server/subscriptions/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +43,6 @@ export async function POST(request: NextRequest) {
   }
   try {
     const user = await requireRole(["COMPANY"]);
-    await assertOperationalSubscription(user.id, prismaSubscriptionRepository);
     enforceDeliveryRateLimit(user.id, "create");
     const delivery = await createDelivery(
       { userId: user.id, role: user.role },

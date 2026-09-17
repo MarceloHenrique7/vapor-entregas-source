@@ -53,7 +53,7 @@ export const companyNavigation: NavigationItem[] = [
   },
   {
     href: "/app/empresa/motoboys",
-    label: "Motoboys",
+    label: "Minha rede",
     icon: "users",
     mobile: true,
   },
@@ -64,10 +64,11 @@ export const companyNavigation: NavigationItem[] = [
     mobile: true,
   },
   { href: "/app/empresa/historico", label: "Histórico", icon: "history" },
+  { href: "/app/empresa/gestao", label: "Gestão Pro", icon: "wallet" },
+  { href: "/app/empresa/relatorios", label: "Relatórios Pro", icon: "file" },
   { href: "/app/empresa/favoritos", label: "Favoritos", icon: "heart" },
   { href: "/app/empresa/denuncias", label: "Minhas denúncias", icon: "shield" },
   { href: "/app/empresa/notificacoes", label: "Notificações", icon: "bell" },
-  { href: "/app/empresa/assinatura", label: "Assinatura", icon: "wallet" },
   { href: "/app/empresa/perfil", label: "Perfil", icon: "user" },
   {
     href: "/app/empresa/configuracoes",
@@ -104,6 +105,6 @@ export const adminNavigation: NavigationItem[] = [
     label: "Preço sugerido",
     icon: "settings",
   },
-  { href: "/admin/assinaturas", label: "Assinaturas", icon: "wallet" },
+  { href: "/admin/assinaturas", label: "Plano Motoboy", icon: "wallet" },
   { href: "/", label: "Voltar ao sistema", icon: "arrow-right" },
 ];

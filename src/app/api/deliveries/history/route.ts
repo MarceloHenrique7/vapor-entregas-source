@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
       { userId: user.id, role: user.role },
       {
         status: search.get("status") || undefined,
+        paymentStatus: search.get("paymentStatus") || undefined,
         from: search.get("from") || undefined,
         to: search.get("to") || undefined,
       },

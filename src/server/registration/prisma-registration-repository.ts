@@ -104,14 +104,6 @@ export const prismaRegistrationRepository: RegistrationRepository = {
   async createCompany(data) {
     try {
       const id = randomUUID();
-      const plan = await getPrisma().subscriptionPlan.findUnique({
-        where: { role: "COMPANY" },
-        select: { id: true, monthlyPrice: true, trialDays: true, active: true },
-      });
-      const trialEndsAt =
-        plan?.active && plan.trialDays > 0
-          ? new Date(data.registeredAt.getTime() + plan.trialDays * 86_400_000)
-          : null;
       const user = await getPrisma().user.create({
         data: {
           id,
@@ -159,30 +151,6 @@ export const prismaRegistrationRepository: RegistrationRepository = {
               },
             ],
           },
-          ...(plan && trialEndsAt
-            ? {
-                subscriptions: {
-                  create: {
-                    openSubscriptionUserKey: id,
-                    planId: plan.id,
-                    status: "TRIAL" as const,
-                    monthlyPrice: plan.monthlyPrice,
-                    currentPeriodStart: data.registeredAt,
-                    currentPeriodEnd: trialEndsAt,
-                    trialGrantedAt: data.registeredAt,
-                    trialEndsAt,
-                    events: {
-                      create: {
-                        providerEventId: `local:trial:${id}:${data.registeredAt.toISOString()}`,
-                        eventType: "trial.started",
-                        processedAt: data.registeredAt,
-                        payloadMetadata: { trialDays: plan.trialDays },
-                      },
-                    },
-                  },
-                },
-              }
-            : {}),
         },
         select: { id: true, name: true, email: true, role: true },
       });

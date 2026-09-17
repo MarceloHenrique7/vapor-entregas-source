@@ -81,6 +81,7 @@ const actionLabel: Record<string, string> = {
   REPORT_STATUS_CHANGED: "Status de denúncia alterado",
   PRICING_RULE_CHANGED: "Regra de preço sugerido alterada",
   SUBSCRIPTION_PLAN_CHANGED: "Plano de assinatura alterado",
+  COMPANY_PRO_CHANGED: "Acesso ao Vapor Gestão Pro alterado",
 };
 const date = (value: string | null) =>
   value
@@ -459,6 +460,31 @@ export function AdminUserDetails({ id }: { id: string }) {
       setSaving(false);
     }
   }
+  async function toggleCompanyPro() {
+    if (user?.role !== "COMPANY" || user.companyProEnabled === null) return;
+    setSaving(true);
+    setError("");
+    try {
+      const enabled = !user.companyProEnabled;
+      await api(`/api/admin/users/${id}/company-pro`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      setSuccess(
+        enabled
+          ? "Vapor Gestão Pro habilitado para a empresa piloto."
+          : "Vapor Gestão Pro desabilitado para a empresa.",
+      );
+      load();
+    } catch (reasonValue) {
+      setError(
+        reasonValue instanceof Error ? reasonValue.message : "Erro inesperado.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
   if (error && !user) return <ErrorCard message={error} retry={load} />;
   if (!user) return <LoadingCards />;
   const facts = [
@@ -545,6 +571,31 @@ export function AdminUserDetails({ id }: { id: string }) {
           )}
         </Card>
         <Card className="p-6">
+          {user.role === "COMPANY" && user.companyProEnabled !== null && (
+            <div className="mb-6 border-b border-line pb-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-extrabold">
+                    Vapor Gestão Pro
+                  </h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Liberação piloto sem preço ou checkout.
+                  </p>
+                </div>
+                <Badge variant={user.companyProEnabled ? "success" : "neutral"}>
+                  {user.companyProEnabled ? "Habilitado" : "Desabilitado"}
+                </Badge>
+              </div>
+              <Button
+                className="mt-4 w-full"
+                variant={user.companyProEnabled ? "outline" : "primary"}
+                disabled={saving}
+                onClick={toggleCompanyPro}
+              >
+                {user.companyProEnabled ? "Desabilitar Pro" : "Habilitar Pro"}
+              </Button>
+            </div>
+          )}
           <h2 className="font-display text-xl font-extrabold">
             Ações de moderação
           </h2>
@@ -829,6 +880,9 @@ export function AdminDeliveryDetails({ id }: { id: string }) {
             </p>
             <p>
               <strong>Pagamento:</strong> {delivery.paymentMethod}
+            </p>
+            <p>
+              <strong>Status financeiro:</strong> {delivery.paymentStatus}
             </p>
             <p>
               <strong>Observações:</strong> {delivery.notes ?? "Nenhuma"}

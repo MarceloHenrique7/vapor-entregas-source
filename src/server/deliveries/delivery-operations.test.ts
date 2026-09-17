@@ -4,12 +4,14 @@ import {
   advanceDeliveryStatus,
   cancelDelivery,
   getDeliveryDetails,
+  updateDeliveryPayment,
   type DeliveryMutationResult,
   type DeliveryRepository,
 } from "./delivery-service";
 import {
   DeliveryAccessDeniedError,
   DeliveryTransitionConflictError,
+  InvalidDeliveryTransitionError,
 } from "./errors";
 import type {
   DeliveryRecord,
@@ -51,6 +53,10 @@ function delivery(status: DeliveryStatus = "ACCEPTED"): DeliveryRecord {
     suggestedPrice: 13,
     offeredPrice: 18,
     paymentMethod: "PIX",
+    paymentStatus: "PENDING",
+    paymentReportedAt: null,
+    paymentConfirmedAt: null,
+    paymentStatusUpdatedAt: now.toISOString(),
     notes: "Pedido pequeno",
     status,
     acceptedAt: now.toISOString(),
@@ -60,6 +66,7 @@ function delivery(status: DeliveryStatus = "ACCEPTED"): DeliveryRecord {
     expiresAt: new Date(now.getTime() + 60 * 60_000).toISOString(),
     createdAt: now.toISOString(),
     history: [],
+    paymentEvents: [],
   };
 }
 
@@ -82,6 +89,9 @@ function repository(
       .fn()
       .mockResolvedValue({ kind: "conflict" }),
     cancelDeliveryAtomically: vi.fn().mockResolvedValue({ kind: "conflict" }),
+    updateDeliveryPaymentAtomically: vi
+      .fn()
+      .mockResolvedValue({ kind: "conflict" }),
     listDeliveryHistory: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
@@ -260,5 +270,93 @@ describe("fluxo operacional da entrega", () => {
     expect(details.destinationNavigation?.waze).toContain("waze.com/ul");
     expect(details).not.toHaveProperty("pickupLatitude");
     expect(details).not.toHaveProperty("destinationLongitude");
+  });
+});
+
+describe("VaporPay declaratório", () => {
+  it("permite que a empresa marque uma entrega concluída como paga", async () => {
+    const updated = {
+      ...delivery("COMPLETED"),
+      paymentStatus: "REPORTED_PAID" as const,
+      paymentReportedAt: now.toISOString(),
+    };
+    const update = vi.fn().mockResolvedValue({
+      kind: "updated",
+      delivery: updated,
+      changed: true,
+    });
+    const result = await updateDeliveryPayment(
+      { userId: companyUserId, role: "COMPANY" },
+      deliveryId,
+      { action: "MARK_PAID" },
+      repository({ updateDeliveryPaymentAtomically: update }),
+      now,
+    );
+    expect(result.paymentStatus).toBe("REPORTED_PAID");
+    expect(update).toHaveBeenCalledWith(
+      companyUserId,
+      "COMPANY",
+      deliveryId,
+      "MARK_PAID",
+      undefined,
+      now,
+    );
+  });
+
+  it("permite ao motoboy confirmar ou declarar não recebimento", async () => {
+    const update = vi.fn().mockResolvedValue({
+      kind: "updated",
+      delivery: {
+        ...delivery("COMPLETED"),
+        paymentStatus: "CONFIRMED",
+        paymentConfirmedAt: now.toISOString(),
+      },
+      changed: true,
+    });
+    await updateDeliveryPayment(
+      { userId: motoboyUserId, role: "MOTOBOY" },
+      deliveryId,
+      { action: "CONFIRM_RECEIPT" },
+      repository({ updateDeliveryPaymentAtomically: update }),
+      now,
+    );
+    expect(update).toHaveBeenCalledWith(
+      motoboyUserId,
+      "MOTOBOY",
+      deliveryId,
+      "CONFIRM_RECEIPT",
+      undefined,
+      now,
+    );
+  });
+
+  it("impede empresa de confirmar em nome do motoboy", async () => {
+    const update = vi.fn();
+    await expect(
+      updateDeliveryPayment(
+        { userId: companyUserId, role: "COMPANY" },
+        deliveryId,
+        { action: "CONFIRM_RECEIPT" },
+        repository({ updateDeliveryPaymentAtomically: update }),
+        now,
+      ),
+    ).rejects.toBeInstanceOf(InvalidDeliveryTransitionError);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("propaga bloqueio de ownership sem revelar a entrega", async () => {
+    await expect(
+      updateDeliveryPayment(
+        { userId: motoboyUserId, role: "MOTOBOY" },
+        deliveryId,
+        { action: "REPORT_NOT_RECEIVED" },
+        repository({
+          updateDeliveryPaymentAtomically: vi
+            .fn()
+            .mockResolvedValue({ kind: "forbidden" }),
+        }),
+        now,
+      ),
+    ).rejects.toBeInstanceOf(DeliveryAccessDeniedError);
   });
 });

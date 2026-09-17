@@ -8,8 +8,8 @@ autenticação segura, identidade visual, cadastros, ponto privado de coleta da
 empresa, presença do motoboy, oportunidades, aceite atômico e fluxo operacional
 até a conclusão, com timeline, histórico, avaliações, favoritos, denúncias,
 administração, privacidade, PWA, central persistente de notificações, histórico
-empresarial, adicionais operacionais, precificação e assinaturas mensais da
-plataforma. A Etapa 16 consolida QA e preparação de deploy; a Etapa 17 aplica a
+empresarial, adicionais operacionais, precificação e pagamentos de acesso para
+motoboys. A Etapa 16 consolida QA e preparação de deploy; a Etapa 17 aplica a
 marca Vapor Entregas e o modo seguro de pré-lançamento.
 
 O inventário e as decisões de compatibilidade do rebranding estão em
@@ -372,11 +372,11 @@ Cadastros públicos não aceitam role enviada pelo navegador e nunca criam `ADMI
 
 ## Pagamentos de acesso da plataforma
 
-A Vapor cobra exclusivamente o acesso à plataforma em períodos de 30 dias. Os planos ativos
-são persistidos no MySQL e começam com R$ 19,90 para `MOTOBOY` e R$ 29,90
-para `COMPANY`; o administrador pode alterar preço, teste grátis e disponibilidade
-em `/admin/assinaturas`, com auditoria. A landing e `/planos`
-consultam esses dados, evitando valores espalhados no frontend.
+A Vapor cobra o acesso dos motoboys à plataforma em períodos de 30 dias. O único
+plano ativo é persistido no MySQL e começa com R$ 19,90 para `MOTOBOY`; empresas
+usam a plataforma sem assinatura neste momento. O administrador pode alterar
+preço, teste grátis e disponibilidade em `/admin/assinaturas`, com auditoria. A
+landing e `/planos` consultam esses dados, evitando valores espalhados no frontend.
 
 O checkout principal usa o Payment Brick oficial para Pix e cartão. O backend
 define usuário, plano, preço e e-mail, cria o pagamento avulso em `/v1/payments`
@@ -405,10 +405,10 @@ Em desenvolvimento local, o checkout pode ser
 criado com credenciais TEST, mas o webhook exige um túnel HTTPS temporário ou um
 ambiente de homologação acessível; nenhum túnel é dependência do aplicativo.
 
-Status `TRIAL` e `ACTIVE` válidos liberam novas ações operacionais. Sem acesso
-válido, empresa não publica e motoboy não fica online nem aceita novas
-oportunidades. A visualização dos planos e oportunidades, histórico, conta,
-documentos legais, cancelamento da assinatura e
+Para motoboys, status `TRIAL` e `ACTIVE` válidos liberam novas ações operacionais.
+Sem acesso válido, o motoboy não fica online nem aceita novas oportunidades. A
+empresa pode publicar sem plano. A visualização dos planos e oportunidades,
+histórico, conta, documentos legais, cancelamento de contrato legado e
 uma corrida já aceita continuam acessíveis. `PAST_DUE` não é tratado como pagamento
 confirmado; `PAUSED` é mantido separadamente. O valor da entrega continua sendo acertado diretamente entre empresa e
 motoboy e não tem relação com esta assinatura.
@@ -644,6 +644,13 @@ alterar uma regra não muda silenciosamente oportunidades já publicadas ou acei
 Valores iniciais exclusivamente provisórios: base de R$ 8,00, R$ 2,00/km e mínimo
 de R$ 12,00 para Petrolina/PE e Juazeiro/BA. Revise-os no painel antes do uso real.
 Não há cobrança, custódia ou repasse pela plataforma.
+
+## VaporPay e Vapor Gestão Pro
+
+O acompanhamento declaratório do pagamento direto da corrida está documentado em
+[`docs/vaporpay.md`](docs/vaporpay.md). O dashboard financeiro, entitlement piloto,
+fórmulas e exportação CSV do módulo empresarial estão em
+[`docs/vapor-gestao-pro.md`](docs/vapor-gestao-pro.md).
 
 ## Aviso jurídico interno
 

@@ -31,15 +31,12 @@ export type AccessGrantedNotifier = (input: {
 
 const noopAccessGrantedNotifier: AccessGrantedNotifier = async () => {};
 
-function requireActor(actor: PaymentActor | null) {
+function requireMotoboyActor(actor: PaymentActor | null) {
   if (!actor) throw new UnauthenticatedError();
-  if (
-    (actor.role !== "MOTOBOY" && actor.role !== "COMPANY") ||
-    actor.status !== "ACTIVE"
-  ) {
+  if (actor.role !== "MOTOBOY" || actor.status !== "ACTIVE") {
     throw new ForbiddenError();
   }
-  return actor as PaymentActor & { role: BillableRole };
+  return actor as PaymentActor & { role: "MOTOBOY" };
 }
 
 export function mapPaymentStatus(status: string): PaymentAttemptStatus {
@@ -246,7 +243,7 @@ export async function createAccessPayment(
   now = new Date(),
   onAccessGranted = noopAccessGrantedNotifier,
 ) {
-  const user = requireActor(actor);
+  const user = requireMotoboyActor(actor);
   const checkout = paymentCheckoutSchema.parse(input);
   const billingUser = await subscriptions.getBillingUser(user.userId);
   if (
@@ -351,7 +348,7 @@ export async function refreshAccessPayment(
   now = new Date(),
   onAccessGranted = noopAccessGrantedNotifier,
 ) {
-  const user = requireActor(actor);
+  const user = requireMotoboyActor(actor);
   const attempt = await payments.findAttemptById(paymentId);
   if (!attempt || attempt.userId !== user.userId)
     throw new SubscriptionNotFoundError();

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+import { ForbiddenError } from "@/server/auth/errors";
 import {
   SubscriptionConflictError,
   SubscriptionNotFoundError,
@@ -286,6 +287,24 @@ describe("pagamentos avulsos do acesso", () => {
 
     expect(result.payment.status).toBe("APPROVED");
     expect(payments.accessGrants).toBe(1);
+  });
+
+  it("empresa não consegue iniciar pagamento de plano", async () => {
+    const payments = paymentRepository();
+    const mp = provider("approved");
+
+    await expect(
+      createAccessPayment(
+        { userId, role: "COMPANY", status: "ACTIVE" },
+        cardInput(),
+        subscriptionRepository(),
+        payments.repository,
+        mp.client,
+        now,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(mp.client.createPayment).not.toHaveBeenCalled();
+    expect(payments.attempts.size).toBe(0);
   });
 
   it("pending e Pix gerado não liberam acesso", async () => {

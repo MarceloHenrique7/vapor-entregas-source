@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
   }
   try {
-    const user = await requireRole(["MOTOBOY", "COMPANY"]);
+    const user = await requireRole(["MOTOBOY"]);
     enforceSubscriptionStatusRateLimit(user.id);
     const input = inputSchema.parse(await request.json());
     const result = await refreshAccessPayment(

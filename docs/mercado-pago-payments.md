@@ -6,7 +6,8 @@ O fluxo principal usa o Payment Brick oficial no navegador e pagamentos avulsos
 no endpoint `POST /v1/payments` do Mercado Pago. O navegador recebe somente a
 Public Key. Access Token e segredo do webhook permanecem no servidor.
 
-1. `GET /api/subscriptions/me` retorna o plano permitido para o papel autenticado.
+1. `GET /api/subscriptions/me` retorna o plano do motoboy autenticado. Empresas
+   não participam do checkout de acesso neste momento.
 2. O Payment Brick oferece explicitamente Pix e cartão de crédito.
 3. `POST /api/subscriptions/checkout` ignora preço e plano enviados pelo
    navegador e busca novamente esses dados no MySQL. Em produção, também usa o
@@ -24,7 +25,7 @@ chama `/preapproval` nem `/preapproval_plan`.
 
 ## Models reaproveitados
 
-- `SubscriptionPlan`: fonte interna do papel, preço e disponibilidade.
+- `SubscriptionPlan`: fonte interna do preço e da disponibilidade do plano Motoboy.
 - `Subscription`: representa o direito de acesso e guarda início/fim do período.
 - `SubscriptionPayment`: representa cada tentativa financeira. Guarda status
   interno, ID do provider, idempotência, valor, moeda, método, datas e metadata
@@ -37,8 +38,9 @@ antigos durante a transição.
 
 ## Período e trial
 
-Uma conta nova elegível recebe uma única concessão local de sete dias dentro da
-mesma criação transacional do usuário. `trialGrantedAt` e `trialEndsAt` impedem
+Uma conta Motoboy nova e elegível recebe uma única concessão local de sete dias
+dentro da mesma criação transacional do usuário. Contas Empresa não recebem
+assinatura nem trial. `trialGrantedAt` e `trialEndsAt` impedem
 que cancelamento ou nova tentativa reiniciem o benefício.
 
 Cada pagamento aprovado adiciona exatamente `30 * 24 horas`:
@@ -105,9 +107,9 @@ e produção e divergência de application ID sem imprimir credenciais.
 
 1. Crie a nova aplicação Checkout Bricks no painel Mercado Pago.
 2. Configure somente credenciais TEST da mesma aplicação.
-3. Aplique a migration incremental com `npm run db:migrate:deploy` somente depois
+3. Aplique as migrations incrementais com `npm run db:migrate:deploy` somente depois
    de revisão e backup.
-4. Cadastre uma conta Vapor nova; confirme os sete dias no painel de acesso.
+4. Cadastre uma conta Motoboy nova; confirme os sete dias no painel de acesso.
 5. Use conta compradora e meios de pagamento de teste oficiais, diferentes da
    conta vendedora.
 6. Teste cartão aprovado, recusado e pendente.

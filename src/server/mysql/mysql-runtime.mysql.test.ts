@@ -10,6 +10,7 @@ import {
   createSessionToken,
   hashSessionToken,
 } from "@/server/auth/session-token";
+import { getCompanyProOverview } from "@/server/company-pro/company-pro-service";
 import { getPrisma } from "@/server/db/prisma";
 import { prismaDeliveryRepository } from "@/server/deliveries/prisma-delivery-repository";
 import { createPreRegistration } from "@/server/pre-registration/pre-registration-service";
@@ -259,6 +260,169 @@ describe("runtime real MySQL", () => {
       await prisma.companyProfile.deleteMany({ where: { id: companyId } });
       await prisma.user.deleteMany({
         where: { id: { in: [companyUserId, ...motoboyUsers] } },
+      });
+    }
+  });
+
+  it("persiste o fluxo VaporPay e agrega os dados da empresa Pro", async () => {
+    const companyUserId = randomUUID();
+    const companyId = randomUUID();
+    const locationId = randomUUID();
+    const motoboyUserId = randomUUID();
+    const motoboyId = randomUUID();
+    const deliveryId = randomUUID();
+    const now = new Date();
+
+    try {
+      await prisma.user.create({
+        data: {
+          id: companyUserId,
+          role: "COMPANY",
+          status: "ACTIVE",
+          name: "Empresa VaporPay MySQL",
+          email: `vaporpay-company-${companyUserId}@example.test`,
+          phone: `+55${digest(companyUserId).slice(0, 11)}`,
+          passwordHash: "integration-only",
+          companyProfile: {
+            create: {
+              id: companyId,
+              fantasyName: "Empresa VaporPay MySQL",
+              documentType: "CNPJ",
+              legalDocumentEncrypted: "integration-only",
+              legalDocumentHash: digest(`vaporpay-company:${companyId}`),
+              legalDocumentLastDigits: "0001",
+              city: "PETROLINA_PE",
+              proEnabled: true,
+              proEnabledAt: now,
+            },
+          },
+        },
+      });
+      await prisma.companyLocation.create({
+        data: {
+          id: locationId,
+          companyId,
+          defaultCompanyKey: companyId,
+          label: "Loja principal",
+          address: "Rua de Integracao",
+          number: "100",
+          neighborhood: "Centro",
+          city: "PETROLINA_PE",
+          state: "PE",
+          latitude: -9.3891,
+          longitude: -40.5031,
+          isDefault: true,
+        },
+      });
+      await prisma.user.create({
+        data: {
+          id: motoboyUserId,
+          role: "MOTOBOY",
+          status: "ACTIVE",
+          name: "Motoboy VaporPay MySQL",
+          email: `vaporpay-motoboy-${motoboyUserId}@example.test`,
+          phone: `+55${digest(motoboyUserId).slice(0, 11)}`,
+          passwordHash: "integration-only",
+          motoboyProfile: {
+            create: {
+              id: motoboyId,
+              cpfEncrypted: "integration-only",
+              cpfHash: digest(`vaporpay-cpf:${motoboyId}`),
+              cpfLastDigits: "00",
+              rgEncrypted: "integration-only",
+              rgHash: digest(`vaporpay-rg:${motoboyId}`),
+              birthDate: new Date("1990-01-01T00:00:00.000Z"),
+              city: "PETROLINA_PE",
+              legalResponsibilityAcceptedAt: now,
+              intermediationAcceptedAt: now,
+            },
+          },
+        },
+      });
+      await prisma.delivery.create({
+        data: {
+          id: deliveryId,
+          companyId,
+          motoboyId,
+          pickupLocationId: locationId,
+          pickupLabel: "Loja principal",
+          pickupAddress: "Rua de Integracao",
+          pickupNumber: "100",
+          pickupNeighborhood: "Centro",
+          pickupCity: "PETROLINA_PE",
+          pickupState: "PE",
+          pickupLatitude: -9.3891,
+          pickupLongitude: -40.5031,
+          destinationAddress: "Avenida de Integracao",
+          destinationNumber: "200",
+          destinationNeighborhood: "Centro",
+          destinationCity: "PETROLINA_PE",
+          destinationState: "PE",
+          destinationLatitude: -9.39,
+          destinationLongitude: -40.5,
+          distanceEstimateKm: 2,
+          offeredPrice: 20,
+          paymentMethod: "PIX",
+          paymentStatus: "PENDING",
+          paymentStatusUpdatedAt: now,
+          status: "COMPLETED",
+          completedAt: now,
+          expiresAt: new Date(now.getTime() + 10 * 60_000),
+        },
+      });
+
+      await expect(
+        prismaDeliveryRepository.updateDeliveryPaymentAtomically(
+          companyUserId,
+          "COMPANY",
+          deliveryId,
+          "MARK_PAID",
+          undefined,
+          now,
+        ),
+      ).resolves.toMatchObject({
+        kind: "updated",
+        changed: true,
+        delivery: { paymentStatus: "REPORTED_PAID" },
+      });
+      await expect(
+        prismaDeliveryRepository.updateDeliveryPaymentAtomically(
+          motoboyUserId,
+          "MOTOBOY",
+          deliveryId,
+          "CONFIRM_RECEIPT",
+          undefined,
+          new Date(now.getTime() + 1_000),
+        ),
+      ).resolves.toMatchObject({
+        kind: "updated",
+        changed: true,
+        delivery: { paymentStatus: "CONFIRMED" },
+      });
+      await expect(
+        prisma.deliveryPaymentEvent.count({ where: { deliveryId } }),
+      ).resolves.toBe(2);
+
+      const overview = await getCompanyProOverview(
+        companyUserId,
+        { period: "30d" },
+        now,
+      );
+      expect(overview.metrics).toMatchObject({
+        totalDeliveries: 1,
+        completedDeliveries: 1,
+        totalRecordedSpend: 20,
+        confirmedPayments: 1,
+        pendingPayments: 0,
+      });
+    } finally {
+      await prisma.deliveryPaymentEvent.deleteMany({ where: { deliveryId } });
+      await prisma.delivery.deleteMany({ where: { id: deliveryId } });
+      await prisma.companyLocation.deleteMany({ where: { id: locationId } });
+      await prisma.motoboyProfile.deleteMany({ where: { id: motoboyId } });
+      await prisma.companyProfile.deleteMany({ where: { id: companyId } });
+      await prisma.user.deleteMany({
+        where: { id: { in: [companyUserId, motoboyUserId] } },
       });
     }
   });

@@ -12,8 +12,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await requireAdminActor();
-    const plans = (await prismaSubscriptionRepository.listPlans()).map(
-      (plan) => ({
+    const plans = (await prismaSubscriptionRepository.listPlans())
+      .filter((plan) => plan.role === "MOTOBOY")
+      .map((plan) => ({
         id: plan.id,
         role: plan.role,
         name: plan.name,
@@ -21,8 +22,7 @@ export async function GET() {
         monthlyPrice: plan.monthlyPrice,
         active: plan.active,
         trialDays: plan.trialDays,
-      }),
-    );
+      }));
     return NextResponse.json(
       { plans },
       { headers: { "Cache-Control": "private, no-store" } },

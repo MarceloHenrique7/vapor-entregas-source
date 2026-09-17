@@ -4,6 +4,10 @@
 > consultar, sincronizar e cancelar assinaturas antigas. Novos pagamentos usam
 > o Payment Brick e estão documentados em
 > [`mercado-pago-payments.md`](mercado-pago-payments.md).
+>
+> Desde a migration `20260914150000_disable_company_subscription_plan`, somente
+> motoboys podem contratar acesso. O plano Empresa fica inativo e seus registros
+> são mantidos exclusivamente para integridade e histórico de contratos antigos.
 
 ## Escopo e arquitetura
 
@@ -43,8 +47,7 @@ e [Webhooks de Assinaturas](https://www.mercadopago.com.br/developers/pt/docs/su
 A migration incremental é
 `prisma/mysql/migrations/20260830190000_mercado_pago_recurring_billing/migration.sql`.
 Ela não altera o PostgreSQL arquivado, não apaga dados e mantém o preço das
-assinaturas já criadas. Os planos para novas adesões ficam em R$ 19,90
-(`MOTOBOY`) e R$ 29,90 (`COMPANY`).
+assinaturas já criadas. O único plano disponível para novas adesões é o Motoboy.
 
 ## Variáveis
 
@@ -142,9 +145,9 @@ de teste ou produção: contas vendedoras de teste também podem receber
 credenciais com esse prefixo. A decisão considera a conta retornada pela API,
 o modo configurado e os recursos pertencentes a ela.
 
-Ele lê `subscription_plans.externalPlanId`, consulta cada plano com o mesmo
+Ele lê o plano Motoboy ativo em `subscription_plans.externalPlanId` e o consulta com o mesmo
 Access Token do runtime e informa `OK`, `INCOMPATÍVEL` ou `NÃO ENCONTRADO`
-para Motoboy e Empresa. Também consulta
+para Motoboy. Também consulta
 `GET /preapproval_plan/search` para confirmar que os IDs aparecem na listagem.
 IDs são mascarados e credenciais não são impressas. Para reparar explicitamente
 planos ausentes/incompatíveis em um
@@ -166,9 +169,8 @@ não deve ser usada com credenciais de produção sem autorização.
 - `POST /api/webhooks/mercadopago`: webhook público e assinado.
 - `POST /api/admin/subscription-plans/sync`: sincronização administrativa.
 
-As páginas de retorno são `/app/motoboy/assinatura/retorno` e
-`/app/empresa/assinatura/retorno`. A visita não ativa nada: ela chama a
-sincronização, que consulta o Mercado Pago.
+A página de retorno legada é `/app/motoboy/assinatura/retorno`. A antiga rota
+Empresa redireciona para `/app/empresa` e não inicia nem ativa assinatura.
 
 ## Criação da assinatura
 

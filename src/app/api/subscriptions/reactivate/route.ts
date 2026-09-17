@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
   }
   try {
-    await requireRole(["MOTOBOY", "COMPANY"]);
+    await requireRole(["MOTOBOY"]);
     return NextResponse.json(
       {
         error:

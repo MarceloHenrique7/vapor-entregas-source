@@ -27,7 +27,15 @@ import type {
   SubscriptionStatus,
 } from "./types";
 
-function requireBillableActor(actor: SubscriptionActor | null) {
+function requireMotoboyActor(actor: SubscriptionActor | null) {
+  if (!actor) throw new UnauthenticatedError();
+  if (actor.role !== "MOTOBOY" || actor.status !== "ACTIVE") {
+    throw new ForbiddenError();
+  }
+  return actor as SubscriptionActor & { role: "MOTOBOY" };
+}
+
+function requireLegacySubscriptionActor(actor: SubscriptionActor | null) {
   if (!actor) throw new UnauthenticatedError();
   if (
     (actor.role !== "MOTOBOY" && actor.role !== "COMPANY") ||
@@ -151,7 +159,7 @@ export function toSubscriptionView(
 
 export async function listPublicPlans(repository: SubscriptionRepository) {
   return (await repository.listPlans())
-    .filter((plan) => plan.active)
+    .filter((plan) => plan.active && plan.role === "MOTOBOY")
     .map(toPlanView);
 }
 
@@ -159,7 +167,7 @@ export async function getMySubscription(
   actor: SubscriptionActor | null,
   repository: SubscriptionRepository,
 ) {
-  const user = requireBillableActor(actor);
+  const user = requireMotoboyActor(actor);
   const billingUser = await repository.getBillingUser(user.userId);
   if (!billingUser || billingUser.id !== user.userId)
     throw new ForbiddenError();
@@ -326,7 +334,9 @@ export async function synchronizeProviderPlans(
   provider: SubscriptionProviderClient,
 ) {
   assertAdminAccess(actor);
-  const plans = (await repository.listPlans()).filter((plan) => plan.active);
+  const plans = (await repository.listPlans()).filter(
+    (plan) => plan.active && plan.role === "MOTOBOY",
+  );
   for (const plan of plans) {
     await ensureProviderPlan(plan, repository, provider);
   }
@@ -362,7 +372,7 @@ export async function startSubscription(
   now: Date,
 ) {
   const checkout = checkoutSchema.parse(input);
-  const user = requireBillableActor(actor);
+  const user = requireMotoboyActor(actor);
   const billingUser = await repository.getBillingUser(user.userId);
   if (
     !billingUser ||
@@ -448,7 +458,7 @@ export async function refreshMySubscription(
   provider: SubscriptionProviderClient,
   now: Date,
 ) {
-  const user = requireBillableActor(actor);
+  const user = requireLegacySubscriptionActor(actor);
   const current = await repository.getCurrent(user.userId);
   if (!current?.providerSubscriptionId) {
     return toSubscriptionView(
@@ -473,7 +483,7 @@ export async function cancelMySubscription(
   now: Date,
 ) {
   cancelSchema.parse(input);
-  const user = requireBillableActor(actor);
+  const user = requireLegacySubscriptionActor(actor);
   const current = await repository.getCurrent(user.userId);
   if (!current) throw new SubscriptionNotFoundError();
   if (current.userId !== user.userId) throw new ForbiddenError();
@@ -511,7 +521,7 @@ export async function reactivateMySubscription(
   provider: SubscriptionProviderClient,
   now: Date,
 ) {
-  const user = requireBillableActor(actor);
+  const user = requireMotoboyActor(actor);
   const current = await repository.getCurrent(user.userId);
   if (
     !current?.providerSubscriptionId ||
@@ -675,6 +685,10 @@ export async function updateSubscriptionPlan(
   assertAdminAccess(actor);
   const id = planIdSchema.parse(planId);
   const validated = updatePlanSchema.parse(input);
+  const existing = (await repository.listPlans()).find(
+    (plan) => plan.id === id && plan.role === "MOTOBOY",
+  );
+  if (!existing) throw new SubscriptionNotFoundError();
   const plan = await repository.updatePlan(actor.userId, id, validated, now);
   if (!plan) throw new SubscriptionNotFoundError();
   return toPlanView(plan);

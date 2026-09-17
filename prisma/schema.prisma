@@ -51,6 +51,14 @@ enum DeliveryPaymentMethod {
   OTHER
 }
 
+enum DeliveryPaymentStatus {
+  UNTRACKED
+  PENDING
+  REPORTED_PAID
+  CONFIRMED
+  DISPUTED
+}
+
 enum ReportCategory {
   USER_NO_SHOW
   FRAUD_ATTEMPT
@@ -77,6 +85,7 @@ enum AdminActionType {
   REPORT_STATUS_CHANGED
   PRICING_RULE_CHANGED
   SUBSCRIPTION_PLAN_CHANGED
+  COMPANY_PRO_CHANGED
 }
 
 enum SubscriptionProvider {
@@ -114,6 +123,9 @@ enum NotificationType {
   DELIVERY_STATUS_CHANGED
   DELIVERY_CANCELLED
   DELIVERY_COMPLETED
+  DELIVERY_PAYMENT_REPORTED
+  DELIVERY_PAYMENT_CONFIRMED
+  DELIVERY_PAYMENT_DISPUTED
   REPORT_UPDATED
   PLAN_PAYMENT_APPROVED
   PLAN_EXPIRING
@@ -174,6 +186,7 @@ model User {
   notifications             Notification[]
   deliveryExtrasInformed    DeliveryExtra[]        @relation("DeliveryExtrasInformed")
   deliveryExtraActions      DeliveryExtraHistory[] @relation("DeliveryExtraActions")
+  deliveryPaymentEvents     DeliveryPaymentEvent[] @relation("DeliveryPaymentActors")
   subscriptions             Subscription[]
   subscriptionPayments      SubscriptionPayment[]
   preRegistrationsConverted PreRegistration[]
@@ -339,6 +352,8 @@ model CompanyProfile {
   legalDocumentHash       String              @unique @db.Char(64)
   legalDocumentLastDigits String              @db.Char(4)
   city                    SupportedCity
+  proEnabled              Boolean             @default(false)
+  proEnabledAt            DateTime?           @db.DateTime(3)
   createdAt               DateTime            @default(now()) @db.DateTime(3)
   updatedAt               DateTime            @updatedAt @db.DateTime(3)
   user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -408,6 +423,10 @@ model Delivery {
   pricingRuleId           String?                   @db.Char(36)
   offeredPrice            Decimal                   @db.Decimal(10, 2)
   paymentMethod           DeliveryPaymentMethod
+  paymentStatus           DeliveryPaymentStatus     @default(UNTRACKED)
+  paymentReportedAt       DateTime?                 @db.DateTime(3)
+  paymentConfirmedAt      DateTime?                 @db.DateTime(3)
+  paymentStatusUpdatedAt  DateTime?                 @db.DateTime(3)
   notes                   String?                   @db.VarChar(500)
   status                  DeliveryStatus            @default(SEARCHING_MOTOBOY)
   acceptedAt              DateTime?                 @db.DateTime(3)
@@ -424,17 +443,37 @@ model Delivery {
   ratings                 Rating[]
   reports                 Report[]
   extras                  DeliveryExtra[]
+  paymentEvents           DeliveryPaymentEvent[]
   pricingRule             PricingRule?              @relation(fields: [pricingRuleId], references: [id], onDelete: SetNull)
 
   @@index([companyId, createdAt])
   @@index([companyId, status, createdAt])
+  @@index([companyId, paymentStatus, createdAt])
   @@index([companyId, motoboyId, createdAt])
   @@index([motoboyId, status])
+  @@index([motoboyId, paymentStatus, createdAt])
   @@index([status, createdAt])
   @@index([pickupCity, status])
   @@index([pickupCity, status, expiresAt])
   @@index([pricingRuleId])
   @@map("deliveries")
+}
+
+model DeliveryPaymentEvent {
+  id             String                @id @default(uuid()) @db.Char(36)
+  deliveryId     String                @db.Char(36)
+  previousStatus DeliveryPaymentStatus
+  newStatus      DeliveryPaymentStatus
+  actorUserId    String                @db.Char(36)
+  actorRole      Role
+  note           String?               @db.VarChar(300)
+  createdAt      DateTime              @default(now()) @db.DateTime(3)
+  delivery       Delivery              @relation(fields: [deliveryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  actor          User                  @relation("DeliveryPaymentActors", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([deliveryId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("delivery_payment_events")
 }
 
 model PricingRule {

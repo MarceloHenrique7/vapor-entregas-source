@@ -36,6 +36,18 @@ export const userStatusActionSchema = z
     }
   });
 
+export const companyProActionSchema = z
+  .object({
+    enabled: z.boolean(),
+    reason: z
+      .string()
+      .trim()
+      .max(1000)
+      .transform((value) => value || undefined)
+      .optional(),
+  })
+  .strict();
+
 export const deliverySearchSchema = z.object({
   status: z.enum(DELIVERY_STATUSES).optional(),
   city: z.enum(["PETROLINA_PE", "JUAZEIRO_BA"]).optional(),
@@ -80,6 +92,7 @@ export const auditSearchSchema = z.object({
       "REPORT_STATUS_CHANGED",
       "PRICING_RULE_CHANGED",
       "SUBSCRIPTION_PLAN_CHANGED",
+      "COMPANY_PRO_CHANGED",
     ])
     .optional(),
   page,

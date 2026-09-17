@@ -23,7 +23,7 @@ describe("Payment Brick checkout UI", () => {
     );
   });
 
-  it("opens the Payment Brick from the shared company and motoboy dashboard", () => {
+  it("opens the Payment Brick only from the motoboy dashboard", () => {
     const dashboard = readProjectFile(
       "src/components/subscriptions/subscription-dashboard.tsx",
     );
@@ -42,8 +42,34 @@ describe("Payment Brick checkout UI", () => {
     expect(dashboard).not.toMatch(
       /Autorizar assinatura|cobrança mensal recorrente|Próxima cobrança/,
     );
-    expect(companyPage).toContain("<SubscriptionDashboard");
+    expect(companyPage).toContain('redirect("/app/empresa")');
+    expect(companyPage).not.toContain("<SubscriptionDashboard");
     expect(motoboyPage).toContain("<SubscriptionDashboard");
+  });
+
+  it("removes the company plan from active navigation and registration", () => {
+    const navigation = readProjectFile(
+      "src/components/dashboard/navigation.ts",
+    );
+    const registration = readProjectFile(
+      "src/server/registration/prisma-registration-repository.ts",
+    );
+    const deliveries = readProjectFile("src/app/api/deliveries/route.ts");
+    const checkout = readProjectFile(
+      "src/app/api/subscriptions/checkout/route.ts",
+    );
+    const migration = readProjectFile(
+      "prisma/mysql/migrations/20260914150000_disable_company_subscription_plan/migration.sql",
+    );
+
+    expect(navigation).not.toContain('href: "/app/empresa/assinatura"');
+    expect(registration).not.toContain('where: { role: "COMPANY" }');
+    expect(registration).toContain('where: { role: "MOTOBOY" }');
+    expect(deliveries).not.toContain("assertOperationalSubscription");
+    expect(checkout).toContain('requireRole(["MOTOBOY"])');
+    expect(checkout).not.toContain('"COMPANY"');
+    expect(migration).toContain("WHERE `role` = 'COMPANY'");
+    expect(migration).toContain("`active` = false");
   });
 
   it("keeps the payment action reachable in a viewport-limited dialog", () => {

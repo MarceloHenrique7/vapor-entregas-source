@@ -48,7 +48,7 @@ type SubscriptionView = {
 type Result = {
   payerEmail: string;
   plan: {
-    role: "MOTOBOY" | "COMPANY";
+    role: "MOTOBOY";
     name: string;
     description: string;
     monthlyPrice: number;
@@ -90,11 +90,6 @@ const benefits = {
     "Acesso às oportunidades de entrega",
     "Organização de corridas e histórico",
     "Reputação e suporte da plataforma",
-  ],
-  COMPANY: [
-    "Publicação de novas entregas",
-    "Acompanhamento operacional em tempo real",
-    "Histórico, favoritos e suporte da plataforma",
   ],
 } as const;
 

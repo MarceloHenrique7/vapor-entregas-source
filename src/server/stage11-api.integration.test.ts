@@ -196,7 +196,6 @@ describe.skipIf(!enabled)(
         ["COMPANY", "/api/account/profile"],
         ["COMPANY", "/api/auth/session"],
         ["COMPANY", "/api/notifications"],
-        ["COMPANY", "/api/subscriptions/me"],
         ["MOTOBOY", "/api/deliveries/opportunities"],
         ["MOTOBOY", "/api/deliveries/current"],
         ["MOTOBOY", "/api/deliveries/history"],
@@ -258,6 +257,7 @@ describe.skipIf(!enabled)(
       expect((await api("/api/subscriptions/me", "ANONYMOUS")).status).toBe(
         401,
       );
+      expect((await api("/api/subscriptions/me", "COMPANY")).status).toBe(403);
       expect((await api("/api/company/history", "MOTOBOY")).status).toBe(403);
       expect((await api("/api/company/history", "ADMIN")).status).toBe(403);
       expect((await api("/api/company/history", "ANONYMOUS")).status).toBe(401);
@@ -366,9 +366,9 @@ describe.skipIf(!enabled)(
       ).toBe(403);
     });
 
-    it("bloqueia somente novas operações quando a assinatura não está ativa", async () => {
+    it("exige assinatura somente nas novas operações do motoboy", async () => {
       await prisma.subscription.updateMany({
-        where: { userId: { in: [companyUserId, motoboyUserId] } },
+        where: { userId: motoboyUserId },
         data: { status: "EXPIRED", currentPeriodEnd: new Date() },
       });
       try {
@@ -376,8 +376,8 @@ describe.skipIf(!enabled)(
           method: "POST",
           body: JSON.stringify({}),
         });
-        expect(companyPublish.status).toBe(402);
-        await expect(companyPublish.json()).resolves.toMatchObject({
+        expect(companyPublish.status).toBe(400);
+        await expect(companyPublish.json()).resolves.not.toMatchObject({
           code: "SUBSCRIPTION_REQUIRED",
         });
         expect(
@@ -405,7 +405,7 @@ describe.skipIf(!enabled)(
         );
       } finally {
         await prisma.subscription.updateMany({
-          where: { userId: { in: [companyUserId, motoboyUserId] } },
+          where: { userId: motoboyUserId },
           data: {
             status: "ACTIVE",
             currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000),

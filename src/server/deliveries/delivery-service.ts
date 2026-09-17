@@ -29,12 +29,14 @@ import {
   cancelDeliverySchema,
   deliveryHistoryFilterSchema,
   deliveryIdSchema,
+  deliveryPaymentActionSchema,
   transitionDeliverySchema,
   type CreateDeliveryInput,
 } from "./schemas";
 import type {
   CompanyPickupContext,
   DeliveryActor,
+  DeliveryPaymentStatus,
   DeliveryRecord,
   DeliveryStatus,
   DeliveryView,
@@ -48,7 +50,7 @@ export type AcceptanceResult =
   | { kind: "unavailable" };
 
 export type DeliveryMutationResult =
-  | { kind: "updated"; delivery: DeliveryRecord }
+  | { kind: "updated"; delivery: DeliveryRecord; changed?: boolean }
   | { kind: "not_found" }
   | { kind: "forbidden" }
   | { kind: "conflict" };
@@ -137,10 +139,23 @@ export interface DeliveryRepository {
     reason: string | undefined,
     now: Date,
   ): Promise<DeliveryMutationResult>;
+  updateDeliveryPaymentAtomically(
+    userId: string,
+    role: "COMPANY" | "MOTOBOY",
+    deliveryId: string,
+    action: "MARK_PAID" | "CONFIRM_RECEIPT" | "REPORT_NOT_RECEIVED",
+    note: string | undefined,
+    now: Date,
+  ): Promise<DeliveryMutationResult>;
   listDeliveryHistory(
     userId: string,
     role: "COMPANY" | "MOTOBOY",
-    filters: { status?: DeliveryStatus; from?: string; to?: string },
+    filters: {
+      status?: DeliveryStatus;
+      paymentStatus?: DeliveryPaymentStatus;
+      from?: string;
+      to?: string;
+    },
   ): Promise<DeliveryRecord[] | null>;
 }
 
@@ -387,6 +402,39 @@ export async function cancelDelivery(
       isCompany ? COMPANY_CANCELLABLE_STATUSES : MOTOBOY_CANCELLABLE_STATUSES,
       isCompany ? "CANCELLED_BY_COMPANY" : "CANCELLED_BY_MOTOBOY",
       reason,
+      now,
+    ),
+  );
+}
+
+export async function updateDeliveryPayment(
+  actor: DeliveryActor | null,
+  rawDeliveryId: unknown,
+  input: unknown,
+  repository: DeliveryRepository,
+  now: Date,
+) {
+  if (!actor) throw new UnauthenticatedError();
+  if (actor.role !== "COMPANY" && actor.role !== "MOTOBOY") {
+    throw new ForbiddenError();
+  }
+  const deliveryId = deliveryIdSchema.parse(rawDeliveryId);
+  const validated = deliveryPaymentActionSchema.parse(input);
+  if (
+    (actor.role === "COMPANY" && validated.action !== "MARK_PAID") ||
+    (actor.role === "MOTOBOY" && validated.action === "MARK_PAID")
+  ) {
+    throw new InvalidDeliveryTransitionError(
+      "Esta ação financeira não é permitida para o seu perfil.",
+    );
+  }
+  return resolveMutationResult(
+    await repository.updateDeliveryPaymentAtomically(
+      actor.userId,
+      actor.role,
+      deliveryId,
+      validated.action,
+      validated.note,
       now,
     ),
   );

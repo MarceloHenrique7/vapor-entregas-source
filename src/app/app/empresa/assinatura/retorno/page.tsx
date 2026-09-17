@@ -1,5 +1,5 @@
-import { SubscriptionReturn } from "@/components/subscriptions/subscription-return";
+import { redirect } from "next/navigation";
 
 export default function CompanySubscriptionReturnPage() {
-  return <SubscriptionReturn backHref="/app/empresa/assinatura" />;
+  redirect("/app/empresa");
 }

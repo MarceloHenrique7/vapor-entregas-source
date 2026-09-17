@@ -13,9 +13,14 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DELIVERY_STATUS_LABELS,
+  DELIVERY_PAYMENT_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
 } from "@/config/delivery";
-import type { DeliveryStatus, DeliveryView } from "@/server/deliveries/types";
+import type {
+  DeliveryPaymentStatus,
+  DeliveryStatus,
+  DeliveryView,
+} from "@/server/deliveries/types";
 import { RatingDialog } from "@/components/reputation/rating-dialog";
 import { ReportDialog } from "@/components/reputation/report-dialog";
 import type { FavoriteView, RatingOverview } from "@/server/reputation/types";
@@ -23,6 +28,7 @@ import { apiErrorMessage, CONNECTION_ERROR } from "@/lib/http/client-error";
 
 import { useDeliveryEvents } from "./use-delivery-events";
 import { DeliveryExtrasSummary } from "./delivery-extras-summary";
+import { DeliveryPaymentPanel } from "./delivery-payment-panel";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -40,6 +46,7 @@ export function DeliveryHistoryList({
 }) {
   const [deliveries, setDeliveries] = useState<DeliveryView[] | null>(null);
   const [status, setStatus] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [error, setError] = useState("");
@@ -57,6 +64,7 @@ export function DeliveryHistoryList({
   const load = useCallback(async () => {
     const search = new URLSearchParams();
     if (status) search.set("status", status);
+    if (paymentStatus) search.set("paymentStatus", paymentStatus);
     if (from) search.set("from", from);
     if (to) search.set("to", to);
     try {
@@ -82,7 +90,7 @@ export function DeliveryHistoryList({
     } catch {
       setError(CONNECTION_ERROR);
     }
-  }, [from, status, to]);
+  }, [from, paymentStatus, status, to]);
 
   const loadReputation = useCallback(async () => {
     try {
@@ -162,7 +170,7 @@ export function DeliveryHistoryList({
           {success}
         </p>
       )}
-      <Card className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6">
+      <Card className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
         <FormField label="Status" htmlFor="history-status">
           <Select
             id="history-status"
@@ -179,6 +187,28 @@ export function DeliveryHistoryList({
             ).map((value) => (
               <option key={value} value={value}>
                 {DELIVERY_STATUS_LABELS[value]}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        <FormField label="Pagamento" htmlFor="history-payment-status">
+          <Select
+            id="history-payment-status"
+            value={paymentStatus}
+            onChange={(event) => setPaymentStatus(event.target.value)}
+          >
+            <option value="">Todos os estados</option>
+            {(
+              [
+                "UNTRACKED",
+                "PENDING",
+                "REPORTED_PAID",
+                "CONFIRMED",
+                "DISPUTED",
+              ] as DeliveryPaymentStatus[]
+            ).map((value) => (
+              <option key={value} value={value}>
+                {DELIVERY_PAYMENT_STATUS_LABELS[value]}
               </option>
             ))}
           </Select>
@@ -326,6 +356,21 @@ export function DeliveryHistoryList({
                   Ver acompanhamento
                 </Link>
               )}
+            </div>
+            <div className="mt-4">
+              <DeliveryPaymentPanel
+                compact
+                delivery={delivery}
+                actorRole={actorRole}
+                onUpdated={(updated) =>
+                  setDeliveries(
+                    (current) =>
+                      current?.map((item) =>
+                        item.id === updated.id ? updated : item,
+                      ) ?? null,
+                  )
+                }
+              />
             </div>
             <div className="mt-4">
               <DeliveryExtrasSummary extras={delivery.extras} />

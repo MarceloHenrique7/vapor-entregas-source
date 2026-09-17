@@ -97,7 +97,7 @@ async function main() {
   }
 
   const localPlans = (await prismaSubscriptionRepository.listPlans()).filter(
-    (plan) => plan.active,
+    (plan) => plan.active && plan.role === "MOTOBOY",
   );
   const remotePlanIds = new Set(
     (await mercadoPagoSubscriptionProvider.searchPlans()).map(

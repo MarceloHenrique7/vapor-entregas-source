@@ -11,6 +11,7 @@ import { ForbiddenError } from "@/server/auth/errors";
 
 import {
   SubscriptionConflictError,
+  SubscriptionNotFoundError,
   SubscriptionProviderError,
   SubscriptionRequiredError,
 } from "./errors";
@@ -18,10 +19,12 @@ import {
   assertOperationalSubscription,
   cancelMySubscription,
   ensureProviderPlan,
+  listPublicPlans,
   mapProviderStatus,
   processMercadoPagoWebhook,
   refreshMySubscription,
   startSubscription,
+  updateSubscriptionPlan,
 } from "./subscription-service";
 import type {
   ProviderPayment,
@@ -216,49 +219,75 @@ const company = {
 describe("assinaturas recorrentes da plataforma", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it.each([
-    [motoboy, motoboyPlan, "payer@example.test"],
-    [company, companyPlan, "company@example.test"],
-  ])(
-    "seleciona exclusivamente o plano da role autenticada",
-    async (actor, expectedPlan, email) => {
-      const repo = repository({
-        getBillingUser: vi.fn().mockResolvedValue({
-          id: actor.userId,
-          email,
-          role: actor.role,
-          status: "ACTIVE",
-        }),
-        createDraft: vi
-          .fn()
-          .mockResolvedValue(subscription("PENDING", expectedPlan)),
-      });
-      const client = provider({
-        getPlan: vi.fn().mockResolvedValue({
-          ...providerPlan,
-          id: expectedPlan.externalPlanId!,
-          reason: `Vapor Entregas - Plano ${expectedPlan.name}`,
-          amount: expectedPlan.monthlyPrice,
-          backUrl: "https://app.example.test",
-        }),
-        createAuthorized: vi.fn().mockResolvedValue({
-          ...providerValue,
-          planId: expectedPlan.externalPlanId,
-        }),
-      });
-      await startSubscription(actor, { cardTokenId }, repo, client, now);
-      expect(repo.getPlanForRole).toHaveBeenCalledWith(actor.role);
-      expect(client.createAuthorized).toHaveBeenCalledWith(
-        expect.objectContaining({
-          providerPlanId: expectedPlan.externalPlanId,
-          sellerAccountId: providerPlan.collectorId,
-          cardTokenId,
-          payerEmail: email,
-          payerEmailMatchesLoggedUser: true,
-        }),
-      );
-    },
-  );
+  it("seleciona exclusivamente o plano do motoboy autenticado", async () => {
+    const actor = motoboy;
+    const expectedPlan = motoboyPlan;
+    const email = "payer@example.test";
+    const repo = repository({
+      getBillingUser: vi.fn().mockResolvedValue({
+        id: actor.userId,
+        email,
+        role: actor.role,
+        status: "ACTIVE",
+      }),
+      createDraft: vi
+        .fn()
+        .mockResolvedValue(subscription("PENDING", expectedPlan)),
+    });
+    const client = provider({
+      getPlan: vi.fn().mockResolvedValue({
+        ...providerPlan,
+        id: expectedPlan.externalPlanId!,
+        reason: `Vapor Entregas - Plano ${expectedPlan.name}`,
+        amount: expectedPlan.monthlyPrice,
+        backUrl: "https://app.example.test",
+      }),
+      createAuthorized: vi.fn().mockResolvedValue({
+        ...providerValue,
+        planId: expectedPlan.externalPlanId,
+      }),
+    });
+    await startSubscription(actor, { cardTokenId }, repo, client, now);
+    expect(repo.getPlanForRole).toHaveBeenCalledWith(actor.role);
+    expect(client.createAuthorized).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerPlanId: expectedPlan.externalPlanId,
+        sellerAccountId: providerPlan.collectorId,
+        cardTokenId,
+        payerEmail: email,
+        payerEmailMatchesLoggedUser: true,
+      }),
+    );
+  });
+
+  it("não oferece plano nem checkout para empresa", async () => {
+    const repo = repository();
+    const client = provider();
+
+    await expect(
+      startSubscription(company, { cardTokenId }, repo, client, now),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(listPublicPlans(repo)).resolves.toEqual([
+      expect.objectContaining({ role: "MOTOBOY" }),
+    ]);
+    expect(repo.getPlanForRole).not.toHaveBeenCalledWith("COMPANY");
+    expect(client.createAuthorized).not.toHaveBeenCalled();
+  });
+
+  it("não permite reativar o plano Empresa pela administração", async () => {
+    const repo = repository();
+
+    await expect(
+      updateSubscriptionPlan(
+        { userId: "admin-id", role: "ADMIN", status: "ACTIVE" },
+        companyPlan.id,
+        { monthlyPrice: 29.9, active: true, trialDays: 7 },
+        repo,
+        now,
+      ),
+    ).rejects.toBeInstanceOf(SubscriptionNotFoundError);
+    expect(repo.updatePlan).not.toHaveBeenCalled();
+  });
 
   it("rejeita amount e providerPlanId enviados pelo navegador", async () => {
     const repo = repository();

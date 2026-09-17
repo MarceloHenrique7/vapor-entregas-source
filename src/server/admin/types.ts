@@ -57,6 +57,7 @@ export interface AdminUserDetail extends AdminUserListItem {
   cancellations: number;
   reportsReceived: number;
   reportsCreated: number;
+  companyProEnabled: boolean | null;
 }
 
 export interface AdminDeliveryListItem {
@@ -74,6 +75,7 @@ export interface AdminDeliveryListItem {
 
 export interface AdminDeliveryDetail extends AdminDeliveryListItem {
   paymentMethod: string;
+  paymentStatus: string;
   notes: string | null;
   history: Array<{
     id: string;
@@ -124,7 +126,8 @@ export interface AdminAuditItem {
     | "USER_REACTIVATED"
     | "REPORT_STATUS_CHANGED"
     | "PRICING_RULE_CHANGED"
-    | "SUBSCRIPTION_PLAN_CHANGED";
+    | "SUBSCRIPTION_PLAN_CHANGED"
+    | "COMPANY_PRO_CHANGED";
   reason: string | null;
   metadata: unknown;
   createdAt: string;
