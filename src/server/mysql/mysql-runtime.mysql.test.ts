@@ -3,6 +3,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { authenticateCredentials } from "@/server/auth/authenticate";
+import {
+  changeCompanyProAccess,
+  changeMotoboyPlanAccess,
+} from "@/server/admin/admin-service";
 import { hashPassword } from "@/server/auth/password";
 import { prismaAuthRepository } from "@/server/auth/prisma-auth-repository";
 import { getSessionUserByToken } from "@/server/auth/session-lookup";
@@ -10,11 +14,16 @@ import {
   createSessionToken,
   hashSessionToken,
 } from "@/server/auth/session-token";
-import { getCompanyProOverview } from "@/server/company-pro/company-pro-service";
+import {
+  getCompanyPlanOverview,
+  getCompanyProOverview,
+} from "@/server/company-pro/company-pro-service";
 import { getPrisma } from "@/server/db/prisma";
 import { prismaDeliveryRepository } from "@/server/deliveries/prisma-delivery-repository";
 import { createPreRegistration } from "@/server/pre-registration/pre-registration-service";
 import { prismaPreRegistrationRepository } from "@/server/pre-registration/prisma-pre-registration-repository";
+import { prismaReputationRepository } from "@/server/reputation/prisma-reputation-repository";
+import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
 
 const mysqlTestUrl = process.env.MYSQL_TEST_DATABASE_URL;
 
@@ -499,6 +508,321 @@ describe("runtime real MySQL", () => {
       await prisma.subscriptionEvent.deleteMany({ where: { subscriptionId } });
       await prisma.subscription.deleteMany({ where: { id: subscriptionId } });
       await prisma.user.deleteMany({ where: { id: userId } });
+    }
+  });
+
+  it("concede e revoga acessos administrativos sem criar receita fictícia", async () => {
+    const adminId = randomUUID();
+    const motoboyId = randomUUID();
+    const companyId = randomUUID();
+    const companyProfileId = randomUUID();
+    const now = new Date("2026-09-17T02:30:00.000Z");
+    const actor = { userId: adminId, role: "ADMIN", status: "ACTIVE" } as const;
+    const plan = await prisma.subscriptionPlan.findUniqueOrThrow({
+      where: { role: "MOTOBOY" },
+      select: { id: true },
+    });
+    try {
+      await prisma.user.createMany({
+        data: [
+          {
+            id: adminId,
+            role: "ADMIN",
+            status: "ACTIVE",
+            name: "Admin Acesso MySQL",
+            email: `admin-access-${adminId}@example.test`,
+            phone: `+55${digest(adminId).slice(0, 11)}`,
+            passwordHash: "integration-only",
+          },
+          {
+            id: motoboyId,
+            role: "MOTOBOY",
+            status: "ACTIVE",
+            name: "Motoboy Acesso MySQL",
+            email: `motoboy-access-${motoboyId}@example.test`,
+            phone: `+55${digest(motoboyId).slice(0, 11)}`,
+            passwordHash: "integration-only",
+          },
+          {
+            id: companyId,
+            role: "COMPANY",
+            status: "ACTIVE",
+            name: "Empresa Pro MySQL",
+            email: `company-pro-${companyId}@example.test`,
+            phone: `+55${digest(companyId).slice(0, 11)}`,
+            passwordHash: "integration-only",
+          },
+        ],
+      });
+      await prisma.companyProfile.create({
+        data: {
+          id: companyProfileId,
+          userId: companyId,
+          fantasyName: "Empresa Pro MySQL",
+          documentType: "CNPJ",
+          legalDocumentEncrypted: "integration-only",
+          legalDocumentHash: digest(`pro:${companyId}`),
+          legalDocumentLastDigits: "0001",
+          city: "PETROLINA_PE",
+        },
+      });
+
+      await changeMotoboyPlanAccess(
+        actor,
+        motoboyId,
+        {
+          action: "GRANT",
+          planId: plan.id,
+          days: 30,
+          reasonType: "COURTESY",
+          reason: "Cortesia validada no teste de integração",
+        },
+        now,
+      );
+      await expect(
+        prismaSubscriptionRepository.hasOperationalSubscription(motoboyId, now),
+      ).resolves.toBe(true);
+      await expect(
+        prisma.subscriptionPayment.count({ where: { userId: motoboyId } }),
+      ).resolves.toBe(0);
+      await changeMotoboyPlanAccess(
+        actor,
+        motoboyId,
+        {
+          action: "EXTEND",
+          days: 15,
+          reason: "Extensão aprovada no teste de integração",
+        },
+        new Date(now.getTime() + 1_000),
+      );
+      await changeMotoboyPlanAccess(
+        actor,
+        motoboyId,
+        {
+          action: "REVOKE",
+          reason: "Revogação confirmada no teste de integração",
+        },
+        new Date(now.getTime() + 2_000),
+      );
+      await expect(
+        prismaSubscriptionRepository.hasOperationalSubscription(
+          motoboyId,
+          new Date(now.getTime() + 3_000),
+        ),
+      ).resolves.toBe(false);
+
+      await changeCompanyProAccess(
+        actor,
+        companyId,
+        {
+          action: "ENABLE",
+          days: 30,
+          indefinite: false,
+          source: "TEST",
+          reason: "Liberação Pro para teste de integração",
+        },
+        now,
+      );
+      await expect(
+        getCompanyPlanOverview(companyId, now),
+      ).resolves.toMatchObject({
+        currentPlan: "PRO",
+        proEffective: true,
+        checkoutAvailable: false,
+        proPrice: null,
+      });
+      await changeCompanyProAccess(
+        actor,
+        companyId,
+        {
+          action: "DISABLE",
+          indefinite: false,
+          reason: "Remoção Pro para teste de integração",
+        },
+        new Date(now.getTime() + 1_000),
+      );
+      await expect(
+        getCompanyPlanOverview(companyId, new Date(now.getTime() + 2_000)),
+      ).resolves.toMatchObject({ currentPlan: "FREE", proEffective: false });
+      await expect(
+        prisma.adminAction.count({
+          where: {
+            adminUserId: adminId,
+            actionType: {
+              in: [
+                "MOTOBOY_PLAN_GRANTED",
+                "MOTOBOY_PLAN_EXTENDED",
+                "MOTOBOY_PLAN_REVOKED",
+                "COMPANY_PRO_ENABLED",
+                "COMPANY_PRO_DISABLED",
+              ],
+            },
+          },
+        }),
+      ).resolves.toBe(5);
+    } finally {
+      await prisma.adminAction.deleteMany({ where: { adminUserId: adminId } });
+      await prisma.manualAccessGrant.deleteMany({
+        where: { userId: motoboyId },
+      });
+      await prisma.companyProfile.deleteMany({
+        where: { id: companyProfileId },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: [adminId, motoboyId, companyId] } },
+      });
+    }
+  });
+
+  it("mostra avaliações recebidas somente ao avaliado e com nome público", async () => {
+    const companyUserId = randomUUID();
+    const companyId = randomUUID();
+    const locationId = randomUUID();
+    const motoboyUserId = randomUUID();
+    const motoboyId = randomUUID();
+    const otherMotoboyUserId = randomUUID();
+    const otherMotoboyId = randomUUID();
+    const deliveryId = randomUUID();
+    const now = new Date();
+    try {
+      await prisma.user.create({
+        data: {
+          id: companyUserId,
+          role: "COMPANY",
+          status: "ACTIVE",
+          name: "Responsável da Empresa",
+          email: `rating-company-${companyUserId}@example.test`,
+          phone: `+55${digest(companyUserId).slice(0, 11)}`,
+          passwordHash: "integration-only",
+          companyProfile: {
+            create: {
+              id: companyId,
+              fantasyName: "Mercado Público MySQL",
+              documentType: "CNPJ",
+              legalDocumentEncrypted: "integration-only",
+              legalDocumentHash: digest(`rating-company:${companyId}`),
+              legalDocumentLastDigits: "0001",
+              city: "PETROLINA_PE",
+            },
+          },
+        },
+      });
+      await prisma.companyLocation.create({
+        data: {
+          id: locationId,
+          companyId,
+          defaultCompanyKey: companyId,
+          label: "Loja",
+          address: "Rua Teste",
+          number: "1",
+          neighborhood: "Centro",
+          city: "PETROLINA_PE",
+          state: "PE",
+          latitude: -9.3891,
+          longitude: -40.5031,
+          isDefault: true,
+        },
+      });
+      for (const [userId, profileId, label] of [
+        [motoboyUserId, motoboyId, "Avaliado"],
+        [otherMotoboyUserId, otherMotoboyId, "Terceiro"],
+      ] as const) {
+        await prisma.user.create({
+          data: {
+            id: userId,
+            role: "MOTOBOY",
+            status: "ACTIVE",
+            name: `Motoboy ${label}`,
+            email: `rating-${label.toLowerCase()}-${userId}@example.test`,
+            phone: `+55${digest(userId).slice(0, 11)}`,
+            passwordHash: "integration-only",
+            motoboyProfile: {
+              create: {
+                id: profileId,
+                cpfEncrypted: "integration-only",
+                cpfHash: digest(`rating-cpf:${profileId}`),
+                cpfLastDigits: "00",
+                rgEncrypted: "integration-only",
+                rgHash: digest(`rating-rg:${profileId}`),
+                birthDate: new Date("1990-01-01T00:00:00.000Z"),
+                city: "PETROLINA_PE",
+                legalResponsibilityAcceptedAt: now,
+                intermediationAcceptedAt: now,
+              },
+            },
+          },
+        });
+      }
+      await prisma.delivery.create({
+        data: {
+          id: deliveryId,
+          companyId,
+          motoboyId,
+          pickupLocationId: locationId,
+          pickupLabel: "Loja",
+          pickupAddress: "Rua Teste",
+          pickupNumber: "1",
+          pickupNeighborhood: "Centro",
+          pickupCity: "PETROLINA_PE",
+          pickupState: "PE",
+          pickupLatitude: -9.3891,
+          pickupLongitude: -40.5031,
+          destinationAddress: "Rua Destino",
+          destinationNumber: "2",
+          destinationNeighborhood: "Centro",
+          destinationCity: "PETROLINA_PE",
+          destinationState: "PE",
+          destinationLatitude: -9.39,
+          destinationLongitude: -40.5,
+          distanceEstimateKm: 2,
+          offeredPrice: 20,
+          paymentMethod: "PIX",
+          status: "COMPLETED",
+          completedAt: now,
+          expiresAt: new Date(now.getTime() + 60_000),
+          ratings: {
+            create: {
+              reviewerUserId: companyUserId,
+              reviewedUserId: motoboyUserId,
+              reviewerRole: "COMPANY",
+              score: 5,
+              comment: "Entrega excelente e cuidadosa",
+              createdAt: now,
+            },
+          },
+        },
+      });
+      await expect(
+        prismaReputationRepository.getRatingOverview(motoboyUserId, "MOTOBOY"),
+      ).resolves.toMatchObject({
+        receivedItems: [
+          {
+            deliveryId,
+            reviewerName: "Mercado Público MySQL",
+            score: 5,
+            comment: "Entrega excelente e cuidadosa",
+          },
+        ],
+      });
+      await expect(
+        prismaReputationRepository.getRatingOverview(
+          otherMotoboyUserId,
+          "MOTOBOY",
+        ),
+      ).resolves.toMatchObject({ receivedItems: [] });
+    } finally {
+      await prisma.rating.deleteMany({ where: { deliveryId } });
+      await prisma.delivery.deleteMany({ where: { id: deliveryId } });
+      await prisma.companyLocation.deleteMany({ where: { id: locationId } });
+      await prisma.motoboyProfile.deleteMany({
+        where: { id: { in: [motoboyId, otherMotoboyId] } },
+      });
+      await prisma.companyProfile.deleteMany({ where: { id: companyId } });
+      await prisma.user.deleteMany({
+        where: {
+          id: { in: [companyUserId, motoboyUserId, otherMotoboyUserId] },
+        },
+      });
     }
   });
 });

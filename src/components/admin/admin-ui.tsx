@@ -82,6 +82,17 @@ const actionLabel: Record<string, string> = {
   PRICING_RULE_CHANGED: "Regra de preço sugerido alterada",
   SUBSCRIPTION_PLAN_CHANGED: "Plano de assinatura alterado",
   COMPANY_PRO_CHANGED: "Acesso ao Vapor Gestão Pro alterado",
+  MOTOBOY_PLAN_GRANTED: "Plano manual de motoboy concedido",
+  MOTOBOY_PLAN_EXTENDED: "Plano manual de motoboy estendido",
+  MOTOBOY_PLAN_REVOKED: "Plano manual de motoboy revogado",
+  COMPANY_PRO_ENABLED: "Gestão Pro habilitado",
+  COMPANY_PRO_EXTENDED: "Gestão Pro estendido",
+  COMPANY_PRO_DISABLED: "Gestão Pro desabilitado",
+  REVIEW_HIDDEN: "Avaliação ocultada",
+  REVIEW_RESTORED: "Avaliação restaurada",
+  REPORT_RESOLVED: "Denúncia resolvida",
+  SETTING_CHANGED: "Configuração alterada",
+  ADMIN_OVERRIDE: "Correção administrativa excepcional",
 };
 const date = (value: string | null) =>
   value
@@ -158,13 +169,16 @@ function Pager({
 
 export function AdminDashboard() {
   const [metrics, setMetrics] = useState<AdminDashboardMetrics | null>(null);
+  const [period, setPeriod] = useState("30d");
   const [error, setError] = useState("");
   const load = useCallback(() => {
     setError("");
-    api<{ metrics: AdminDashboardMetrics }>("/api/admin/dashboard")
+    api<{ metrics: AdminDashboardMetrics }>(
+      `/api/admin/dashboard?period=${period}`,
+    )
       .then((value) => setMetrics(value.metrics))
       .catch((reason) => setError(reason.message));
-  }, []);
+  }, [period]);
   useEffect(load, [load]);
   return (
     <>
@@ -173,6 +187,19 @@ export function AdminDashboard() {
         title="Visão geral"
         description="Indicadores operacionais e de moderação, sem expor dados privados desnecessários."
       />
+      <Card className="mt-6 flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm font-bold">Período dos indicadores financeiros</p>
+        <Select
+          aria-label="Período do dashboard"
+          value={period}
+          onChange={(event) => setPeriod(event.target.value)}
+        >
+          <option value="today">Hoje</option>
+          <option value="7d">7 dias</option>
+          <option value="30d">30 dias</option>
+          <option value="month">Mês atual</option>
+        </Select>
+      </Card>
       <div className="mt-7">
         {error ? (
           <ErrorCard message={error} retry={load} />
@@ -191,6 +218,18 @@ export function AdminDashboard() {
               label="Motoboys"
               value={String(metrics.totalMotoboys)}
               note="Contas cadastradas"
+            />
+            <StatCard
+              icon="wallet"
+              label="Motoboys com acesso"
+              value={String(metrics.motoboysActivePlan)}
+              note={`${metrics.motoboysWithoutPlan} sem plano · ${metrics.motoboysExpired} expirados`}
+            />
+            <StatCard
+              icon="building"
+              label="Empresas Pro"
+              value={String(metrics.companiesPro)}
+              note={`${metrics.companiesFree} no plano gratuito`}
             />
             <StatCard
               icon="building"
@@ -247,6 +286,30 @@ export function AdminDashboard() {
               note="Entregas que exigem análise"
             />
             <StatCard
+              icon="wallet"
+              label="VaporPay pendente"
+              value={String(metrics.vaporPayPending)}
+              note={`${money(metrics.vaporPayPendingValue)} declarado · ${metrics.vaporPayDisputed} divergentes`}
+            />
+            <StatCard
+              icon="sparkles"
+              label="Receita confirmada"
+              value={money(metrics.confirmedRevenue)}
+              note="Somente pagamentos reais aprovados"
+            />
+            <StatCard
+              icon="history"
+              label="Acessos vencendo"
+              value={String(metrics.expiringAccess)}
+              note="Próximos 7 dias"
+            />
+            <StatCard
+              icon="users"
+              label="Cadastros recentes"
+              value={String(metrics.recentRegistrations)}
+              note="Últimos 7 dias"
+            />
+            <StatCard
               icon="star"
               label="Média geral"
               value={
@@ -262,12 +325,18 @@ export function AdminDashboard() {
   );
 }
 
-export function AdminUsers() {
+export function AdminUsers({
+  fixedRole,
+  title = "Usuários",
+}: {
+  fixedRole?: "MOTOBOY" | "COMPANY";
+  title?: string;
+} = {}) {
   const [result, setResult] = useState<Paginated<AdminUserListItem> | null>(
     null,
   );
   const [query, setQuery] = useState("");
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState(fixedRole ?? "");
   const [status, setStatus] = useState("");
   const [city, setCity] = useState("");
   const [page, setPage] = useState(1);
@@ -294,7 +363,7 @@ export function AdminUsers() {
     <>
       <DashboardHeader
         eyebrow="Moderação"
-        title="Usuários"
+        title={title}
         description="Busca administrativa paginada. CPF/CNPJ aceita somente correspondência exata e nunca aparece na URL."
       />
       <Card className="mt-6 grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-[1fr_11rem_11rem_11rem_auto]">
@@ -307,19 +376,25 @@ export function AdminUsers() {
             setPage(1);
           }}
         />
-        <Select
-          aria-label="Tipo de conta"
-          value={role}
-          onChange={(event) => {
-            setRole(event.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">Todos os tipos</option>
-          <option value="MOTOBOY">Motoboy</option>
-          <option value="COMPANY">Empresa</option>
-          <option value="ADMIN">Admin</option>
-        </Select>
+        {fixedRole ? (
+          <div className="flex items-center rounded-2xl border border-line bg-canvas px-4 text-sm font-bold">
+            {roleLabel[fixedRole]}
+          </div>
+        ) : (
+          <Select
+            aria-label="Tipo de conta"
+            value={role}
+            onChange={(event) => {
+              setRole(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Todos os tipos</option>
+            <option value="MOTOBOY">Motoboy</option>
+            <option value="COMPANY">Empresa</option>
+            <option value="ADMIN">Admin</option>
+          </Select>
+        )}
         <Select
           aria-label="Status"
           value={status}
@@ -423,6 +498,20 @@ export function AdminUserDetails({ id }: { id: string }) {
     "ACTIVE" | "SUSPENDED" | "BLOCKED" | null
   >(null);
   const [reason, setReason] = useState("");
+  const [accessAction, setAccessAction] = useState<
+    | "MOTOBOY_GRANT"
+    | "MOTOBOY_EXTEND"
+    | "MOTOBOY_REVOKE"
+    | "PRO_ENABLE"
+    | "PRO_EXTEND"
+    | "PRO_DISABLE"
+    | null
+  >(null);
+  const [accessReason, setAccessReason] = useState("");
+  const [accessDays, setAccessDays] = useState("30");
+  const [indefinite, setIndefinite] = useState(false);
+  const [grantReasonType, setGrantReasonType] = useState("COURTESY");
+  const [proSource, setProSource] = useState("ADMIN_GRANTED");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const load = useCallback(() => {
@@ -460,22 +549,60 @@ export function AdminUserDetails({ id }: { id: string }) {
       setSaving(false);
     }
   }
-  async function toggleCompanyPro() {
-    if (user?.role !== "COMPANY" || user.companyProEnabled === null) return;
+  async function submitAccess() {
+    if (!user || !accessAction) return;
     setSaving(true);
     setError("");
     try {
-      const enabled = !user.companyProEnabled;
-      await api(`/api/admin/users/${id}/company-pro`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-      setSuccess(
-        enabled
-          ? "Vapor Gestão Pro habilitado para a empresa piloto."
-          : "Vapor Gestão Pro desabilitado para a empresa.",
-      );
+      const motoboyAction = accessAction.startsWith("MOTOBOY_");
+      if (motoboyAction) {
+        const action = accessAction.replace("MOTOBOY_", "");
+        await api(`/api/admin/users/${id}/motoboy-plan`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            planId: action === "GRANT" ? user.motoboyPlan?.id : undefined,
+            days: action === "REVOKE" ? undefined : Number(accessDays),
+            reasonType: action === "GRANT" ? grantReasonType : undefined,
+            reason: accessReason,
+          }),
+        });
+        setSuccess(
+          action === "GRANT"
+            ? "Acesso manual concedido sem criar pagamento ou receita."
+            : action === "EXTEND"
+              ? "Acesso manual estendido."
+              : "Acesso manual revogado; o histórico foi preservado.",
+        );
+      } else {
+        const action = accessAction.replace("PRO_", "");
+        await api(`/api/admin/users/${id}/company-pro`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            days:
+              action === "DISABLE" || indefinite
+                ? undefined
+                : Number(accessDays),
+            indefinite,
+            source: action === "ENABLE" ? proSource : undefined,
+            reason: accessReason,
+          }),
+        });
+        setSuccess(
+          action === "ENABLE"
+            ? "Gestão Pro liberado administrativamente, sem gerar receita."
+            : action === "EXTEND"
+              ? "Acesso ao Gestão Pro estendido."
+              : "Acesso ao Gestão Pro removido; os dados foram preservados.",
+        );
+      }
+      setAccessAction(null);
+      setAccessReason("");
+      setAccessDays("30");
+      setIndefinite(false);
       load();
     } catch (reasonValue) {
       setError(
@@ -582,18 +709,93 @@ export function AdminUserDetails({ id }: { id: string }) {
                     Liberação piloto sem preço ou checkout.
                   </p>
                 </div>
-                <Badge variant={user.companyProEnabled ? "success" : "neutral"}>
-                  {user.companyProEnabled ? "Habilitado" : "Desabilitado"}
+                <Badge
+                  variant={user.companyProEffective ? "success" : "neutral"}
+                >
+                  {user.companyProEffective ? "Ativo" : "Inativo"}
                 </Badge>
               </div>
-              <Button
-                className="mt-4 w-full"
-                variant={user.companyProEnabled ? "outline" : "primary"}
-                disabled={saving}
-                onClick={toggleCompanyPro}
-              >
-                {user.companyProEnabled ? "Desabilitar Pro" : "Habilitar Pro"}
-              </Button>
+              {user.companyProEnabledAt && (
+                <p className="mt-3 text-xs text-muted">
+                  Liberado em {date(user.companyProEnabledAt)} · vencimento{" "}
+                  {date(user.companyProExpiresAt)}
+                </p>
+              )}
+              <div className="mt-4 grid gap-2">
+                {!user.companyProEffective ? (
+                  <Button onClick={() => setAccessAction("PRO_ENABLE")}>
+                    Liberar Pro
+                  </Button>
+                ) : (
+                  <>
+                    <Button onClick={() => setAccessAction("PRO_EXTEND")}>
+                      Estender Pro
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={() => setAccessAction("PRO_DISABLE")}
+                    >
+                      Remover Pro
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {user.role === "MOTOBOY" && user.motoboyPlan && (
+            <div className="mb-6 border-b border-line pb-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-extrabold">
+                    Plano {user.motoboyPlan.name}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Pago e manual são históricos separados.
+                  </p>
+                </div>
+                <Badge
+                  variant={
+                    user.motoboyManualAccess?.status === "ACTIVE"
+                      ? "success"
+                      : "neutral"
+                  }
+                >
+                  {user.motoboyManualAccess?.status === "ACTIVE"
+                    ? "Manual ativo"
+                    : "Sem manual ativo"}
+                </Badge>
+              </div>
+              {user.motoboyPaidAccess && (
+                <p className="mt-3 text-xs text-muted">
+                  Acesso pago: {user.motoboyPaidAccess.status} · até{" "}
+                  {date(user.motoboyPaidAccess.currentPeriodEnd)}
+                </p>
+              )}
+              {user.motoboyManualAccess && (
+                <p className="mt-2 text-xs text-muted">
+                  Acesso manual: {user.motoboyManualAccess.status} · até{" "}
+                  {date(user.motoboyManualAccess.endsAt)}
+                </p>
+              )}
+              <div className="mt-4 grid gap-2">
+                {user.motoboyManualAccess?.status === "ACTIVE" ? (
+                  <>
+                    <Button onClick={() => setAccessAction("MOTOBOY_EXTEND")}>
+                      Estender acesso manual
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={() => setAccessAction("MOTOBOY_REVOKE")}
+                    >
+                      Revogar acesso manual
+                    </Button>
+                  </>
+                ) : (
+                  <Button onClick={() => setAccessAction("MOTOBOY_GRANT")}>
+                    Conceder acesso manual
+                  </Button>
+                )}
+              </div>
             </div>
           )}
           <h2 className="font-display text-xl font-extrabold">
@@ -671,6 +873,107 @@ export function AdminUserDetails({ id }: { id: string }) {
           >
             {saving ? "Salvando..." : "Confirmar"}
           </Button>
+        </div>
+      </Dialog>
+      <Dialog
+        open={Boolean(accessAction)}
+        onClose={() => !saving && setAccessAction(null)}
+        title={
+          accessAction?.includes("REVOKE") || accessAction?.includes("DISABLE")
+            ? "Confirmar remoção de acesso"
+            : accessAction?.includes("EXTEND")
+              ? "Estender acesso"
+              : "Conceder acesso"
+        }
+        description="A ação será transacional e registrada na auditoria. Concessões manuais não criam pagamentos nem receita."
+      >
+        <div className="space-y-4">
+          {accessAction === "MOTOBOY_GRANT" && (
+            <FormField label="Tipo do motivo" htmlFor="grant-reason-type">
+              <Select
+                id="grant-reason-type"
+                value={grantReasonType}
+                onChange={(event) => setGrantReasonType(event.target.value)}
+              >
+                <option value="COURTESY">Cortesia</option>
+                <option value="TEST">Teste</option>
+                <option value="COMPENSATION">Compensação</option>
+                <option value="EXTERNAL_PAYMENT">Pagamento externo</option>
+                <option value="SUPPORT">Suporte</option>
+                <option value="OTHER">Outro</option>
+              </Select>
+            </FormField>
+          )}
+          {accessAction === "PRO_ENABLE" && (
+            <FormField label="Origem" htmlFor="pro-source">
+              <Select
+                id="pro-source"
+                value={proSource}
+                onChange={(event) => setProSource(event.target.value)}
+              >
+                <option value="ADMIN_GRANTED">Concessão administrativa</option>
+                <option value="PROMOTIONAL">Promocional</option>
+                <option value="COMPENSATION">Compensação</option>
+                <option value="EXTERNAL_PAYMENT">Pagamento externo</option>
+                <option value="PARTNER">Parceiro</option>
+                <option value="TEST">Teste</option>
+              </Select>
+            </FormField>
+          )}
+          {!accessAction?.includes("REVOKE") &&
+            !accessAction?.includes("DISABLE") &&
+            !(accessAction?.startsWith("PRO_") && indefinite) && (
+              <FormField label="Duração em dias" htmlFor="access-days">
+                <Input
+                  id="access-days"
+                  type="number"
+                  min={1}
+                  max={3650}
+                  value={accessDays}
+                  onChange={(event) => setAccessDays(event.target.value)}
+                />
+              </FormField>
+            )}
+          {accessAction?.startsWith("PRO_") &&
+            !accessAction.includes("DISABLE") && (
+              <label className="flex items-center gap-3 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  checked={indefinite}
+                  onChange={(event) => setIndefinite(event.target.checked)}
+                />
+                Acesso sem vencimento
+              </label>
+            )}
+          <FormField
+            label="Motivo obrigatório"
+            htmlFor="access-reason"
+            hint="Mínimo de 10 caracteres."
+          >
+            <textarea
+              id="access-reason"
+              className="min-h-28 w-full rounded-2xl border border-line p-3"
+              value={accessReason}
+              onChange={(event) => setAccessReason(event.target.value)}
+            />
+          </FormField>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setAccessAction(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant={
+                accessAction?.includes("REVOKE") ||
+                accessAction?.includes("DISABLE")
+                  ? "danger"
+                  : "primary"
+              }
+              disabled={saving || accessReason.trim().length < 10}
+              onClick={submitAccess}
+            >
+              {saving ? "Salvando..." : "Confirmar"}
+            </Button>
+          </div>
         </div>
       </Dialog>
     </>

@@ -55,6 +55,15 @@ type Result = {
     trialDays: number;
   };
   subscription: SubscriptionView | null;
+  manualAccess: {
+    id: string;
+    source: "ADMIN_MANUAL";
+    reasonType: string;
+    status: "ACTIVE" | "EXPIRED" | "REVOKED" | "SCHEDULED";
+    startsAt: string;
+    endsAt: string;
+    daysRemaining: number;
+  } | null;
 };
 
 const statusLabels: Record<Status, string> = {
@@ -188,8 +197,22 @@ export function SubscriptionDashboard() {
   }
 
   const subscription = data.subscription;
-  const operational =
+  const paidOperational =
     subscription?.status === "ACTIVE" || subscription?.status === "TRIAL";
+  const manualOperational = data.manualAccess?.status === "ACTIVE";
+  const operational = paidOperational || manualOperational;
+  const effectiveEnd =
+    [
+      paidOperational ? subscription?.currentPeriodEnd : null,
+      manualOperational ? data.manualAccess?.endsAt : null,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null;
+  const effectiveDaysRemaining = Math.max(
+    paidOperational ? (subscription?.daysRemaining ?? 0) : 0,
+    manualOperational ? (data.manualAccess?.daysRemaining ?? 0) : 0,
+  );
   const lastPayment = subscription?.payments[0] ?? null;
   const hasApprovedPayment = Boolean(
     subscription?.payments.some(
@@ -236,7 +259,11 @@ export function SubscriptionDashboard() {
                     : "neutral"
               }
             >
-              {subscription ? statusLabels[subscription.status] : "Sem acesso"}
+              {manualOperational
+                ? "Ativo por concessão"
+                : subscription
+                  ? statusLabels[subscription.status]
+                  : "Sem acesso"}
             </Badge>
             <h2 className="mt-4 font-display text-2xl font-extrabold">
               Plano {data.plan.name}
@@ -256,15 +283,11 @@ export function SubscriptionDashboard() {
         <dl className="mt-7 grid gap-4 rounded-2xl bg-canvas p-5 text-sm sm:grid-cols-3">
           <div>
             <dt className="text-muted">Válido até</dt>
-            <dd className="mt-1 font-bold">
-              {formatDate(subscription?.currentPeriodEnd ?? null)}
-            </dd>
+            <dd className="mt-1 font-bold">{formatDate(effectiveEnd)}</dd>
           </div>
           <div>
             <dt className="text-muted">Dias restantes</dt>
-            <dd className="mt-1 font-bold">
-              {subscription ? subscription.daysRemaining : 0}
-            </dd>
+            <dd className="mt-1 font-bold">{effectiveDaysRemaining}</dd>
           </div>
           <div>
             <dt className="text-muted">Último pagamento</dt>
@@ -275,6 +298,16 @@ export function SubscriptionDashboard() {
             </dd>
           </div>
         </dl>
+        {manualOperational && (
+          <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+            <p className="font-bold">Acesso concedido pela equipe Vapor</p>
+            <p className="mt-1 leading-6">
+              Esta liberação administrativa não representa pagamento nem gera
+              receita. Ela é válida até{" "}
+              {formatDate(data.manualAccess?.endsAt ?? null)}.
+            </p>
+          </div>
+        )}
         <div className="mt-6 flex flex-wrap gap-3">
           {!hasLegacyRecurring && (
             <Button

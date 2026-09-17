@@ -27,3 +27,14 @@ export interface CompanyProOverview {
     spendChangePercent: number | null;
   };
 }
+
+export interface CompanyPlanOverview {
+  currentPlan: "FREE" | "PRO";
+  proEnabled: boolean;
+  proEffective: boolean;
+  proEnabledAt: string | null;
+  proExpiresAt: string | null;
+  proAccessSource: string | null;
+  proPrice: null;
+  checkoutAvailable: false;
+}

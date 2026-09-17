@@ -14,6 +14,7 @@ import {
 } from "./policy";
 import {
   adminIdSchema,
+  adminDashboardSearchSchema,
   auditSearchSchema,
   companyProActionSchema,
   deliverySearchSchema,
@@ -21,6 +22,7 @@ import {
   reportStatusActionSchema,
   userSearchSchema,
   userStatusActionSchema,
+  motoboyPlanActionSchema,
 } from "./schemas";
 import type {
   AdminActor,
@@ -61,6 +63,10 @@ function startOfDay(now: Date) {
   return value;
 }
 
+function addDays(value: Date, days: number) {
+  return new Date(value.getTime() + days * 86_400_000);
+}
+
 function dateRange(
   from?: string,
   to?: string,
@@ -82,9 +88,24 @@ function cityFromUser(user: {
 
 export async function getAdminDashboard(
   actor: AdminActor,
+  raw: unknown = {},
   now = new Date(),
 ): Promise<AdminDashboardMetrics> {
   assertAdminAccess(actor);
+  const input = adminDashboardSearchSchema.parse(raw);
+  const periodStart = (() => {
+    if (input.period === "today") return startOfDay(now);
+    if (input.period === "7d")
+      return startOfDay(new Date(now.getTime() - 6 * 86_400_000));
+    if (input.period === "30d")
+      return startOfDay(new Date(now.getTime() - 29 * 86_400_000));
+    if (input.period === "month")
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    return new Date(`${input.from}T00:00:00.000Z`);
+  })();
+  const periodEnd =
+    input.period === "custom" ? new Date(`${input.to}T23:59:59.999Z`) : now;
+  const periodFilter = { gte: periodStart, lte: periodEnd };
   const cutoff = new Date(
     now.getTime() - getPresenceEnv().ONLINE_PRESENCE_TTL_MINUTES * 60_000,
   );
@@ -102,6 +123,18 @@ export async function getAdminDashboard(
     reportsOpen,
     reportsUnderReview,
     rating,
+    paidActiveGroups,
+    manualActiveGroups,
+    paidHistoryGroups,
+    manualHistoryGroups,
+    companiesPro,
+    vaporPayPending,
+    vaporPayDisputed,
+    vaporPayPendingValue,
+    recentRegistrations,
+    paidExpiringGroups,
+    manualExpiringGroups,
+    confirmedRevenue,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { role: "MOTOBOY" } }),
@@ -113,7 +146,7 @@ export async function getAdminDashboard(
         user: { status: "ACTIVE" },
       },
     }),
-    prisma.delivery.count(),
+    prisma.delivery.count({ where: { createdAt: periodFilter } }),
     prisma.delivery.count({ where: { createdAt: { gte: startOfDay(now) } } }),
     prisma.delivery.count({ where: { status: "COMPLETED" } }),
     prisma.delivery.count({ where: { status: "SEARCHING_MOTOBOY" } }),
@@ -126,6 +159,87 @@ export async function getAdminDashboard(
     prisma.report.count({ where: { status: "OPEN" } }),
     prisma.report.count({ where: { status: "UNDER_REVIEW" } }),
     prisma.rating.aggregate({ _avg: { score: true } }),
+    prisma.subscription.groupBy({
+      by: ["userId"],
+      where: {
+        user: { role: "MOTOBOY" },
+        status: { in: ["TRIAL", "ACTIVE"] },
+        currentPeriodEnd: { gt: now },
+      },
+    }),
+    prisma.manualAccessGrant.groupBy({
+      by: ["userId"],
+      where: {
+        user: { role: "MOTOBOY" },
+        revokedAt: null,
+        startsAt: { lte: now },
+        endsAt: { gt: now },
+      },
+    }),
+    prisma.subscription.groupBy({
+      by: ["userId"],
+      where: { user: { role: "MOTOBOY" } },
+    }),
+    prisma.manualAccessGrant.groupBy({
+      by: ["userId"],
+      where: { user: { role: "MOTOBOY" } },
+    }),
+    prisma.companyProfile.count({
+      where: {
+        proEnabled: true,
+        OR: [{ proExpiresAt: null }, { proExpiresAt: { gt: now } }],
+      },
+    }),
+    prisma.delivery.count({
+      where: { paymentStatus: { in: ["PENDING", "REPORTED_PAID"] } },
+    }),
+    prisma.delivery.count({ where: { paymentStatus: "DISPUTED" } }),
+    prisma.delivery.aggregate({
+      where: { paymentStatus: { in: ["PENDING", "REPORTED_PAID"] } },
+      _sum: { offeredPrice: true },
+    }),
+    prisma.user.count({
+      where: { createdAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } },
+    }),
+    prisma.subscription.groupBy({
+      by: ["userId"],
+      where: {
+        status: { in: ["TRIAL", "ACTIVE"] },
+        currentPeriodEnd: {
+          gt: now,
+          lte: new Date(now.getTime() + 7 * 86_400_000),
+        },
+      },
+    }),
+    prisma.manualAccessGrant.groupBy({
+      by: ["userId"],
+      where: {
+        revokedAt: null,
+        endsAt: { gt: now, lte: new Date(now.getTime() + 7 * 86_400_000) },
+      },
+    }),
+    prisma.subscriptionPayment.aggregate({
+      where: {
+        status: { in: ["APPROVED", "approved"] },
+        createdAt: periodFilter,
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+  const activeMotoboyIds = new Set([
+    ...paidActiveGroups.map((item) => item.userId),
+    ...manualActiveGroups.map((item) => item.userId),
+  ]);
+  const historyMotoboyIds = new Set([
+    ...paidHistoryGroups.map((item) => item.userId),
+    ...manualHistoryGroups.map((item) => item.userId),
+  ]);
+  const motoboysExpired = [...historyMotoboyIds].filter(
+    (id) => !activeMotoboyIds.has(id),
+  ).length;
+  const expiringIds = new Set([
+    ...paidExpiringGroups.map((item) => item.userId),
+    ...manualExpiringGroups.map((item) => item.userId),
   ]);
   return {
     totalUsers,
@@ -141,6 +255,21 @@ export async function getAdminDashboard(
     reportsOpen,
     reportsUnderReview,
     overallRatingAverage: rating._avg.score,
+    motoboysActivePlan: activeMotoboyIds.size,
+    motoboysExpired,
+    motoboysWithoutPlan: Math.max(
+      0,
+      totalMotoboys - activeMotoboyIds.size - motoboysExpired,
+    ),
+    companiesFree: Math.max(0, totalCompanies - companiesPro),
+    companiesPro,
+    vaporPayPending,
+    vaporPayDisputed,
+    vaporPayPendingValue: Number(vaporPayPendingValue._sum.offeredPrice ?? 0),
+    recentRegistrations,
+    expiringAccess: expiringIds.size,
+    confirmedRevenue: Number(confirmedRevenue._sum.amount ?? 0),
+    periodLabel: input.period,
   };
 }
 
@@ -274,6 +403,9 @@ export async function getAdminUser(
           legalDocumentLastDigits: true,
           city: true,
           proEnabled: true,
+          proEnabledAt: true,
+          proExpiresAt: true,
+          proAccessSource: true,
           _count: { select: { deliveries: true } },
           locations: {
             where: { isDefault: true },
@@ -284,6 +416,25 @@ export async function getAdminUser(
               neighborhood: true,
               state: true,
             },
+          },
+        },
+      },
+      subscriptions: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { status: true, currentPeriodEnd: true },
+      },
+      manualAccessGrants: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          reasonType: true,
+          startsAt: true,
+          endsAt: true,
+          revokedAt: true,
+          plan: {
+            select: { id: true, name: true, monthlyPrice: true },
           },
         },
       },
@@ -341,6 +492,24 @@ export async function getAdminUser(
     user.motoboyProfile.lastLocationAt &&
     user.motoboyProfile.lastLocationAt >= cutoff,
   );
+  const manualAccess = user.manualAccessGrants[0] ?? null;
+  const manualStatus = manualAccess?.revokedAt
+    ? "REVOKED"
+    : manualAccess && manualAccess.startsAt > now
+      ? "SCHEDULED"
+      : manualAccess && manualAccess.endsAt <= now
+        ? "EXPIRED"
+        : manualAccess
+          ? "ACTIVE"
+          : null;
+  const paidAccess = user.subscriptions[0] ?? null;
+  const configuredMotoboyPlan =
+    user.role === "MOTOBOY"
+      ? await prisma.subscriptionPlan.findUnique({
+          where: { role: "MOTOBOY" },
+          select: { id: true, name: true, monthlyPrice: true },
+        })
+      : null;
   const related =
     user.motoboyProfile?._count.deliveries ??
     user.companyProfile?._count.deliveries ??
@@ -375,6 +544,38 @@ export async function getAdminUser(
     reportsReceived,
     reportsCreated,
     companyProEnabled: user.companyProfile?.proEnabled ?? null,
+    companyProEffective:
+      user.companyProfile === null
+        ? null
+        : user.companyProfile.proEnabled &&
+          (!user.companyProfile.proExpiresAt ||
+            user.companyProfile.proExpiresAt > now),
+    companyProEnabledAt: iso(user.companyProfile?.proEnabledAt),
+    companyProExpiresAt: iso(user.companyProfile?.proExpiresAt),
+    companyProAccessSource: user.companyProfile?.proAccessSource ?? null,
+    motoboyPlan: configuredMotoboyPlan
+      ? {
+          ...configuredMotoboyPlan,
+          monthlyPrice: configuredMotoboyPlan.monthlyPrice.toNumber(),
+        }
+      : null,
+    motoboyPaidAccess: paidAccess
+      ? {
+          status: paidAccess.status,
+          currentPeriodEnd: iso(paidAccess.currentPeriodEnd),
+        }
+      : null,
+    motoboyManualAccess:
+      manualAccess && manualStatus
+        ? {
+            id: manualAccess.id,
+            status: manualStatus,
+            reasonType: manualAccess.reasonType,
+            startsAt: manualAccess.startsAt.toISOString(),
+            endsAt: manualAccess.endsAt.toISOString(),
+            revokedAt: iso(manualAccess.revokedAt),
+          }
+        : null,
   };
 }
 
@@ -382,6 +583,7 @@ export async function changeCompanyProAccess(
   actor: AdminActor,
   rawId: unknown,
   raw: unknown,
+  now = new Date(),
 ) {
   assertAdminAccess(actor);
   const targetUserId = adminIdSchema.parse(rawId);
@@ -391,40 +593,253 @@ export async function changeCompanyProAccess(
       where: { id: targetUserId },
       select: {
         role: true,
-        companyProfile: { select: { id: true, proEnabled: true } },
+        companyProfile: {
+          select: {
+            id: true,
+            proEnabled: true,
+            proEnabledAt: true,
+            proExpiresAt: true,
+            proAccessSource: true,
+          },
+        },
       },
     });
     if (!target?.companyProfile || target.role !== "COMPANY") {
       throw new AdminResourceNotFoundError("Empresa não encontrada.");
     }
-    if (target.companyProfile.proEnabled === input.enabled) {
+    const current = target.companyProfile;
+    const currentlyEffective =
+      current.proEnabled &&
+      (!current.proExpiresAt || current.proExpiresAt > now);
+    if (input.action === "ENABLE" && currentlyEffective) {
       throw new AdminActionConflictError(
-        input.enabled
-          ? "O Vapor Gestão Pro já está habilitado."
-          : "O Vapor Gestão Pro já está desabilitado.",
+        "O Vapor Gestão Pro já está habilitado. Use estender para alterar o vencimento.",
       );
     }
-    const now = new Date();
+    if (input.action === "EXTEND" && !current.proEnabled) {
+      throw new AdminActionConflictError(
+        "O Vapor Gestão Pro precisa estar habilitado antes de ser estendido.",
+      );
+    }
+    if (input.action === "DISABLE" && !current.proEnabled) {
+      throw new AdminActionConflictError(
+        "O Vapor Gestão Pro já está desabilitado.",
+      );
+    }
+    if (
+      input.action === "EXTEND" &&
+      current.proExpiresAt === null &&
+      !input.indefinite
+    ) {
+      throw new AdminActionConflictError(
+        "O acesso atual já não possui vencimento.",
+      );
+    }
+    const base =
+      current.proExpiresAt && current.proExpiresAt > now
+        ? current.proExpiresAt
+        : now;
+    const nextExpiresAt =
+      input.action === "DISABLE" || input.indefinite
+        ? null
+        : addDays(input.action === "EXTEND" ? base : now, input.days ?? 0);
+    const enabled = input.action !== "DISABLE";
+    const actionType =
+      input.action === "ENABLE"
+        ? "COMPANY_PRO_ENABLED"
+        : input.action === "EXTEND"
+          ? "COMPANY_PRO_EXTENDED"
+          : "COMPANY_PRO_DISABLED";
     await transaction.companyProfile.update({
-      where: { id: target.companyProfile.id },
+      where: { id: current.id },
       data: {
-        proEnabled: input.enabled,
-        proEnabledAt: input.enabled ? now : null,
+        proEnabled: enabled,
+        proEnabledAt: input.action === "ENABLE" ? now : current.proEnabledAt,
+        proExpiresAt:
+          input.action === "DISABLE" ? current.proExpiresAt : nextExpiresAt,
+        proAccessSource:
+          input.action === "ENABLE"
+            ? input.source
+            : input.action === "DISABLE"
+              ? current.proAccessSource
+              : current.proAccessSource,
       },
     });
     const audit = await transaction.adminAction.create({
       data: {
         adminUserId: actor.userId,
         targetUserId,
-        actionType: "COMPANY_PRO_CHANGED",
+        actionType,
         reason: input.reason,
         metadata: {
-          previousEnabled: target.companyProfile.proEnabled,
-          newEnabled: input.enabled,
+          before: {
+            enabled: current.proEnabled,
+            enabledAt: iso(current.proEnabledAt),
+            expiresAt: iso(current.proExpiresAt),
+            source: current.proAccessSource,
+          },
+          after: {
+            enabled,
+            enabledAt: iso(
+              input.action === "ENABLE" ? now : current.proEnabledAt,
+            ),
+            expiresAt: iso(
+              input.action === "DISABLE" ? current.proExpiresAt : nextExpiresAt,
+            ),
+            source:
+              input.action === "ENABLE"
+                ? input.source
+                : current.proAccessSource,
+          },
         },
+        createdAt: now,
       },
     });
-    return { enabled: input.enabled, auditId: audit.id };
+    return { enabled, expiresAt: iso(nextExpiresAt), auditId: audit.id };
+  });
+}
+
+export async function changeMotoboyPlanAccess(
+  actor: AdminActor,
+  rawId: unknown,
+  raw: unknown,
+  now = new Date(),
+) {
+  assertAdminAccess(actor);
+  const targetUserId = adminIdSchema.parse(rawId);
+  const input = motoboyPlanActionSchema.parse(raw);
+  return prisma.$transaction(async (transaction) => {
+    const target = await transaction.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true },
+    });
+    if (!target || target.role !== "MOTOBOY") {
+      throw new AdminResourceNotFoundError("Motoboy não encontrado.");
+    }
+    await transaction.manualAccessGrant.updateMany({
+      where: {
+        userId: targetUserId,
+        activeGrantUserKey: targetUserId,
+        endsAt: { lte: now },
+      },
+      data: { activeGrantUserKey: null },
+    });
+    const activeGrant = await transaction.manualAccessGrant.findFirst({
+      where: {
+        userId: targetUserId,
+        revokedAt: null,
+        endsAt: { gt: now },
+      },
+      select: {
+        id: true,
+        planId: true,
+        reasonType: true,
+        startsAt: true,
+        endsAt: true,
+      },
+    });
+    if (input.action === "GRANT") {
+      if (activeGrant) {
+        throw new AdminActionConflictError(
+          "O motoboy já possui acesso manual ativo. Use estender.",
+        );
+      }
+      const plan = await transaction.subscriptionPlan.findUnique({
+        where: { id: input.planId },
+        select: { id: true, role: true, name: true },
+      });
+      if (!plan || plan.role !== "MOTOBOY") {
+        throw new AdminResourceNotFoundError(
+          "Plano de motoboy não encontrado.",
+        );
+      }
+      const endsAt = addDays(now, input.days ?? 0);
+      const grant = await transaction.manualAccessGrant.create({
+        data: {
+          activeGrantUserKey: targetUserId,
+          userId: targetUserId,
+          planId: plan.id,
+          reasonType: input.reasonType!,
+          reason: input.reason,
+          startsAt: now,
+          endsAt,
+          grantedByAdminId: actor.userId,
+          createdAt: now,
+        },
+      });
+      const audit = await transaction.adminAction.create({
+        data: {
+          adminUserId: actor.userId,
+          targetUserId,
+          actionType: "MOTOBOY_PLAN_GRANTED",
+          reason: input.reason,
+          metadata: {
+            source: "ADMIN_MANUAL",
+            planId: plan.id,
+            planName: plan.name,
+            startsAt: now.toISOString(),
+            endsAt: endsAt.toISOString(),
+            reasonType: input.reasonType,
+          },
+          createdAt: now,
+        },
+      });
+      return { grantId: grant.id, status: "ACTIVE", auditId: audit.id };
+    }
+    if (!activeGrant) {
+      throw new AdminActionConflictError(
+        "O motoboy não possui acesso manual ativo.",
+      );
+    }
+    if (input.action === "EXTEND") {
+      const endsAt = addDays(activeGrant.endsAt, input.days ?? 0);
+      await transaction.manualAccessGrant.update({
+        where: { id: activeGrant.id },
+        data: { endsAt },
+      });
+      const audit = await transaction.adminAction.create({
+        data: {
+          adminUserId: actor.userId,
+          targetUserId,
+          actionType: "MOTOBOY_PLAN_EXTENDED",
+          reason: input.reason,
+          metadata: {
+            source: "ADMIN_MANUAL",
+            grantId: activeGrant.id,
+            previousEndsAt: activeGrant.endsAt.toISOString(),
+            newEndsAt: endsAt.toISOString(),
+            addedDays: input.days,
+          },
+          createdAt: now,
+        },
+      });
+      return { grantId: activeGrant.id, status: "ACTIVE", auditId: audit.id };
+    }
+    await transaction.manualAccessGrant.update({
+      where: { id: activeGrant.id },
+      data: {
+        activeGrantUserKey: null,
+        revokedAt: now,
+        revokedByAdminId: actor.userId,
+        revokedReason: input.reason,
+      },
+    });
+    const audit = await transaction.adminAction.create({
+      data: {
+        adminUserId: actor.userId,
+        targetUserId,
+        actionType: "MOTOBOY_PLAN_REVOKED",
+        reason: input.reason,
+        metadata: {
+          source: "ADMIN_MANUAL",
+          grantId: activeGrant.id,
+          previousEndsAt: activeGrant.endsAt.toISOString(),
+          revokedAt: now.toISOString(),
+        },
+        createdAt: now,
+      },
+    });
+    return { grantId: activeGrant.id, status: "REVOKED", auditId: audit.id };
   });
 }
 
@@ -715,7 +1130,10 @@ export async function changeAdminReportStatus(
       data: {
         adminUserId: actor.userId,
         targetUserId: report.reportedUserId,
-        actionType: "REPORT_STATUS_CHANGED",
+        actionType:
+          input.status === "RESOLVED"
+            ? "REPORT_RESOLVED"
+            : "REPORT_STATUS_CHANGED",
         reason: input.reason,
         metadata: {
           reportId: id,

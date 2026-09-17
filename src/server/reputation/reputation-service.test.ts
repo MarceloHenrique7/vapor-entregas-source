@@ -69,6 +69,16 @@ function repository(
     }),
     getRatingOverview: vi.fn().mockResolvedValue({
       received: { average: 4.75, count: 4 },
+      receivedItems: [
+        {
+          id: "a7a0de8d-a8e2-4c22-b53c-f754961725b4",
+          deliveryId,
+          score: 5,
+          comment: "Entrega excelente",
+          reviewerName: "Mercado do Vale",
+          createdAt: now.toISOString(),
+        },
+      ],
       given: [],
       pending: [],
       counterparties: {
@@ -168,6 +178,11 @@ describe("avaliações", () => {
       repository(),
     );
     expect(overview.received.average).toBe(4.8);
+    expect(overview.receivedItems[0]).toMatchObject({
+      reviewerName: "Mercado do Vale",
+      comment: "Entrega excelente",
+      deliveryId,
+    });
     expect(overview.counterparties[deliveryId].average).toBe(4.7);
   });
 });

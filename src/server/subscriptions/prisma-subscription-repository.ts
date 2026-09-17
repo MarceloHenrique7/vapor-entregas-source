@@ -6,6 +6,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/server/db/prisma";
 
 import type {
+  ManualAccessGrantRecord,
   ProviderSubscription,
   SubscriptionPlanRecord,
   SubscriptionRecord,
@@ -154,6 +155,20 @@ function toSubscription(value: {
   };
 }
 
+function toManualGrant(value: {
+  id: string;
+  userId: string;
+  planId: string;
+  reasonType: ManualAccessGrantRecord["reasonType"];
+  startsAt: Date;
+  endsAt: Date;
+  revokedAt: Date | null;
+  createdAt: Date;
+  plan: PlanValue;
+}): ManualAccessGrantRecord {
+  return { ...value, plan: toPlan(value.plan) };
+}
+
 const providerData = (
   provider: ProviderSubscription,
   status: SubscriptionStatus,
@@ -208,6 +223,24 @@ export const prismaSubscriptionRepository: SubscriptionRepository = {
       select: subscriptionSelect,
     });
     return value ? toSubscription(value) : null;
+  },
+  async getLatestManualGrant(userId) {
+    const value = await getPrisma().manualAccessGrant.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        userId: true,
+        planId: true,
+        reasonType: true,
+        startsAt: true,
+        endsAt: true,
+        revokedAt: true,
+        createdAt: true,
+        plan: { select: planSelect },
+      },
+    });
+    return value ? toManualGrant(value) : null;
   },
   async getCurrent(userId) {
     const value = await getPrisma().subscription.findFirst({
@@ -486,8 +519,8 @@ export const prismaSubscriptionRepository: SubscriptionRepository = {
     });
   },
   async hasOperationalSubscription(userId, now) {
-    return Boolean(
-      await getPrisma().subscription.findFirst({
+    const [paid, manual] = await Promise.all([
+      getPrisma().subscription.findFirst({
         where: {
           userId,
           status: { in: ["TRIAL", "ACTIVE"] },
@@ -495,7 +528,17 @@ export const prismaSubscriptionRepository: SubscriptionRepository = {
         },
         select: { id: true },
       }),
-    );
+      getPrisma().manualAccessGrant.findFirst({
+        where: {
+          userId,
+          revokedAt: null,
+          startsAt: { lte: now },
+          endsAt: { gt: now },
+        },
+        select: { id: true },
+      }),
+    ]);
+    return Boolean(paid || manual);
   },
   async updatePlan(adminUserId, planId, input, now) {
     return getPrisma().$transaction(async (transaction) => {

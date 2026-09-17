@@ -652,6 +652,12 @@ O acompanhamento declaratório do pagamento direto da corrida está documentado 
 fórmulas e exportação CSV do módulo empresarial estão em
 [`docs/vapor-gestao-pro.md`](docs/vapor-gestao-pro.md).
 
+O painel administrativo, a separação entre acesso manual e pago, o plano da
+empresa e a visibilidade das avaliações estão documentados em
+[`docs/admin-control-center.md`](docs/admin-control-center.md),
+[`docs/company-subscriptions.md`](docs/company-subscriptions.md) e
+[`docs/reviews-visibility.md`](docs/reviews-visibility.md).
+
 ## Aviso jurídico interno
 
 **MINUTA — REVISÃO JURÍDICA NECESSÁRIA ANTES DO LANÇAMENTO.**

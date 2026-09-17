@@ -60,7 +60,7 @@ export function RatingDialog({
       open={open}
       onClose={() => !busy && onClose()}
       title="Como foi a entrega?"
-      description={`Sua avaliação de ${reviewedName} será registrada. O comentário não será público no MVP.`}
+      description={`Sua avaliação de ${reviewedName} não será pública. O nome, a nota e o comentário ficarão visíveis para a pessoa avaliada e para a moderação.`}
     >
       <div className="space-y-5">
         <StarRating value={score} onChange={setScore} disabled={busy} />

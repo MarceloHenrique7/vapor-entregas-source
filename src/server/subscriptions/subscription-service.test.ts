@@ -19,6 +19,7 @@ import {
   assertOperationalSubscription,
   cancelMySubscription,
   ensureProviderPlan,
+  getMySubscription,
   listPublicPlans,
   mapProviderStatus,
   processMercadoPagoWebhook,
@@ -147,6 +148,7 @@ function repository(
       status: "ACTIVE",
     }),
     getLatest: vi.fn().mockResolvedValue(null),
+    getLatestManualGrant: vi.fn().mockResolvedValue(null),
     getCurrent: vi.fn().mockResolvedValue(null),
     hasPriorSubscription: vi.fn().mockResolvedValue(false),
     findById: vi.fn().mockResolvedValue(subscription()),
@@ -272,6 +274,32 @@ describe("assinaturas recorrentes da plataforma", () => {
     ]);
     expect(repo.getPlanForRole).not.toHaveBeenCalledWith("COMPANY");
     expect(client.createAuthorized).not.toHaveBeenCalled();
+  });
+
+  it("expõe concessão manual separada do histórico de pagamentos", async () => {
+    const current = new Date();
+    const repo = repository({
+      getLatestManualGrant: vi.fn().mockResolvedValue({
+        id: "c2914e88-bb01-418b-b63f-54ed1ac00b3e",
+        userId: motoboy.userId,
+        planId: motoboyPlan.id,
+        reasonType: "COURTESY",
+        startsAt: new Date(current.getTime() - 60_000),
+        endsAt: new Date(current.getTime() + 30 * 86_400_000),
+        revokedAt: null,
+        createdAt: current,
+        plan: motoboyPlan,
+      }),
+    });
+    await expect(getMySubscription(motoboy, repo)).resolves.toMatchObject({
+      subscription: null,
+      manualAccess: {
+        source: "ADMIN_MANUAL",
+        status: "ACTIVE",
+        reasonType: "COURTESY",
+        daysRemaining: 30,
+      },
+    });
   });
 
   it("não permite reativar o plano Empresa pela administração", async () => {

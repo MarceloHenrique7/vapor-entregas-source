@@ -10,7 +10,7 @@ import {
   CompanyProRequiredError,
 } from "./errors";
 import { companyProPeriodSchema, type CompanyProPeriodInput } from "./schemas";
-import type { CompanyProOverview } from "./types";
+import type { CompanyPlanOverview, CompanyProOverview } from "./types";
 
 const BAHIA_OFFSET_MS = 3 * 60 * 60 * 1_000;
 const ACTIVE_STATUSES = [
@@ -106,11 +106,43 @@ export function resolveCompanyProPeriod(
 async function requireCompanyPro(userId: string) {
   const profile = await getPrisma().companyProfile.findUnique({
     where: { userId },
-    select: { id: true, proEnabled: true },
+    select: { id: true, proEnabled: true, proExpiresAt: true },
   });
   if (!profile) throw new CompanyProProfileRequiredError();
-  if (!profile.proEnabled) throw new CompanyProRequiredError();
+  if (
+    !profile.proEnabled ||
+    (profile.proExpiresAt !== null && profile.proExpiresAt <= new Date())
+  )
+    throw new CompanyProRequiredError();
   return profile;
+}
+
+export async function getCompanyPlanOverview(
+  userId: string,
+  now = new Date(),
+): Promise<CompanyPlanOverview> {
+  const profile = await getPrisma().companyProfile.findUnique({
+    where: { userId },
+    select: {
+      proEnabled: true,
+      proEnabledAt: true,
+      proExpiresAt: true,
+      proAccessSource: true,
+    },
+  });
+  if (!profile) throw new CompanyProProfileRequiredError();
+  const proEffective =
+    profile.proEnabled && (!profile.proExpiresAt || profile.proExpiresAt > now);
+  return {
+    currentPlan: proEffective ? "PRO" : "FREE",
+    proEnabled: profile.proEnabled,
+    proEffective,
+    proEnabledAt: profile.proEnabledAt?.toISOString() ?? null,
+    proExpiresAt: profile.proExpiresAt?.toISOString() ?? null,
+    proAccessSource: profile.proAccessSource,
+    proPrice: null,
+    checkoutAvailable: false,
+  };
 }
 
 function toNumber(value: unknown) {

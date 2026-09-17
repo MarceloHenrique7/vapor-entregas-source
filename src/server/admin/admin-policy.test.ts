@@ -5,6 +5,8 @@ import { AdminActionConflictError } from "./errors";
 import {
   adminIdSchema,
   deliverySearchSchema,
+  companyProActionSchema,
+  motoboyPlanActionSchema,
   reportStatusActionSchema,
   userSearchSchema,
   userStatusActionSchema,
@@ -115,6 +117,39 @@ describe("políticas administrativas", () => {
         status: "INVENTED",
         page: 1,
         pageSize: 20,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("exige motivo e campos explícitos nas concessões de acesso", () => {
+    expect(
+      motoboyPlanActionSchema.safeParse({
+        action: "GRANT",
+        planId: "15000000-0000-4000-8000-000000000001",
+        days: 30,
+        reasonType: "COURTESY",
+        reason: "Cortesia aprovada pelo suporte",
+      }).success,
+    ).toBe(true);
+    expect(
+      motoboyPlanActionSchema.safeParse({
+        action: "GRANT",
+        days: 30,
+        reason: "Sem plano selecionado",
+      }).success,
+    ).toBe(false);
+    expect(
+      companyProActionSchema.safeParse({
+        action: "ENABLE",
+        indefinite: true,
+        source: "PARTNER",
+        reason: "Empresa parceira do piloto local",
+      }).success,
+    ).toBe(true);
+    expect(
+      companyProActionSchema.safeParse({
+        action: "DISABLE",
+        reason: "curto",
       }).success,
     ).toBe(false);
   });

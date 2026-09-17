@@ -53,8 +53,8 @@ export function RatingProfileSummary() {
         {overview.received.count === 1 ? "avaliação" : "avaliações"}
       </p>
       <p className="mt-5 max-w-xl text-sm leading-6 text-muted">
-        A média é calculada no servidor. Comentários recebidos não são
-        publicados no MVP.
+        A média é calculada no servidor. Os detalhes ficam visíveis apenas para
+        você e para a moderação.
       </p>
     </Card>
   );

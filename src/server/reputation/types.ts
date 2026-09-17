@@ -55,8 +55,18 @@ export interface PendingRatingView {
   reviewedName: string;
 }
 
+export interface ReceivedRatingView {
+  id: string;
+  deliveryId: string;
+  score: number;
+  comment: string | null;
+  reviewerName: string;
+  createdAt: string;
+}
+
 export interface RatingOverview {
   received: RatingSummary;
+  receivedItems: ReceivedRatingView[];
   given: RatingView[];
   pending: PendingRatingView[];
   counterparties: Record<string, RatingSummary & { name: string }>;

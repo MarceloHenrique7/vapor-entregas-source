@@ -25,6 +25,7 @@ import type {
   SubscriptionRecord,
   SubscriptionRepository,
   SubscriptionStatus,
+  ManualAccessGrantRecord,
 } from "./types";
 
 function requireMotoboyActor(actor: SubscriptionActor | null) {
@@ -157,6 +158,37 @@ export function toSubscriptionView(
   };
 }
 
+export function toManualAccessView(
+  grant: ManualAccessGrantRecord | null,
+  now = new Date(),
+) {
+  if (!grant) return null;
+  const status = grant.revokedAt
+    ? "REVOKED"
+    : grant.startsAt > now
+      ? "SCHEDULED"
+      : grant.endsAt <= now
+        ? "EXPIRED"
+        : "ACTIVE";
+  return {
+    id: grant.id,
+    source: "ADMIN_MANUAL" as const,
+    reasonType: grant.reasonType,
+    status,
+    startsAt: grant.startsAt.toISOString(),
+    endsAt: grant.endsAt.toISOString(),
+    createdAt: grant.createdAt.toISOString(),
+    daysRemaining:
+      status === "ACTIVE"
+        ? Math.max(
+            0,
+            Math.ceil((grant.endsAt.getTime() - now.getTime()) / 86_400_000),
+          )
+        : 0,
+    plan: toPlanView(grant.plan),
+  };
+}
+
 export async function listPublicPlans(repository: SubscriptionRepository) {
   return (await repository.listPlans())
     .filter((plan) => plan.active && plan.role === "MOTOBOY")
@@ -171,15 +203,17 @@ export async function getMySubscription(
   const billingUser = await repository.getBillingUser(user.userId);
   if (!billingUser || billingUser.id !== user.userId)
     throw new ForbiddenError();
+  const [plan, subscription, manualAccess] = await Promise.all([
+    repository.getPlanForRole(user.role),
+    repository.getLatest(user.userId),
+    repository.getLatestManualGrant(user.userId),
+  ]);
+  if (!plan) throw new SubscriptionNotFoundError();
   return {
-    plan: toPlanView(
-      (await repository.getPlanForRole(user.role)) ??
-        (() => {
-          throw new SubscriptionNotFoundError();
-        })(),
-    ),
+    plan: toPlanView(plan),
     payerEmail: billingUser.email,
-    subscription: toSubscriptionView(await repository.getLatest(user.userId)),
+    subscription: toSubscriptionView(subscription),
+    manualAccess: toManualAccessView(manualAccess),
   };
 }
 

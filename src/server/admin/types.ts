@@ -29,6 +29,18 @@ export interface AdminDashboardMetrics {
   reportsOpen: number;
   reportsUnderReview: number;
   overallRatingAverage: number | null;
+  motoboysActivePlan: number;
+  motoboysWithoutPlan: number;
+  motoboysExpired: number;
+  companiesFree: number;
+  companiesPro: number;
+  vaporPayPending: number;
+  vaporPayDisputed: number;
+  vaporPayPendingValue: number;
+  recentRegistrations: number;
+  expiringAccess: number;
+  confirmedRevenue: number;
+  periodLabel: string;
 }
 
 export interface AdminUserListItem {
@@ -58,6 +70,27 @@ export interface AdminUserDetail extends AdminUserListItem {
   reportsReceived: number;
   reportsCreated: number;
   companyProEnabled: boolean | null;
+  companyProEffective: boolean | null;
+  companyProEnabledAt: string | null;
+  companyProExpiresAt: string | null;
+  companyProAccessSource: string | null;
+  motoboyPlan: {
+    id: string;
+    name: string;
+    monthlyPrice: number;
+  } | null;
+  motoboyPaidAccess: {
+    status: string;
+    currentPeriodEnd: string | null;
+  } | null;
+  motoboyManualAccess: {
+    id: string;
+    status: "ACTIVE" | "EXPIRED" | "REVOKED" | "SCHEDULED";
+    reasonType: string;
+    startsAt: string;
+    endsAt: string;
+    revokedAt: string | null;
+  } | null;
 }
 
 export interface AdminDeliveryListItem {
@@ -127,7 +160,18 @@ export interface AdminAuditItem {
     | "REPORT_STATUS_CHANGED"
     | "PRICING_RULE_CHANGED"
     | "SUBSCRIPTION_PLAN_CHANGED"
-    | "COMPANY_PRO_CHANGED";
+    | "COMPANY_PRO_CHANGED"
+    | "MOTOBOY_PLAN_GRANTED"
+    | "MOTOBOY_PLAN_EXTENDED"
+    | "MOTOBOY_PLAN_REVOKED"
+    | "COMPANY_PRO_ENABLED"
+    | "COMPANY_PRO_EXTENDED"
+    | "COMPANY_PRO_DISABLED"
+    | "REVIEW_HIDDEN"
+    | "REVIEW_RESTORED"
+    | "REPORT_RESOLVED"
+    | "SETTING_CHANGED"
+    | "ADMIN_OVERRIDE";
   reason: string | null;
   metadata: unknown;
   createdAt: string;

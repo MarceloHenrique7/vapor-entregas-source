@@ -86,8 +86,8 @@ export function ReputationOverview() {
             {overview.received.count === 1 ? "avaliação" : "avaliações"}
           </p>
           <p className="mt-4 text-xs leading-5 text-muted">
-            Comentários recebidos permanecem privados no MVP e não são
-            publicados.
+            As avaliações ficam visíveis somente para você e para a moderação;
+            não são publicadas para outros usuários.
           </p>
         </Card>
         <Card className="p-5 sm:p-6">
@@ -124,9 +124,48 @@ export function ReputationOverview() {
       </div>
 
       <Card className="p-5 sm:p-6">
+        <h2 className="font-display text-xl font-extrabold">
+          O que disseram sobre você
+        </h2>
+        <p className="mt-1 text-sm text-muted">
+          Nome público, nota, comentário e entrega relacionada.
+        </p>
+        {overview.receivedItems.length === 0 ? (
+          <p className="mt-5 text-sm text-muted">
+            Você ainda não recebeu avaliações.
+          </p>
+        ) : (
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {overview.receivedItems.map((rating) => (
+              <article
+                key={rating.id}
+                className="rounded-2xl border border-line p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold">{rating.reviewerName}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "medium",
+                      }).format(new Date(rating.createdAt))}
+                      {` · Entrega ${rating.deliveryId.slice(0, 8)}`}
+                    </p>
+                  </div>
+                  <Badge variant="warning">{rating.score} ★</Badge>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-ink-soft">
+                  {rating.comment || "Sem comentário."}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5 sm:p-6">
         <h2 className="font-display text-xl font-extrabold">Minha avaliação</h2>
         <p className="mt-1 text-sm text-muted">
-          Avaliações enviadas e comentários privados.
+          Avaliações enviadas, visíveis apenas à pessoa avaliada e à moderação.
         </p>
         {overview.given.length === 0 ? (
           <p className="mt-5 text-sm text-muted">

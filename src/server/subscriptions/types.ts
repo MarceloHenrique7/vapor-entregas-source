@@ -84,6 +84,24 @@ export interface SubscriptionPaymentRecord {
   createdAt: Date;
 }
 
+export interface ManualAccessGrantRecord {
+  id: string;
+  userId: string;
+  planId: string;
+  reasonType:
+    | "COURTESY"
+    | "TEST"
+    | "COMPENSATION"
+    | "EXTERNAL_PAYMENT"
+    | "SUPPORT"
+    | "OTHER";
+  startsAt: Date;
+  endsAt: Date;
+  revokedAt: Date | null;
+  createdAt: Date;
+  plan: SubscriptionPlanRecord;
+}
+
 export interface ProviderPlan {
   id: string;
   applicationId: string | null;
@@ -169,6 +187,7 @@ export interface SubscriptionRepository {
     status: UserStatus;
   } | null>;
   getLatest(userId: string): Promise<SubscriptionRecord | null>;
+  getLatestManualGrant(userId: string): Promise<ManualAccessGrantRecord | null>;
   getCurrent(userId: string): Promise<SubscriptionRecord | null>;
   hasPriorSubscription(
     userId: string,

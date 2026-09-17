@@ -86,6 +86,35 @@ enum AdminActionType {
   PRICING_RULE_CHANGED
   SUBSCRIPTION_PLAN_CHANGED
   COMPANY_PRO_CHANGED
+  MOTOBOY_PLAN_GRANTED
+  MOTOBOY_PLAN_EXTENDED
+  MOTOBOY_PLAN_REVOKED
+  COMPANY_PRO_ENABLED
+  COMPANY_PRO_EXTENDED
+  COMPANY_PRO_DISABLED
+  REVIEW_HIDDEN
+  REVIEW_RESTORED
+  REPORT_RESOLVED
+  SETTING_CHANGED
+  ADMIN_OVERRIDE
+}
+
+enum ManualAccessGrantReason {
+  COURTESY
+  TEST
+  COMPENSATION
+  EXTERNAL_PAYMENT
+  SUPPORT
+  OTHER
+}
+
+enum CompanyProAccessSource {
+  ADMIN_GRANTED
+  PROMOTIONAL
+  COMPENSATION
+  EXTERNAL_PAYMENT
+  PARTNER
+  TEST
 }
 
 enum SubscriptionProvider {
@@ -189,6 +218,9 @@ model User {
   deliveryPaymentEvents     DeliveryPaymentEvent[] @relation("DeliveryPaymentActors")
   subscriptions             Subscription[]
   subscriptionPayments      SubscriptionPayment[]
+  manualAccessGrants        ManualAccessGrant[]    @relation("ManualAccessTarget")
+  manualGrantsCreated       ManualAccessGrant[]    @relation("ManualAccessGrantedBy")
+  manualGrantsRevoked       ManualAccessGrant[]    @relation("ManualAccessRevokedBy")
   preRegistrationsConverted PreRegistration[]
 
   @@index([role, status])
@@ -229,9 +261,36 @@ model SubscriptionPlan {
   updatedAt        DateTime              @updatedAt @db.DateTime(3)
   subscriptions    Subscription[]
   payments         SubscriptionPayment[]
+  manualGrants     ManualAccessGrant[]
 
   @@index([active, role])
   @@map("subscription_plans")
+}
+
+model ManualAccessGrant {
+  id                 String                  @id @default(uuid()) @db.Char(36)
+  activeGrantUserKey String?                 @unique(map: "manual_access_grants_one_active_per_user_key") @db.Char(36)
+  userId             String                  @db.Char(36)
+  planId             String                  @db.Char(36)
+  reasonType         ManualAccessGrantReason
+  reason             String                  @db.VarChar(1000)
+  startsAt           DateTime                @db.DateTime(3)
+  endsAt             DateTime                @db.DateTime(3)
+  grantedByAdminId   String                  @db.Char(36)
+  revokedAt          DateTime?               @db.DateTime(3)
+  revokedByAdminId   String?                 @db.Char(36)
+  revokedReason      String?                 @db.VarChar(1000)
+  createdAt          DateTime                @default(now()) @db.DateTime(3)
+  updatedAt          DateTime                @updatedAt @db.DateTime(3)
+  user               User                    @relation("ManualAccessTarget", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  plan               SubscriptionPlan        @relation(fields: [planId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  grantedBy          User                    @relation("ManualAccessGrantedBy", fields: [grantedByAdminId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revokedBy          User?                   @relation("ManualAccessRevokedBy", fields: [revokedByAdminId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([userId, revokedAt, endsAt])
+  @@index([planId, createdAt])
+  @@index([grantedByAdminId, createdAt])
+  @@map("manual_access_grants")
 }
 
 model Subscription {
@@ -344,24 +403,27 @@ model MotoboyProfile {
 }
 
 model CompanyProfile {
-  id                      String              @id @default(uuid()) @db.Char(36)
-  userId                  String              @unique @db.Char(36)
-  fantasyName             String              @db.VarChar(120)
+  id                      String                  @id @default(uuid()) @db.Char(36)
+  userId                  String                  @unique @db.Char(36)
+  fantasyName             String                  @db.VarChar(120)
   documentType            CompanyDocumentType
-  legalDocumentEncrypted  String              @db.Text
-  legalDocumentHash       String              @unique @db.Char(64)
-  legalDocumentLastDigits String              @db.Char(4)
+  legalDocumentEncrypted  String                  @db.Text
+  legalDocumentHash       String                  @unique @db.Char(64)
+  legalDocumentLastDigits String                  @db.Char(4)
   city                    SupportedCity
-  proEnabled              Boolean             @default(false)
-  proEnabledAt            DateTime?           @db.DateTime(3)
-  createdAt               DateTime            @default(now()) @db.DateTime(3)
-  updatedAt               DateTime            @updatedAt @db.DateTime(3)
-  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  proEnabled              Boolean                 @default(false)
+  proEnabledAt            DateTime?               @db.DateTime(3)
+  proExpiresAt            DateTime?               @db.DateTime(3)
+  proAccessSource         CompanyProAccessSource?
+  createdAt               DateTime                @default(now()) @db.DateTime(3)
+  updatedAt               DateTime                @updatedAt @db.DateTime(3)
+  user                    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   locations               CompanyLocation[]
   deliveries              Delivery[]
   favorites               Favorite[]
 
   @@index([city])
+  @@index([proEnabled, proExpiresAt])
   @@map("company_profiles")
 }
 

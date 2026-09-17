@@ -64,6 +64,7 @@ export const companyNavigation: NavigationItem[] = [
     mobile: true,
   },
   { href: "/app/empresa/historico", label: "Histórico", icon: "history" },
+  { href: "/app/empresa/assinatura", label: "Plano", icon: "wallet" },
   { href: "/app/empresa/gestao", label: "Gestão Pro", icon: "wallet" },
   { href: "/app/empresa/relatorios", label: "Relatórios Pro", icon: "file" },
   { href: "/app/empresa/favoritos", label: "Favoritos", icon: "heart" },
@@ -87,6 +88,8 @@ export const adminNavigation: NavigationItem[] = [
     mobile: true,
   },
   { href: "/admin/usuarios", label: "Usuários", icon: "users", mobile: true },
+  { href: "/admin/empresas", label: "Empresas", icon: "building" },
+  { href: "/admin/motoboys", label: "Motoboys", icon: "bike" },
   { href: "/admin/entregas", label: "Entregas", icon: "package", mobile: true },
   {
     href: "/admin/denuncias",

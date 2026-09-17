@@ -5,10 +5,43 @@ import {
 import { MotoboyPresenceCard } from "@/components/presence/motoboy-presence-card";
 import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { Badge } from "@/components/ui/badge";
+import { buttonStyles } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { requirePageRole } from "@/server/auth/page-guard";
+import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
+import { getMySubscription } from "@/server/subscriptions/subscription-service";
 
-export default function MotoboyDashboard() {
+const formatDate = (value: string | null) =>
+  value
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(
+        new Date(value),
+      )
+    : "não informado";
+
+export default async function MotoboyDashboard() {
+  const user = await requirePageRole(["MOTOBOY"]);
+  const billing = await getMySubscription(
+    { userId: user.id, role: user.role, status: user.status },
+    prismaSubscriptionRepository,
+  );
+  const paidActive =
+    billing.subscription?.status === "ACTIVE" ||
+    billing.subscription?.status === "TRIAL";
+  const manualActive = billing.manualAccess?.status === "ACTIVE";
+  const effectiveEnd =
+    [
+      paidActive ? billing.subscription?.currentPeriodEnd : null,
+      manualActive ? billing.manualAccess?.endsAt : null,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null;
+  const active = paidActive || manualActive;
+  const daysRemaining = Math.max(
+    paidActive ? (billing.subscription?.daysRemaining ?? 0) : 0,
+    manualActive ? (billing.manualAccess?.daysRemaining ?? 0) : 0,
+  );
   return (
     <div className="space-y-7">
       <DashboardHeader
@@ -55,15 +88,28 @@ export default function MotoboyDashboard() {
         </Card>
         <Card className="p-6">
           <h2 className="font-display text-lg font-extrabold">Assinatura</h2>
-          <Badge variant="warning" className="mt-4">
-            Configuração futura
+          <Badge variant={active ? "success" : "warning"} className="mt-4">
+            {active ? `Plano ${billing.plan.name} ativo` : "Sem plano ativo"}
           </Badge>
           <p className="mt-4 text-sm leading-6 text-muted">
-            Seu plano e período de acesso serão exibidos neste espaço. Não há
-            saldo ou carteira de corridas.
+            {active
+              ? `Ativo até ${formatDate(effectiveEnd)}. ${daysRemaining} dia(s) restante(s).`
+              : "Você não possui um plano ativo. Consulte as formas de ativação disponíveis."}
           </p>
+          {manualActive && (
+            <p className="mt-3 text-xs font-semibold text-sky-800">
+              Acesso concedido pela equipe Vapor, sem pagamento registrado.
+            </p>
+          )}
+          <Link
+            href="/app/motoboy/assinatura"
+            className={buttonStyles({ className: "mt-5 w-full" })}
+          >
+            {active ? "Ver assinatura" : "Ver planos"}
+          </Link>
         </Card>
       </div>
     </div>
   );
 }
+import Link from "next/link";

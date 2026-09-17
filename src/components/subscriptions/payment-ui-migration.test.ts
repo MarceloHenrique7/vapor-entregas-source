@@ -23,7 +23,7 @@ describe("Payment Brick checkout UI", () => {
     );
   });
 
-  it("opens the Payment Brick only from the motoboy dashboard", () => {
+  it("opens the Payment Brick only from the motoboy dashboard and keeps company checkout disabled", () => {
     const dashboard = readProjectFile(
       "src/components/subscriptions/subscription-dashboard.tsx",
     );
@@ -42,12 +42,12 @@ describe("Payment Brick checkout UI", () => {
     expect(dashboard).not.toMatch(
       /Autorizar assinatura|cobrança mensal recorrente|Próxima cobrança/,
     );
-    expect(companyPage).toContain('redirect("/app/empresa")');
+    expect(companyPage).toContain("<CompanySubscriptionDashboard");
     expect(companyPage).not.toContain("<SubscriptionDashboard");
     expect(motoboyPage).toContain("<SubscriptionDashboard");
   });
 
-  it("removes the company plan from active navigation and registration", () => {
+  it("keeps a non-billable company plan page and removes company checkout from registration", () => {
     const navigation = readProjectFile(
       "src/components/dashboard/navigation.ts",
     );
@@ -62,7 +62,7 @@ describe("Payment Brick checkout UI", () => {
       "prisma/mysql/migrations/20260914150000_disable_company_subscription_plan/migration.sql",
     );
 
-    expect(navigation).not.toContain('href: "/app/empresa/assinatura"');
+    expect(navigation).toContain('href: "/app/empresa/assinatura"');
     expect(registration).not.toContain('where: { role: "COMPANY" }');
     expect(registration).toContain('where: { role: "MOTOBOY" }');
     expect(deliveries).not.toContain("assertOperationalSubscription");

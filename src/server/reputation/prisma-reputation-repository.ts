@@ -153,11 +153,30 @@ export const prismaReputationRepository: ReputationRepository = {
 
   async getRatingOverview(userId, role) {
     const prisma = getPrisma();
-    const [received, given, completed] = await Promise.all([
+    const [received, receivedItems, given, completed] = await Promise.all([
       prisma.rating.aggregate({
         where: { reviewedUserId: userId },
         _avg: { score: true },
         _count: { _all: true },
+      }),
+      prisma.rating.findMany({
+        where: { reviewedUserId: userId },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        select: {
+          id: true,
+          deliveryId: true,
+          score: true,
+          comment: true,
+          createdAt: true,
+          reviewer: {
+            select: {
+              name: true,
+              role: true,
+              companyProfile: { select: { fantasyName: true } },
+            },
+          },
+        },
       }),
       prisma.rating.findMany({
         where: { reviewerUserId: userId },
@@ -229,6 +248,18 @@ export const prismaReputationRepository: ReputationRepository = {
         average: received._avg.score,
         count: received._count._all,
       },
+      receivedItems: receivedItems.map((rating) => ({
+        id: rating.id,
+        deliveryId: rating.deliveryId,
+        score: rating.score,
+        comment: rating.comment,
+        reviewerName:
+          rating.reviewer.role === "COMPANY"
+            ? (rating.reviewer.companyProfile?.fantasyName ??
+              rating.reviewer.name)
+            : rating.reviewer.name,
+        createdAt: rating.createdAt.toISOString(),
+      })),
       given: given.map((rating) => ({
         id: rating.id,
         deliveryId: rating.deliveryId,
