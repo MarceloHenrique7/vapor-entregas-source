@@ -11,14 +11,14 @@ import { buttonStyles } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PrelaunchLanding } from "@/components/prelaunch/prelaunch-landing";
 import { getPrelaunchEnv } from "@/server/config/env";
+import { PRELAUNCH_LAUNCH_DATE_SHORT_LABEL } from "@/config/prelaunch";
 
 export const dynamic = "force-dynamic";
 
 export function generateMetadata(): Metadata {
   if (!getPrelaunchEnv().enabled) return {};
-  const title = "Vapor Entregas | Lançamento em 25 de setembro";
-  const description =
-    "O App da Vapor chega a Petrolina e Juazeiro em 25 de setembro para conectar empresas e motoboys independentes.";
+  const title = `Vapor Entregas | Lançamento em ${PRELAUNCH_LAUNCH_DATE_SHORT_LABEL}`;
+  const description = `O App da Vapor chega a Petrolina e Juazeiro em ${PRELAUNCH_LAUNCH_DATE_SHORT_LABEL} para conectar empresas e motoboys independentes.`;
   return {
     title,
     description,

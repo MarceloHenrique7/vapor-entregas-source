@@ -23,7 +23,7 @@ export default function PrivacyPage() {
         {
           title: "2. Pré-cadastro do lançamento",
           content:
-            "Na página de pré-lançamento são solicitados somente nome, WhatsApp e indicação de interesse como motoboy ou empresa. Esses dados são usados para contato sobre o pré-lançamento e lançamento, conforme o aviso exibido no envio. O servidor registra a versão e o horário desse aviso, evita cadastros repetidos e não cria conta, senha ou perfil operacional.",
+            "Na primeira etapa do cadastro de pré-lançamento são solicitados somente nome, WhatsApp e indicação de interesse como motoboy ou empresa. Esses dados são usados para iniciar o cadastro e para contato sobre o pré-lançamento e lançamento, conforme o aviso exibido no envio. O servidor registra a versão e o horário desse aviso e evita interesses repetidos. A conta e o perfil só são criados depois que a pessoa preenche o formulário completo, aceita os documentos aplicáveis e escolhe sua própria senha.",
         },
         {
           title: "3. Dados cadastrais coletados",

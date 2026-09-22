@@ -17,6 +17,7 @@ const select = {
   consentNoticeVersion: true,
   consentRecordedAt: true,
   createdAt: true,
+  convertedUserId: true,
 } as const;
 
 function where(filters: Omit<PreRegistrationFilters, "page" | "pageSize">) {

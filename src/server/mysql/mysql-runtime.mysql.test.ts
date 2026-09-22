@@ -23,6 +23,7 @@ import { prismaDeliveryRepository } from "@/server/deliveries/prisma-delivery-re
 import { createPreRegistration } from "@/server/pre-registration/pre-registration-service";
 import { prismaPreRegistrationRepository } from "@/server/pre-registration/prisma-pre-registration-repository";
 import { prismaReputationRepository } from "@/server/reputation/prisma-reputation-repository";
+import { prismaRegistrationRepository } from "@/server/registration/prisma-registration-repository";
 import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
 import { prismaTrackingRepository } from "@/server/tracking/prisma-tracking-repository";
 import {
@@ -118,6 +119,62 @@ describe("runtime real MySQL", () => {
       });
       await prisma.session.deleteMany({ where: { userId } });
       await prisma.user.deleteMany({ where: { id: userId } });
+    }
+  });
+
+  it("preserva e relaciona o pré-cadastro quando a conta é criada", async () => {
+    const suffix = digest(randomUUID()).slice(0, 8).replace(/[a-f]/g, "7");
+    const normalizedPhone = `+55879${suffix}`;
+    const email = `converted-${randomUUID()}@example.test`;
+    let userId: string | undefined;
+
+    try {
+      await createPreRegistration(
+        {
+          name: "Empresa Convertida MySQL",
+          phone: normalizedPhone,
+          type: "COMPANY",
+        },
+        prismaPreRegistrationRepository,
+      );
+      const user = await prismaRegistrationRepository.createCompany({
+        role: "COMPANY",
+        name: "Responsável da Empresa",
+        email,
+        phone: normalizedPhone,
+        passwordHash: "integration-only",
+        termsVersion: "mysql-test",
+        privacyVersion: "mysql-test",
+        registeredAt: new Date(),
+        profile: {
+          fantasyName: "Empresa Convertida MySQL",
+          documentType: "CNPJ",
+          legalDocumentEncrypted: "encrypted",
+          legalDocumentHash: digest(email),
+          legalDocumentLastDigits: "0001",
+          city: "PETROLINA_PE",
+          address: "Rua de Teste",
+          addressNumber: "10",
+          neighborhood: "Centro",
+        },
+      });
+      userId = user.id;
+      await expect(
+        prisma.preRegistration.findUnique({
+          where: {
+            normalizedPhone_type: {
+              normalizedPhone,
+              type: "COMPANY",
+            },
+          },
+          select: { convertedUserId: true },
+        }),
+      ).resolves.toEqual({ convertedUserId: user.id });
+    } finally {
+      if (userId) await prisma.user.delete({ where: { id: userId } });
+      await prisma.preRegistration.deleteMany({
+        where: { normalizedPhone, type: "COMPANY" },
+      });
     }
   });
 

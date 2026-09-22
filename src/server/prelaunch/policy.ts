@@ -3,6 +3,9 @@ import type { SessionUser } from "@/server/auth/types";
 export const PRELAUNCH_PUBLIC_PAGES = [
   "/",
   "/form",
+  "/entrar",
+  "/cadastro/empresa",
+  "/cadastro/motoboy",
   "/admin/acesso",
   "/acesso/teste",
   "/termos",
@@ -25,6 +28,9 @@ export const PRELAUNCH_PUBLIC_API_METHODS = new Map<
   ReadonlySet<string>
 >([
   ["/api/pre-registration", new Set(["POST"])],
+  ["/api/auth/login", new Set(["POST"])],
+  ["/api/auth/register/company", new Set(["POST"])],
+  ["/api/auth/register/motoboy", new Set(["POST"])],
   ["/api/prelaunch/login/admin", new Set(["POST"])],
   ["/api/prelaunch/login/test", new Set(["POST"])],
   ["/api/webhooks/mercadopago", new Set(["POST"])],
@@ -65,8 +71,50 @@ export function canBypassPrelaunch(
   return user.role === "ADMIN" || testUserIds.includes(user.id);
 }
 
+const sharedPreparationRequests = new Map<string, ReadonlySet<string>>([
+  ["/cadastro/concluido", new Set(["GET"])],
+  ["/api/auth/session", new Set(["GET"])],
+  ["/api/auth/logout", new Set(["POST"])],
+  ["/api/account/profile", new Set(["GET", "PATCH"])],
+  ["/api/account/password", new Set(["POST"])],
+  ["/api/account/export", new Set(["POST"])],
+  ["/api/account/close", new Set(["POST"])],
+]);
+
+const companyPreparationRequests = new Map<string, ReadonlySet<string>>([
+  ["/app/empresa/configuracoes", new Set(["GET"])],
+  ["/app/empresa/configuracoes/localizacao", new Set(["GET"])],
+  ["/api/company/location", new Set(["GET", "PUT"])],
+  ["/api/maps/geocode", new Set(["POST"])],
+  ["/api/maps/reverse", new Set(["POST"])],
+  ["/api/maps/suggestions", new Set(["POST"])],
+]);
+
+const motoboyPreparationRequests = new Map<string, ReadonlySet<string>>([
+  ["/app/motoboy/configuracoes", new Set(["GET"])],
+]);
+
+export function canAccessPrelaunchPreparation(
+  user: Pick<SessionUser, "role" | "status"> | null,
+  pathname: string,
+  method: string,
+) {
+  if (!user || user.status !== "ACTIVE") return false;
+  const normalizedMethod = method.toUpperCase();
+  if (sharedPreparationRequests.get(pathname)?.has(normalizedMethod)) {
+    return user.role === "COMPANY" || user.role === "MOTOBOY";
+  }
+  const roleRequests =
+    user.role === "COMPANY"
+      ? companyPreparationRequests
+      : user.role === "MOTOBOY"
+        ? motoboyPreparationRequests
+        : null;
+  return roleRequests?.get(pathname)?.has(normalizedMethod) ?? false;
+}
+
 export type PrelaunchGateDecision =
-  "DISABLED" | "PUBLIC" | "AUTHORIZED" | "BLOCKED";
+  "DISABLED" | "PUBLIC" | "PREPARATION" | "AUTHORIZED" | "BLOCKED";
 
 export function evaluatePrelaunchGate(input: {
   enabled: boolean;
@@ -78,6 +126,9 @@ export function evaluatePrelaunchGate(input: {
   if (!input.enabled) return "DISABLED";
   if (isPrelaunchPublicRequest(input.pathname, input.method)) return "PUBLIC";
   if (canBypassPrelaunch(input.user, input.testUserIds)) return "AUTHORIZED";
+  if (canAccessPrelaunchPreparation(input.user, input.pathname, input.method)) {
+    return "PREPARATION";
+  }
   return "BLOCKED";
 }
 

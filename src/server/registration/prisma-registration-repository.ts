@@ -30,70 +30,81 @@ export const prismaRegistrationRepository: RegistrationRepository = {
         plan?.active && plan.trialDays > 0
           ? new Date(data.registeredAt.getTime() + plan.trialDays * 86_400_000)
           : null;
-      const user = await getPrisma().user.create({
-        data: {
-          id,
-          role: data.role,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          passwordHash: data.passwordHash,
-          motoboyProfile: {
-            create: {
-              cpfEncrypted: data.profile.cpfEncrypted,
-              cpfHash: data.profile.cpfHash,
-              cpfLastDigits: data.profile.cpfLastDigits,
-              rgEncrypted: data.profile.rgEncrypted,
-              rgHash: data.profile.rgHash,
-              birthDate: data.profile.birthDate,
-              city: data.profile.city,
-              vehiclePlate: data.profile.vehiclePlate,
-              legalResponsibilityAcceptedAt: data.profile.acceptedAt,
-              intermediationAcceptedAt: data.profile.acceptedAt,
+      const user = await getPrisma().$transaction(async (transaction) => {
+        const createdUser = await transaction.user.create({
+          data: {
+            id,
+            role: data.role,
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            passwordHash: data.passwordHash,
+            motoboyProfile: {
+              create: {
+                cpfEncrypted: data.profile.cpfEncrypted,
+                cpfHash: data.profile.cpfHash,
+                cpfLastDigits: data.profile.cpfLastDigits,
+                rgEncrypted: data.profile.rgEncrypted,
+                rgHash: data.profile.rgHash,
+                birthDate: data.profile.birthDate,
+                city: data.profile.city,
+                vehiclePlate: data.profile.vehiclePlate,
+                legalResponsibilityAcceptedAt: data.profile.acceptedAt,
+                intermediationAcceptedAt: data.profile.acceptedAt,
+              },
             },
-          },
-          termsAcceptances: { create: { version: data.termsVersion } },
-          privacyAcceptances: { create: { version: data.privacyVersion } },
-          legalAcceptances: {
-            create: [
-              {
-                documentType: "TERMS_OF_USE",
-                documentVersion: data.termsVersion,
-                metadata: { source: "REGISTRATION" },
-              },
-              {
-                documentType: "PRIVACY_POLICY",
-                documentVersion: data.privacyVersion,
-                metadata: { source: "REGISTRATION" },
-              },
-            ],
-          },
-          ...(plan && trialEndsAt
-            ? {
-                subscriptions: {
-                  create: {
-                    openSubscriptionUserKey: id,
-                    planId: plan.id,
-                    status: "TRIAL" as const,
-                    monthlyPrice: plan.monthlyPrice,
-                    currentPeriodStart: data.registeredAt,
-                    currentPeriodEnd: trialEndsAt,
-                    trialGrantedAt: data.registeredAt,
-                    trialEndsAt,
-                    events: {
-                      create: {
-                        providerEventId: `local:trial:${id}:${data.registeredAt.toISOString()}`,
-                        eventType: "trial.started",
-                        processedAt: data.registeredAt,
-                        payloadMetadata: { trialDays: plan.trialDays },
+            termsAcceptances: { create: { version: data.termsVersion } },
+            privacyAcceptances: { create: { version: data.privacyVersion } },
+            legalAcceptances: {
+              create: [
+                {
+                  documentType: "TERMS_OF_USE",
+                  documentVersion: data.termsVersion,
+                  metadata: { source: "REGISTRATION" },
+                },
+                {
+                  documentType: "PRIVACY_POLICY",
+                  documentVersion: data.privacyVersion,
+                  metadata: { source: "REGISTRATION" },
+                },
+              ],
+            },
+            ...(plan && trialEndsAt
+              ? {
+                  subscriptions: {
+                    create: {
+                      openSubscriptionUserKey: id,
+                      planId: plan.id,
+                      status: "TRIAL" as const,
+                      monthlyPrice: plan.monthlyPrice,
+                      currentPeriodStart: data.registeredAt,
+                      currentPeriodEnd: trialEndsAt,
+                      trialGrantedAt: data.registeredAt,
+                      trialEndsAt,
+                      events: {
+                        create: {
+                          providerEventId: `local:trial:${id}:${data.registeredAt.toISOString()}`,
+                          eventType: "trial.started",
+                          processedAt: data.registeredAt,
+                          payloadMetadata: { trialDays: plan.trialDays },
+                        },
                       },
                     },
                   },
-                },
-              }
-            : {}),
-        },
-        select: { id: true, name: true, email: true, role: true },
+                }
+              : {}),
+          },
+          select: { id: true, name: true, email: true, role: true },
+        });
+        await transaction.preRegistration.updateMany({
+          where: {
+            normalizedPhone: data.phone,
+            type: "MOTOBOY",
+            convertedUserId: null,
+          },
+          data: { convertedUserId: createdUser.id },
+        });
+        return createdUser;
       });
       return user;
     } catch (error) {
@@ -104,55 +115,66 @@ export const prismaRegistrationRepository: RegistrationRepository = {
   async createCompany(data) {
     try {
       const id = randomUUID();
-      const user = await getPrisma().user.create({
-        data: {
-          id,
-          role: data.role,
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          passwordHash: data.passwordHash,
-          companyProfile: {
-            create: {
-              fantasyName: data.profile.fantasyName,
-              documentType: data.profile.documentType,
-              legalDocumentEncrypted: data.profile.legalDocumentEncrypted,
-              legalDocumentHash: data.profile.legalDocumentHash,
-              legalDocumentLastDigits: data.profile.legalDocumentLastDigits,
-              city: data.profile.city,
-              locations: {
-                create: {
-                  label: "Loja principal",
-                  address: data.profile.address,
-                  number: data.profile.addressNumber,
-                  neighborhood: data.profile.neighborhood,
-                  complement: data.profile.complement,
-                  reference: data.profile.referencePoint,
-                  city: data.profile.city,
-                  state: data.profile.city === "PETROLINA_PE" ? "PE" : "BA",
-                  isDefault: false,
+      const user = await getPrisma().$transaction(async (transaction) => {
+        const createdUser = await transaction.user.create({
+          data: {
+            id,
+            role: data.role,
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            passwordHash: data.passwordHash,
+            companyProfile: {
+              create: {
+                fantasyName: data.profile.fantasyName,
+                documentType: data.profile.documentType,
+                legalDocumentEncrypted: data.profile.legalDocumentEncrypted,
+                legalDocumentHash: data.profile.legalDocumentHash,
+                legalDocumentLastDigits: data.profile.legalDocumentLastDigits,
+                city: data.profile.city,
+                locations: {
+                  create: {
+                    label: "Loja principal",
+                    address: data.profile.address,
+                    number: data.profile.addressNumber,
+                    neighborhood: data.profile.neighborhood,
+                    complement: data.profile.complement,
+                    reference: data.profile.referencePoint,
+                    city: data.profile.city,
+                    state: data.profile.city === "PETROLINA_PE" ? "PE" : "BA",
+                    isDefault: false,
+                  },
                 },
               },
             },
+            termsAcceptances: { create: { version: data.termsVersion } },
+            privacyAcceptances: { create: { version: data.privacyVersion } },
+            legalAcceptances: {
+              create: [
+                {
+                  documentType: "TERMS_OF_USE",
+                  documentVersion: data.termsVersion,
+                  metadata: { source: "REGISTRATION" },
+                },
+                {
+                  documentType: "PRIVACY_POLICY",
+                  documentVersion: data.privacyVersion,
+                  metadata: { source: "REGISTRATION" },
+                },
+              ],
+            },
           },
-          termsAcceptances: { create: { version: data.termsVersion } },
-          privacyAcceptances: { create: { version: data.privacyVersion } },
-          legalAcceptances: {
-            create: [
-              {
-                documentType: "TERMS_OF_USE",
-                documentVersion: data.termsVersion,
-                metadata: { source: "REGISTRATION" },
-              },
-              {
-                documentType: "PRIVACY_POLICY",
-                documentVersion: data.privacyVersion,
-                metadata: { source: "REGISTRATION" },
-              },
-            ],
+          select: { id: true, name: true, email: true, role: true },
+        });
+        await transaction.preRegistration.updateMany({
+          where: {
+            normalizedPhone: data.phone,
+            type: "COMPANY",
+            convertedUserId: null,
           },
-        },
-        select: { id: true, name: true, email: true, role: true },
+          data: { convertedUserId: createdUser.id },
+        });
+        return createdUser;
       });
       return user;
     } catch (error) {

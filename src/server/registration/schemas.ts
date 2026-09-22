@@ -81,6 +81,7 @@ export const motoboyRegistrationSchema = z
       .boolean()
       .refine(Boolean, "Confirme o papel tecnológico da plataforma."),
   })
+  .strict()
   .refine((data) => data.password === data.passwordConfirmation, {
     message: "As senhas não coincidem.",
     path: ["passwordConfirmation"],
@@ -109,6 +110,7 @@ export const companyRegistrationSchema = z
     passwordConfirmation: z.string(),
     ...confirmationFields,
   })
+  .strict()
   .refine((data) => data.password === data.passwordConfirmation, {
     message: "As senhas não coincidem.",
     path: ["passwordConfirmation"],

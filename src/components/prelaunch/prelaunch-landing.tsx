@@ -4,6 +4,10 @@ import { Logo } from "@/components/brand/logo";
 import { Icon, type IconName } from "@/components/icons/icon";
 import { PreRegistrationForm } from "@/components/prelaunch/pre-registration-form";
 import { buttonStyles } from "@/components/ui/button";
+import {
+  PRELAUNCH_LAUNCH_DATE_LABEL,
+  PRELAUNCH_LAUNCH_DATE_SHORT_LABEL,
+} from "@/config/prelaunch";
 
 const painPoints = [
   "Pedido pronto e nenhum motoboy disponível?",
@@ -100,7 +104,7 @@ const faqs = [
   ],
   [
     "A Vapor já está funcionando?",
-    "Estamos em pré-lançamento. A abertura está marcada para 25 de setembro de 2026.",
+    `Estamos em pré-lançamento. A abertura está marcada para ${PRELAUNCH_LAUNCH_DATE_LABEL}.`,
   ],
 ];
 
@@ -147,8 +151,8 @@ export function PrelaunchLanding() {
           <div className="grid items-center gap-9 py-9 lg:grid-cols-[1.08fr_.92fr] lg:gap-14 lg:py-16">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand-light px-3 py-2 text-[11px] font-extrabold uppercase tracking-[.15em] text-brand-dark sm:px-4 sm:text-xs">
-                <Icon name="calendar" className="size-4" /> Lançamento • 25 de
-                setembro
+                <Icon name="calendar" className="size-4" /> Lançamento •{" "}
+                {PRELAUNCH_LAUNCH_DATE_SHORT_LABEL}
               </span>
               <h1 className="text-balance mt-5 max-w-3xl font-display text-[2.65rem] font-extrabold leading-[1.01] tracking-[-.055em] sm:text-6xl lg:text-[4.5rem]">
                 Pedido pronto. Entrega sem complicação.
@@ -183,14 +187,14 @@ export function PrelaunchLanding() {
               className="scroll-mt-6 rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_24px_80px_rgba(31,31,31,.12)] sm:p-7"
             >
               <p className="text-xs font-extrabold uppercase tracking-[.18em] text-brand">
-                Entre para o lançamento
+                ENTRE PARA O LANÇAMENTO
               </p>
               <h2 className="mt-2 font-display text-2xl font-extrabold sm:text-3xl">
-                Conheça a Vapor desde o começo.
+                Deixe sua conta pronta.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted">
-                Deixe seus dados para receber novidades da abertura em 25 de
-                setembro.
+                Comece seu cadastro agora e esteja pronto para o lançamento da
+                Vapor em {PRELAUNCH_LAUNCH_DATE_SHORT_LABEL}.
               </p>
               <div className="mt-5">
                 <PreRegistrationForm />
@@ -512,7 +516,7 @@ export function PrelaunchLanding() {
       <section className="px-4 pb-16 sm:px-6 sm:pb-24">
         <div className="mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-brand px-6 py-12 text-center text-white shadow-soft sm:px-12 sm:py-16">
           <p className="text-xs font-extrabold uppercase tracking-[.2em] text-white/70">
-            25 de setembro de 2026
+            {PRELAUNCH_LAUNCH_DATE_LABEL}
           </p>
           <h2 className="text-balance mx-auto mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-[-.04em] sm:text-5xl">
             Sua próxima entrega pode começar de um jeito mais simples.

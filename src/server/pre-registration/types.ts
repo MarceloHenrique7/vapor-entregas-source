@@ -9,6 +9,7 @@ export interface PreRegistrationRecord {
   consentNoticeVersion: string;
   consentRecordedAt: Date;
   createdAt: Date;
+  convertedUserId: string | null;
 }
 
 export interface PreRegistrationFilters {

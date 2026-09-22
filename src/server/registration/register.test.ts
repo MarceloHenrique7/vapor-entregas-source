@@ -93,7 +93,7 @@ describe("cadastro público", () => {
     ).rejects.toThrow();
   });
 
-  it("cria empresa com role fixa mesmo se o cliente tentar enviar ADMIN", async () => {
+  it("cria empresa com role fixa", async () => {
     const repo = repository();
     const input = {
       responsibleName: "João da Silva",
@@ -111,8 +111,6 @@ describe("cadastro público", () => {
       passwordConfirmation: "SenhaForte123",
       termsAccepted: true,
       privacyAccepted: true,
-      role: "ADMIN",
-      vehiclePlate: "ABC1D23",
     };
     const user = await registerCompany(input, repo, key);
     expect(user.role).toBe("COMPANY");
@@ -127,5 +125,33 @@ describe("cadastro público", () => {
     );
     const payload = vi.mocked(repo.createCompany).mock.calls[0][0];
     expect(payload.profile).not.toHaveProperty("vehiclePlate");
+  });
+
+  it("rejeita mass assignment de role e campos de outro perfil", async () => {
+    await expect(
+      registerCompany(
+        {
+          responsibleName: "João da Silva",
+          fantasyName: "Mercado do Vale",
+          legalDocument: "11.222.333/0001-81",
+          phone: "87999999999",
+          email: "mercado@example.com",
+          city: "JUAZEIRO_BA",
+          address: "Rua das Flores",
+          addressNumber: "100",
+          neighborhood: "Centro",
+          complement: "",
+          referencePoint: "",
+          password: "SenhaForte123",
+          passwordConfirmation: "SenhaForte123",
+          termsAccepted: true,
+          privacyAccepted: true,
+          role: "ADMIN",
+          vehiclePlate: "ABC1D23",
+        },
+        repository(),
+        key,
+      ),
+    ).rejects.toThrow(/Unrecognized keys/);
   });
 });

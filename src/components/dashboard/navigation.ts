@@ -79,6 +79,42 @@ export const companyNavigation: NavigationItem[] = [
   },
 ];
 
+export const prelaunchCompanyNavigation: NavigationItem[] = [
+  {
+    href: "/cadastro/concluido",
+    label: "Conta preparada",
+    icon: "check",
+    mobile: true,
+  },
+  {
+    href: "/app/empresa/configuracoes/localizacao",
+    label: "Localização",
+    icon: "map",
+    mobile: true,
+  },
+  {
+    href: "/app/empresa/configuracoes",
+    label: "Configurações",
+    icon: "settings",
+    mobile: true,
+  },
+];
+
+export const prelaunchMotoboyNavigation: NavigationItem[] = [
+  {
+    href: "/cadastro/concluido",
+    label: "Conta preparada",
+    icon: "check",
+    mobile: true,
+  },
+  {
+    href: "/app/motoboy/configuracoes",
+    label: "Configurações",
+    icon: "settings",
+    mobile: true,
+  },
+];
+
 export const adminNavigation: NavigationItem[] = [
   { href: "/admin", label: "Visão geral", icon: "home", mobile: true },
   {

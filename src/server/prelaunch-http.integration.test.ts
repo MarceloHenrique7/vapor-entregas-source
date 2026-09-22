@@ -131,7 +131,7 @@ describe.skipIf(!enabled)(
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     });
 
-    it("permite somente landing, formulário, documentos e pré-cadastro ao visitante", async () => {
+    it("permite landing, cadastro, login, documentos e pré-cadastro ao visitante", async () => {
       const landing = await request("/");
       expect(landing.status).toBe(200);
       const html = await landing.text();
@@ -141,6 +141,9 @@ describe.skipIf(!enabled)(
       expect((await request("/form")).status).toBe(200);
       expect((await request("/termos")).status).toBe(200);
       expect((await request("/privacidade")).status).toBe(200);
+      expect((await request("/entrar")).status).toBe(200);
+      expect((await request("/cadastro/empresa")).status).toBe(200);
+      expect((await request("/cadastro/motoboy")).status).toBe(200);
 
       const registration = await request("/api/pre-registration", undefined, {
         method: "POST",
@@ -161,9 +164,6 @@ describe.skipIf(!enabled)(
         "/login",
         "/register",
         "/cadastro",
-        "/cadastro/empresa",
-        "/entrar",
-        "/entrar?next=/app/empresa",
         "/app/empresa",
         "/app/motoboy",
         "/admin",
@@ -181,9 +181,8 @@ describe.skipIf(!enabled)(
       }
     });
 
-    it("bloqueia APIs privadas e o login público antes do route handler", async () => {
+    it("bloqueia APIs operacionais e permite o login público seguro", async () => {
       for (const path of [
-        "/api/auth/session",
         "/api/deliveries",
         "/api/company/history",
         "/api/motoboy/presence",
@@ -198,10 +197,18 @@ describe.skipIf(!enabled)(
         }),
       });
       expect(publicLogin.status).toBe(401);
+      const companyLogin = await request("/api/auth/login", undefined, {
+        method: "POST",
+        body: JSON.stringify({
+          email: "prelaunch-company@example.test",
+          password,
+        }),
+      });
+      expect(companyLogin.status).toBe(200);
       expect((await request("/api/pre-registration")).status).toBe(401);
     });
 
-    it("bloqueia COMPANY e MOTOBOY comuns mesmo com sessão válida", async () => {
+    it("limita COMPANY e MOTOBOY comuns ao onboarding", async () => {
       const attempts: Array<[Identity, string]> = [
         ["COMMON_COMPANY", "/app/empresa"],
         ["COMMON_COMPANY", "/admin/acesso"],
@@ -215,10 +222,22 @@ describe.skipIf(!enabled)(
       }
       expect(
         (await request("/api/auth/session", "COMMON_COMPANY")).status,
-      ).toBe(403);
+      ).toBe(200);
       expect(
         (await request("/api/auth/session", "COMMON_MOTOBOY")).status,
-      ).toBe(403);
+      ).toBe(200);
+      expect(
+        (await request("/cadastro/concluido", "COMMON_COMPANY")).status,
+      ).toBe(200);
+      expect(
+        (await request("/cadastro/concluido", "COMMON_MOTOBOY")).status,
+      ).toBe(200);
+      expect(
+        (await request("/app/empresa/configuracoes", "COMMON_COMPANY")).status,
+      ).toBe(200);
+      expect(
+        (await request("/app/motoboy/configuracoes", "COMMON_MOTOBOY")).status,
+      ).toBe(200);
     });
 
     it("autentica ADMIN somente pela entrada administrativa", async () => {

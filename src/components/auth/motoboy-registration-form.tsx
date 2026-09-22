@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { CheckboxField } from "./checkbox-field";
 import {
   firstError,
@@ -13,13 +13,38 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { trackMetaEventOnce } from "@/lib/analytics/meta-pixel";
+import {
+  trackMetaCustomEventOnce,
+  trackMetaEventOnce,
+} from "@/lib/analytics/meta-pixel";
+import {
+  clearPrelaunchRegistrationDraft,
+  readPrelaunchRegistrationDraft,
+} from "@/lib/registration/prelaunch-draft";
 
 export function MotoboyRegistrationForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [fields, setFields] = useState<FieldErrors>({});
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const draft = readPrelaunchRegistrationDraft("MOTOBOY");
+      if (draft) {
+        setName(draft.name);
+        setPhone(draft.phone);
+      }
+    }, 0);
+    trackMetaCustomEventOnce(
+      "registration-form-viewed:motoboy",
+      "RegistrationFormViewed",
+      { registration_type: "motoboy" },
+    );
+    return () => window.clearTimeout(timeout);
+  }, []);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -62,7 +87,12 @@ export function MotoboyRegistrationForm() {
         "CompleteRegistration",
         { registration_type: "motoboy", platform: "vapor" },
       );
-      router.push("/app/motoboy");
+      trackMetaCustomEventOnce(
+        `registration:motoboy-custom:${registrationId}`,
+        "MotoboyRegistrationCompleted",
+      );
+      clearPrelaunchRegistrationDraft();
+      router.push("/cadastro/concluido");
       router.refresh();
     } catch {
       setError("Não foi possível concluir o cadastro. Tente novamente.");
@@ -79,7 +109,14 @@ export function MotoboyRegistrationForm() {
           error={firstError(fields, "name")}
           required
         >
-          <Input id="name" name="name" autoComplete="name" required />
+          <Input
+            id="name"
+            name="name"
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
         </FormField>
         <FormField
           label="Telefone / WhatsApp"
@@ -93,6 +130,8 @@ export function MotoboyRegistrationForm() {
             inputMode="tel"
             autoComplete="tel"
             placeholder="(87) 99999-9999"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
             required
           />
         </FormField>

@@ -7,6 +7,10 @@ import { prismaRegistrationRepository } from "@/server/registration/prisma-regis
 import { registerCompany } from "@/server/registration/register";
 import { registrationErrorResponse } from "@/server/registration/route-response";
 import { companyRegistrationSchema } from "@/server/registration/schemas";
+import {
+  enforceRegistrationRateLimit,
+  getRegistrationRateLimitKey,
+} from "@/server/registration/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +20,14 @@ export async function POST(request: NextRequest) {
       { error: "Origem da requisição inválida." },
       { status: 403 },
     );
+  }
+
+  try {
+    enforceRegistrationRateLimit(
+      getRegistrationRateLimitKey(request, "COMPANY"),
+    );
+  } catch (error) {
+    return registrationErrorResponse(error);
   }
 
   let body: unknown;

@@ -36,11 +36,16 @@ Rotas viárias são opcionais e permanecem desligadas com
 uma variável `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`. Consulte
 `docs/routes-pwa-ux.md` para cache, timeout e fallback.
 
-Durante o pré-lançamento, configure `PRELAUNCH_MODE=true`. Preencha
+Durante o pré-lançamento, configure `PRELAUNCH_MODE=true`. Cadastro, login e
+preparação básica da própria conta permanecem disponíveis; as operações de entrega
+continuam bloqueadas. Preencha
 `PRELAUNCH_TEST_USER_IDS` somente com UUIDs de contas de homologação, separados por
 vírgula; deixe vazio se apenas administradores puderem entrar. Reinicie o processo
 após alterar a flag. Para liberar o produto completo, use `PRELAUNCH_MODE=false`.
 Nunca use e-mail, telefone ou segredo nessa lista.
+
+A data pública do lançamento é centralizada em `src/config/prelaunch.ts`; altere
+esse arquivo e faça novo build/deploy se a data oficial mudar.
 
 Para assinaturas, use credenciais de produção do próprio operador e configure
 `MERCADO_PAGO_MODE=production`, `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY`,

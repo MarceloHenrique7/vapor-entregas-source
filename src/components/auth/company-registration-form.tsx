@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { CheckboxField } from "./checkbox-field";
 import {
   firstError,
@@ -17,12 +17,34 @@ import {
   trackMetaCustomEventOnce,
   trackMetaEventOnce,
 } from "@/lib/analytics/meta-pixel";
+import {
+  clearPrelaunchRegistrationDraft,
+  readPrelaunchRegistrationDraft,
+} from "@/lib/registration/prelaunch-draft";
 
 export function CompanyRegistrationForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [fields, setFields] = useState<FieldErrors>({});
+  const [fantasyName, setFantasyName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const draft = readPrelaunchRegistrationDraft("COMPANY");
+      if (draft) {
+        setFantasyName(draft.name);
+        setPhone(draft.phone);
+      }
+    }, 0);
+    trackMetaCustomEventOnce(
+      "registration-form-viewed:company",
+      "RegistrationFormViewed",
+      { registration_type: "company" },
+    );
+    return () => window.clearTimeout(timeout);
+  }, []);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -69,7 +91,8 @@ export function CompanyRegistrationForm() {
         `registration:company-custom:${registrationId}`,
         "CompanyRegistrationCompleted",
       );
-      router.push("/app/empresa");
+      clearPrelaunchRegistrationDraft();
+      router.push("/cadastro/concluido");
       router.refresh();
     } catch {
       setError("Não foi possível concluir o cadastro. Tente novamente.");
@@ -103,6 +126,8 @@ export function CompanyRegistrationForm() {
             id="fantasyName"
             name="fantasyName"
             autoComplete="organization"
+            value={fantasyName}
+            onChange={(event) => setFantasyName(event.target.value)}
             required
           />
         </FormField>
@@ -133,6 +158,8 @@ export function CompanyRegistrationForm() {
             inputMode="tel"
             autoComplete="tel"
             placeholder="(87) 99999-9999"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
             required
           />
         </FormField>

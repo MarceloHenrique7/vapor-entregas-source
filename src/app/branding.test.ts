@@ -54,8 +54,10 @@ describe("identidade Vapor Entregas", () => {
     const landing = await source(
       "src/components/prelaunch/prelaunch-landing.tsx",
     );
+    const prelaunchConfig = await source("src/config/prelaunch.ts");
     expect(landing).toContain("Pedido pronto. Entrega sem complicação.");
-    expect(landing).toContain("25 de setembro de 2026");
+    expect(landing).toContain("PRELAUNCH_LAUNCH_DATE_LABEL");
+    expect(prelaunchConfig).toContain('"25 de setembro de 2026"');
     expect(landing).toContain("App da Vapor");
     expect(landing).toContain("Petrolina e Juazeiro");
     expect(landing).toContain("Sua empresa a todo Vapor");

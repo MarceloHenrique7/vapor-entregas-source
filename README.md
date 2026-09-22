@@ -31,10 +31,11 @@ publicados no mapa.
 
 ## Pré-lançamento — Etapa 17
 
-Com `PRELAUNCH_MODE=true`, `/` exibe somente a landing leve da Vapor Entregas e o
-formulário de interesse. Login comum, cadastros, painéis e APIs privadas ficam
-bloqueados inclusive quando recebem query strings. Termos, Privacidade, PWA e o
-`POST /api/pre-registration` permanecem públicos.
+Com `PRELAUNCH_MODE=true`, `/` exibe a landing da Vapor Entregas e o primeiro
+passo do cadastro. Cadastro de empresa/motoboy e login dessas contas permanecem
+disponíveis, mas somente a conclusão do onboarding, configurações da própria conta
+e localização da empresa podem ser acessadas. Entregas, oportunidades, presença,
+assinaturas e demais operações continuam bloqueadas pelo gate.
 
 O acesso administrativo fica em `/admin/acesso` e o acesso de homologação em
 `/acesso/teste`; nenhum deles aparece na landing. O primeiro autentica exclusivamente
@@ -44,15 +45,20 @@ do fluxo existente, sem senha paralela, segredo na URL ou credencial hardcoded.
 Depois do gate, o RBAC normal continua valendo: uma conta de teste `COMPANY`, por
 exemplo, recebe 403 em APIs administrativas.
 
-A allowlist server-side é exata: `/`, `/form`, os dois acessos restritos, Termos,
-Privacidade, manifest, robots, service worker, favicon, os ícones conhecidos e os
-três POSTs de pré-lançamento. `/api/auth/login`, registros, logout, webhook e todas as
-demais páginas/APIs ficam bloqueados por padrão enquanto a flag estiver ativa.
+A allowlist server-side é exata. Além das páginas públicas e dos acessos restritos,
+ela permite os dois cadastros, login comum e um conjunto pequeno de páginas/APIs
+autenticadas para preparar a conta. Toda rota que não aparece nessa política fica
+bloqueada por padrão enquanto a flag estiver ativa.
 
-O pré-cadastro coleta somente nome, WhatsApp e tipo (`MOTOBOY` ou `COMPANY`). O
+O primeiro passo coleta somente nome, WhatsApp e tipo (`MOTOBOY` ou `COMPANY`). O
 servidor normaliza o telefone, deduplica por telefone + tipo, registra a versão do
-aviso e o horário do servidor. Não existe endpoint público de listagem. A consulta
-e a exportação CSV ficam em `/admin/pre-cadastros`.
+aviso e o horário do servidor. Os dados são levados ao formulário completo via
+`sessionStorage`, sem PII na URL. Quando a conta é criada, o interesse é marcado
+como convertido sem apagar o registro original. Não existe endpoint público de
+listagem; consulta e CSV ficam em `/admin/pre-cadastros`.
+
+Detalhes operacionais e de privacidade estão em
+`docs/prelaunch-registration.md`.
 
 Para voltar ao produto completo sem remover código ou dados, configure
 `PRELAUNCH_MODE=false` e reinicie o processo Node. Não altere a lista por e-mail:

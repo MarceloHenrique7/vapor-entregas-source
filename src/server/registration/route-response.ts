@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { RegistrationConflictError } from "./errors";
+import {
+  RegistrationConflictError,
+  RegistrationRateLimitError,
+} from "./errors";
 import { internalErrorResponse } from "@/server/observability/logger";
 
 export function registrationErrorResponse(error: unknown) {
@@ -17,6 +20,19 @@ export function registrationErrorResponse(error: unknown) {
 
   if (error instanceof RegistrationConflictError) {
     return NextResponse.json({ error: error.message }, { status: 409 });
+  }
+
+  if (error instanceof RegistrationRateLimitError) {
+    return NextResponse.json(
+      { error: error.message },
+      {
+        status: 429,
+        headers: {
+          "Cache-Control": "no-store",
+          "Retry-After": String(error.retryAfterSeconds),
+        },
+      },
+    );
   }
 
   return internalErrorResponse("api.registration", error);

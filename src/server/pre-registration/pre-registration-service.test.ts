@@ -22,6 +22,7 @@ const baseRecord: PreRegistrationRecord = {
   consentNoticeVersion: PRE_REGISTRATION_NOTICE_VERSION,
   consentRecordedAt: now,
   createdAt: now,
+  convertedUserId: null,
 };
 
 function repository(
@@ -129,6 +130,11 @@ describe("administração de pré-cadastros", () => {
         repo,
       ),
     ).resolves.toMatchObject({ total: 1, totalPages: 1 });
+    await expect(
+      listPreRegistrationsForAdmin(admin, { page: 1, pageSize: 20 }, repo),
+    ).resolves.toMatchObject({
+      items: [expect.objectContaining({ status: "INTERESTED" })],
+    });
     await expect(
       getPreRegistrationAdminOverview({ ...admin, role: "COMPANY" }, repo),
     ).rejects.toThrow();

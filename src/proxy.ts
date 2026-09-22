@@ -39,7 +39,7 @@ export async function proxy(request: NextRequest) {
       user: sessionUser,
       testUserIds: prelaunch.testUserIds,
     });
-    if (decision === "AUTHORIZED") {
+    if (decision === "AUTHORIZED" || decision === "PREPARATION") {
       return NextResponse.next();
     }
     if (isPublic === "PUBLIC") {

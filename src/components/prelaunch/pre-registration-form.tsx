@@ -1,19 +1,24 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { trackMetaEventOnce } from "@/lib/analytics/meta-pixel";
+import {
+  trackMetaCustomEventOnce,
+  trackMetaEventOnce,
+} from "@/lib/analytics/meta-pixel";
+import { savePrelaunchRegistrationDraft } from "@/lib/registration/prelaunch-draft";
 
 type AccountType = "MOTOBOY" | "COMPANY";
 
 export function PreRegistrationForm() {
+  const router = useRouter();
   const [type, setType] = useState<AccountType>("COMPANY");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<"created" | "existing" | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,14 +43,24 @@ export function PreRegistrationForm() {
       if (!response.ok || !body.status) {
         throw new Error(body.error ?? "Não foi possível enviar agora.");
       }
+      const leadType = type === "COMPANY" ? "company" : "motoboy";
       if (body.status === "created") {
-        const leadType = type === "COMPANY" ? "company" : "motoboy";
         trackMetaEventOnce(`pre-registration:${leadType}`, "Lead", {
           lead_type: leadType,
           source: "prelaunch_form",
         });
       }
-      setResult(body.status);
+      const name = String(form.get("name") ?? "");
+      const phone = String(form.get("phone") ?? "");
+      savePrelaunchRegistrationDraft(type, name, phone);
+      trackMetaCustomEventOnce(
+        `registration-started:${leadType}`,
+        "RegistrationStarted",
+        { registration_type: leadType, source: "prelaunch_form" },
+      );
+      router.push(
+        type === "COMPANY" ? "/cadastro/empresa" : "/cadastro/motoboy",
+      );
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -57,28 +72,52 @@ export function PreRegistrationForm() {
     }
   }
 
-  if (result) {
-    return (
-      <div
-        className="rounded-3xl bg-brand-light/70 p-6 text-center"
-        role="status"
-      >
-        <p className="font-display text-2xl font-extrabold text-brand-dark">
-          {result === "created"
-            ? "Pronto! Seu interesse foi registrado. ⚡"
-            : "Seu interesse já está registrado. ⚡"}
-        </p>
-        <p className="mt-3 text-sm leading-6 text-ink-soft">
-          Nos vemos no lançamento da Vapor. Entraremos em contato pelo WhatsApp
-          quando houver novidades.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <form onSubmit={submit} className="space-y-4">
-      <FormField label="Nome" htmlFor="pre-name" required>
+      <fieldset>
+        <legend className="sr-only">Como você quer participar?</legend>
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-canvas p-1.5">
+          {(["COMPANY", "MOTOBOY"] as const).map((value) => (
+            <label
+              key={value}
+              className={`cursor-pointer rounded-xl px-3 py-3 text-center text-sm font-bold transition ${
+                type === value
+                  ? "bg-white text-brand shadow-sm"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              <input
+                className="sr-only"
+                type="radio"
+                name="type"
+                value={value}
+                checked={type === value}
+                onChange={() => {
+                  setType(value);
+                  trackMetaCustomEventOnce(
+                    `prelaunch-type:${value.toLowerCase()}`,
+                    "RegistrationTypeSelected",
+                    { registration_type: value.toLowerCase() },
+                  );
+                }}
+              />
+              <span className="block">
+                {value === "MOTOBOY" ? "Sou Motoboy" : "Sou Empresa"}
+              </span>
+              <span className="mt-1 block text-[10px] font-semibold leading-4 opacity-75">
+                {value === "MOTOBOY"
+                  ? "Quero realizar entregas pela Vapor"
+                  : "Quero solicitar entregas pela Vapor"}
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <FormField
+        label={type === "COMPANY" ? "Nome da empresa" : "Seu nome"}
+        htmlFor="pre-name"
+        required
+      >
         <Input
           id="pre-name"
           name="name"
@@ -100,40 +139,6 @@ export function PreRegistrationForm() {
           required
         />
       </FormField>
-      <fieldset>
-        <legend className="mb-2 text-sm font-bold text-ink">
-          Como você quer participar?
-        </legend>
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-canvas p-1.5">
-          {(["COMPANY", "MOTOBOY"] as const).map((value) => (
-            <label
-              key={value}
-              className={`cursor-pointer rounded-xl px-3 py-3 text-center text-sm font-bold transition ${
-                type === value
-                  ? "bg-white text-brand shadow-sm"
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              <input
-                className="sr-only"
-                type="radio"
-                name="type"
-                value={value}
-                checked={type === value}
-                onChange={() => setType(value)}
-              />
-              <span className="block">
-                {value === "MOTOBOY" ? "Sou Motoboy" : "Sou Empresa"}
-              </span>
-              <span className="mt-1 block text-[10px] font-semibold leading-4 opacity-75">
-                {value === "MOTOBOY"
-                  ? "Quero fazer parte da Vapor"
-                  : "Quero colocar meu negócio a todo Vapor"}
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
       {error && (
         <p
           role="alert"
@@ -143,10 +148,10 @@ export function PreRegistrationForm() {
         </p>
       )}
       <Button type="submit" size="lg" className="w-full" disabled={loading}>
-        {loading ? "ENVIANDO…" : "QUERO PARTICIPAR"}
+        {loading ? "CONTINUANDO…" : "CONTINUAR CADASTRO →"}
       </Button>
       <p className="text-center text-xs font-bold text-brand-dark">
-        Pré-cadastro gratuito • Sem compromisso
+        Cadastro gratuito • Sem compromisso • Vale do São Francisco
       </p>
       <p className="text-center text-[11px] leading-5 text-muted">
         Ao enviar, você autoriza a Vapor Entregas a usar seu nome e WhatsApp

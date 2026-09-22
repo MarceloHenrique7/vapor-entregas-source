@@ -60,6 +60,7 @@ export async function listPreRegistrationsForAdmin(
       name: item.name,
       phone: item.phone,
       type: item.type,
+      status: item.convertedUserId ? "REGISTERED" : "INTERESTED",
       createdAt: item.createdAt.toISOString(),
     })),
     page: filters.page,
@@ -86,11 +87,12 @@ export async function exportPreRegistrationsCsv(
     10_000,
   );
   return [
-    ["Nome", "WhatsApp", "Tipo", "Data"],
+    ["Nome", "WhatsApp", "Tipo", "Status", "Data"],
     ...rows.map((item) => [
       item.name,
       item.phone,
       item.type === "MOTOBOY" ? "Motoboy" : "Empresa",
+      item.convertedUserId ? "Conta criada" : "Interessado",
       item.createdAt.toISOString(),
     ]),
   ]

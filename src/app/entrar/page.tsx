@@ -2,16 +2,19 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentSessionUser } from "@/server/auth/session";
+import { getPrelaunchEnv } from "@/server/config/env";
 
 export default async function LoginPage() {
   const user = await getCurrentSessionUser();
   if (user)
     redirect(
-      user.role === "ADMIN"
-        ? "/admin"
-        : user.role === "COMPANY"
-          ? "/app/empresa"
-          : "/app/motoboy",
+      getPrelaunchEnv().enabled && user.role !== "ADMIN"
+        ? "/cadastro/concluido"
+        : user.role === "ADMIN"
+          ? "/admin"
+          : user.role === "COMPANY"
+            ? "/app/empresa"
+            : "/app/motoboy",
     );
   return (
     <AuthShell

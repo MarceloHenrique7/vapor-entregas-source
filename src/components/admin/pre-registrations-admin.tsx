@@ -21,6 +21,7 @@ interface Item {
   name: string;
   phone: string;
   type: "MOTOBOY" | "COMPANY";
+  status: "INTERESTED" | "REGISTERED";
   createdAt: string;
 }
 
@@ -240,7 +241,7 @@ export function PreRegistrationsAdmin() {
             {result.items.map((item) => (
               <div
                 key={item.id}
-                className="grid gap-2 p-5 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                className="grid gap-2 p-5 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center"
               >
                 <div className="min-w-0">
                   <p className="truncate font-bold">{item.name}</p>
@@ -248,6 +249,13 @@ export function PreRegistrationsAdmin() {
                 </div>
                 <Badge variant={item.type === "MOTOBOY" ? "success" : "info"}>
                   {item.type === "MOTOBOY" ? "Motoboy" : "Empresa"}
+                </Badge>
+                <Badge
+                  variant={item.status === "REGISTERED" ? "success" : "neutral"}
+                >
+                  {item.status === "REGISTERED"
+                    ? "Conta criada"
+                    : "Interessado"}
                 </Badge>
                 <time className="text-xs text-muted">
                   {formatDate(item.createdAt)}
