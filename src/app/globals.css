@@ -195,6 +195,43 @@ a {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
 }
 
+.tracking-courier-pin {
+  display: grid !important;
+  width: 3rem !important;
+  height: 3rem !important;
+  place-items: center;
+  border: 3px solid white;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  box-shadow: 0 8px 22px rgba(31, 31, 31, 0.28);
+  font-size: 1.45rem;
+}
+
+.tracking-destination-pin {
+  position: relative;
+  width: 2rem !important;
+  height: 2rem !important;
+  border: 0;
+  background: transparent;
+}
+
+.tracking-destination-shape {
+  position: absolute;
+  inset: 0;
+  border: 3px solid white;
+  border-radius: 50% 50% 50% 0;
+  background: var(--ink);
+  box-shadow: 0 6px 18px rgba(31, 31, 31, 0.24);
+  transform: rotate(-45deg);
+}
+
+.tracking-destination-shape i {
+  position: absolute;
+  inset: 0.48rem;
+  border-radius: 999px;
+  background: white;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

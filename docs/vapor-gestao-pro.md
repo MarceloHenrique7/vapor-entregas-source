@@ -1,6 +1,6 @@
 # Vapor Gestão Pro
 
-Vapor Gestão Pro é um entitlement para empresas piloto. O plano Empresa básico continua gratuito e mantém cadastro, publicação, acompanhamento, histórico, favoritos, avaliações, tracking e VaporPay básico.
+Vapor Gestão Pro é um entitlement para empresas piloto. O plano Empresa básico continua gratuito e mantém cadastro, publicação, acompanhamento, histórico, favoritos, avaliações, tracking básico (link público, localização ao vivo e compartilhamento) e VaporPay básico.
 
 Não existe preço nem checkout do Pro nesta versão. O administrador habilita ou desabilita `CompanyProfile.proEnabled` na página de detalhes da empresa. A mudança cria uma ação `COMPANY_PRO_CHANGED` no log administrativo.
 
@@ -38,7 +38,7 @@ A exportação é limitada a 10.000 linhas por solicitação e inclui ID, data, 
 
 ## Funcionalidades planejadas
 
-Equipe multioperador e entregas em lote não foram ativadas neste incremento. O modelo atual associa uma conta a uma única empresa e não possui membros/convites; implementar equipe com segurança exige uma evolução própria de RBAC. Lote e oferta exclusiva à rede ficam como P1/P2 para não comprometer o fluxo operacional existente.
+Equipe multioperador e entregas em lote não foram ativadas neste incremento. O modelo atual associa uma conta a uma única empresa e não possui membros/convites; implementar equipe com segurança exige uma evolução própria de RBAC. Lote, oferta exclusiva à rede e personalizações Pro do tracking (logo, cores, mensagem, analytics e white-label parcial) ficam como evolução futura para não comprometer o fluxo operacional existente.
 
 ## Rollback
 

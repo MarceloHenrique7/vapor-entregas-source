@@ -12,7 +12,8 @@ import {
 
 export function MetaPixel() {
   const pathname = usePathname();
-  const enabled = isMetaPixelEnabled();
+  const sensitiveRoute = pathname === "/r" || pathname.startsWith("/r/");
+  const enabled = isMetaPixelEnabled() && !sensitiveRoute;
 
   useEffect(() => {
     if (!enabled) return;

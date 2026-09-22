@@ -33,7 +33,7 @@ export default function PrivacyPage() {
         {
           title: "4. Dados de localização",
           content:
-            "A empresa pode confirmar o ponto de coleta no mapa, gerando latitude e longitude. O motoboy só fornece localização depois de escolher ficar online e conceder permissão. Enquanto online, a última localização e seu horário podem ser atualizados moderadamente para disponibilidade e oportunidades próximas. Ao ficar offline, sair ou desmontar a área autenticada, o navegador interrompe a observação. Não existe histórico GPS permanente; a presença expira pelo TTL configurado.",
+            "A empresa pode confirmar o ponto de coleta no mapa, gerando latitude e longitude. O motoboy só fornece localização depois de escolher ficar online ou, durante uma entrega, conceder permissão específica ao navegador. Na disponibilidade geral e no tracking de uma corrida é mantida somente a última posição, precisão e horário necessários. Não existe histórico GPS permanente. O tracking público começa apenas no trajeto ao cliente, para ao concluir ou cancelar e pode deixar de atualizar quando a Vapor é fechada ou o sistema limita o navegador em segundo plano.",
         },
         {
           title: "5. Dados operacionais e de reputação",
@@ -48,7 +48,7 @@ export default function PrivacyPage() {
         {
           title: "7. Compartilhamento e visibilidade",
           content:
-            "Cada participante vê somente dados necessários à entrega e reputação. CPF, RG, CPF/CNPJ, senha, telefone, e-mail e coordenadas internas não são públicos nem compartilhados sem necessidade. Administradores autenticados acessam informações limitadas para operação e moderação. Links para mapas são gerados quando necessários. Não há venda de dados nem serviço pago externo obrigatório no MVP.",
+            "Cada participante vê somente dados necessários à entrega e reputação. A empresa pode gerar um link temporário, revogável e não enumerável para o cliente acompanhar o status e, somente durante o trajeto ao destino, a última posição do motoboy. O link não mostra IDs internos, telefone, e-mail, documentos, pagamento, endereço residencial nem histórico de localização e não dispara o Meta Pixel. CPF, RG, CPF/CNPJ, senha e dados internos permanecem protegidos. Não há venda de dados.",
         },
         {
           title: "8. Cookies e sessões",
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
         {
           title: "10. Retenção",
           content:
-            "Os dados são mantidos enquanto a conta e as funcionalidades exigirem. Após encerramento, identificadores são anonimizados quando possível. Entregas, avaliações, denúncias, disputas, aceites e auditorias podem permanecer seletivamente quando necessários para segurança, exercício de direitos, prevenção a fraude, resolução de conflitos ou obrigação aplicável. Não é fixado prazo jurídico sem base definida; a necessidade deve ser revisada por categoria.",
+            "Os dados são mantidos enquanto a conta e as funcionalidades exigirem. Links públicos de tracking expiram automaticamente, têm janela menor após conclusão ou cancelamento e podem ser revogados pela empresa. A última coordenada da corrida substitui a anterior, sem formar histórico de percurso. Após encerramento, identificadores são anonimizados quando possível. Entregas, avaliações, denúncias, disputas, aceites e auditorias podem permanecer seletivamente quando necessários para segurança, exercício de direitos, prevenção a fraude, resolução de conflitos ou obrigação aplicável.",
         },
         {
           title: "11. Acesso, correção e exportação",

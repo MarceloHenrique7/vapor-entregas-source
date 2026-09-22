@@ -12,6 +12,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormField } from "@/components/ui/form-field";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CompanyTrackingPanel } from "@/components/tracking/company-tracking-panel";
+import { MotoboyDeliveryTracker } from "@/components/tracking/motoboy-delivery-tracker";
 import {
   DELIVERY_STATUS_LABELS,
   DELIVERY_EXTRA_STATUS_LABELS,
@@ -363,6 +365,15 @@ export function DeliveryDetailCard({
             {DIRECT_PAYMENT_NOTICE}
           </p>
         </Card>
+
+        {actorRole === "COMPANY" ? (
+          <CompanyTrackingPanel deliveryId={delivery.id} />
+        ) : (
+          <MotoboyDeliveryTracker
+            deliveryId={delivery.id}
+            status={delivery.status}
+          />
+        )}
 
         <Card className="p-5 sm:p-6">
           <DeliveryPaymentPanel

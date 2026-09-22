@@ -40,6 +40,12 @@ export const PRELAUNCH_ACCESS_PAGES = new Set([
 
 export function isPrelaunchPublicRequest(pathname: string, method: string) {
   const normalizedMethod = method.toUpperCase();
+  const publicTrackingPage =
+    normalizedMethod === "GET" && /^\/r\/[A-Za-z0-9_-]{43}$/.test(pathname);
+  const publicTrackingApi =
+    normalizedMethod === "GET" &&
+    /^\/api\/tracking\/[A-Za-z0-9_-]{43}$/.test(pathname);
+  if (publicTrackingPage || publicTrackingApi) return true;
   if (
     normalizedMethod === "GET" &&
     (publicPages.has(pathname) || publicAssets.has(pathname))

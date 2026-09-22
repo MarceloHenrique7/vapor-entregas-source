@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -24,6 +24,12 @@ import { createPreRegistration } from "@/server/pre-registration/pre-registratio
 import { prismaPreRegistrationRepository } from "@/server/pre-registration/prisma-pre-registration-repository";
 import { prismaReputationRepository } from "@/server/reputation/prisma-reputation-repository";
 import { prismaSubscriptionRepository } from "@/server/subscriptions/prisma-subscription-repository";
+import { prismaTrackingRepository } from "@/server/tracking/prisma-tracking-repository";
+import {
+  createOrGetTrackingLink,
+  getPublicTracking,
+  updateDeliveryTrackingLocation,
+} from "@/server/tracking/tracking-service";
 
 const mysqlTestUrl = process.env.MYSQL_TEST_DATABASE_URL;
 
@@ -259,6 +265,82 @@ describe("runtime real MySQL", () => {
           where: { deliveryId, newStatus: "ACCEPTED" },
         }),
       ).resolves.toBe(1);
+
+      const winnerIndex = motoboyProfiles.indexOf(persisted.motoboyId!);
+      const trackingConfig = {
+        appUrl: "https://tracking.mysql.test",
+        encryptionKey: randomBytes(32).toString("base64"),
+        linkTtlHours: 72,
+        terminalTtlHours: 24,
+        locationMinIntervalSeconds: 10,
+        locationStaleSeconds: 60,
+      };
+      const link = await createOrGetTrackingLink(
+        { userId: companyUserId, role: "COMPANY" },
+        deliveryId,
+        prismaTrackingRepository,
+        now,
+        trackingConfig,
+      );
+      expect(link.state).toBe("ACTIVE");
+      expect(link.url).toMatch(/^https:\/\/tracking\.mysql\.test\/r\//);
+
+      await prisma.delivery.update({
+        where: { id: deliveryId },
+        data: { status: "IN_DELIVERY" },
+      });
+      await updateDeliveryTrackingLocation(
+        { userId: motoboyUsers[winnerIndex], role: "MOTOBOY" },
+        deliveryId,
+        {
+          latitude: -9.3891,
+          longitude: -40.5031,
+          accuracyMeters: 8.5,
+          capturedAt: now.toISOString(),
+        },
+        prismaTrackingRepository,
+        now,
+        trackingConfig,
+      );
+
+      const trackingToken = new URL(link.url!).pathname.split("/").at(-1)!;
+      await expect(
+        getPublicTracking(
+          trackingToken,
+          prismaTrackingRepository,
+          now,
+          trackingConfig,
+        ),
+      ).resolves.toMatchObject({
+        state: "LIVE",
+        companyName: "Empresa Concorrência MySQL",
+        location: {
+          latitude: -9.3891,
+          longitude: -40.5031,
+          accuracyMeters: 8.5,
+        },
+      });
+      await expect(
+        prisma.deliveryTracking.findUniqueOrThrow({
+          where: { deliveryId },
+          select: {
+            tokenHash: true,
+            lastLatitude: true,
+            lastLongitude: true,
+            lastAccuracyMeters: true,
+          },
+        }),
+      ).resolves.toMatchObject({ tokenHash: digest(trackingToken) });
+      await expect(
+        prisma.deliveryTracking.create({
+          data: {
+            deliveryId,
+            tokenHash: digest(`duplicate-${trackingToken}`),
+            tokenEncrypted: "integration-only",
+            expiresAt: new Date(now.getTime() + 60 * 60_000),
+          },
+        }),
+      ).rejects.toMatchObject({ code: "P2002" });
     } finally {
       await prisma.deliveryStatusHistory.deleteMany({ where: { deliveryId } });
       await prisma.delivery.deleteMany({ where: { id: deliveryId } });

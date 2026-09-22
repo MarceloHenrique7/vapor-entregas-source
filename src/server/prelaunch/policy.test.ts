@@ -61,6 +61,15 @@ describe("política do pré-lançamento", () => {
     );
     expect(isPrelaunchPublicRequest("/pre-lancamento", "GET")).toBe(false);
     expect(isPrelaunchPublicRequest("/regras", "GET")).toBe(false);
+    const token = "a".repeat(43);
+    expect(isPrelaunchPublicRequest(`/r/${token}`, "GET")).toBe(true);
+    expect(isPrelaunchPublicRequest(`/api/tracking/${token}`, "GET")).toBe(
+      true,
+    );
+    expect(isPrelaunchPublicRequest(`/api/tracking/${token}`, "POST")).toBe(
+      false,
+    );
+    expect(isPrelaunchPublicRequest("/r/curto", "GET")).toBe(false);
   });
 
   it("não libera variações de prefixo, barra ou query como outro pathname", () => {

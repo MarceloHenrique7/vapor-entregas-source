@@ -22,6 +22,12 @@ Use valores reais e protegidos para `DATABASE_URL`, `AUTH_RATE_LIMIT_SECRET`,
 `LEGAL_CONTACT_EMAIL` e um contato real em `GEOCODING_USER_AGENT` antes da produção.
 Defina `NODE_ENV=production` e ajuste `NEXT_PUBLIC_APP_URL` para o domínio HTTPS.
 
+Para o rastreamento público por entrega, mantenha `FIELD_ENCRYPTION_KEY` estável e
+configure `TRACKING_LINK_TTL_HOURS`, `TRACKING_TERMINAL_TTL_HOURS`,
+`TRACKING_LOCATION_MIN_INTERVAL_SECONDS` e `TRACKING_LOCATION_STALE_SECONDS`.
+Os valores recomendados estão em `.env.example`. A geolocalização do navegador
+exige HTTPS e a migration `20260917190000_add_delivery_tracking` aplicada.
+
 Rotas viárias são opcionais e permanecem desligadas com
 `DISTANCE_PROVIDER=straight_line`. Para habilitá-las, cadastre
 `GOOGLE_MAPS_API_KEY` somente no servidor, mantenha
@@ -123,6 +129,12 @@ uma configuração inválida.
    webhook, sincronização, cancelamento e idempotência de evento duplicado;
 10. confirme que conta sem assinatura não inicia operações, mas uma entrega já
     aceita pode ser finalizada normalmente.
+11. em uma entrega de teste, ative o link de rastreamento como empresa, confirme
+    que a rota pública não revela localização antes de `IN_DELIVERY`, envie uma
+    posição com o motoboy vinculado e revogue o link ao terminar;
+12. se `/api/tracking/{token}` responder 500 com tabela inexistente, interrompa a
+    liberação e execute `npm run db:migrate:deploy`; o `next build` sozinho não
+    aplica migrations.
 
 Enquanto `PRELAUNCH_MODE=true`, substitua os passos operacionais por esta validação:
 

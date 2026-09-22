@@ -38,4 +38,10 @@ describe("integração do Meta Pixel", () => {
     }
     expect(company).toContain('"CompanyRegistrationCompleted"');
   });
+
+  it("não carrega nem dispara o Pixel em links públicos de tracking", async () => {
+    const pixel = await source("src/components/analytics/meta-pixel.tsx");
+    expect(pixel).toContain('pathname.startsWith("/r/")');
+    expect(pixel).toContain("!sensitiveRoute");
+  });
 });

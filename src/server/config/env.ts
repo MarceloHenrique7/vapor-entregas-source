@@ -52,6 +52,29 @@ const presenceEnvSchema = z.object({
     .default(30),
 });
 
+const trackingEnvSchema = z.object({
+  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  TRACKING_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(72),
+  TRACKING_TERMINAL_TTL_HOURS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(72)
+    .default(24),
+  TRACKING_LOCATION_MIN_INTERVAL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(5)
+    .max(120)
+    .default(10),
+  TRACKING_LOCATION_STALE_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(15)
+    .max(900)
+    .default(60),
+});
+
 const distanceEnvSchema = z.object({
   DISTANCE_PROVIDER: z
     .enum(["straight_line", "google_routes"])
@@ -149,6 +172,10 @@ export function getMapsEnv() {
 
 export function getPresenceEnv() {
   return presenceEnvSchema.parse(process.env);
+}
+
+export function getTrackingEnv() {
+  return trackingEnvSchema.parse(process.env);
 }
 
 export function getDistanceEnv() {
