@@ -10,6 +10,7 @@ export const PRELAUNCH_PUBLIC_PAGES = [
   "/acesso/teste",
   "/termos",
   "/privacidade",
+  "/regras",
   "/manifest.webmanifest",
   "/robots.txt",
   "/sw.js",

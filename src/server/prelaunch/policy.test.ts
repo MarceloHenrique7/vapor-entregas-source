@@ -69,7 +69,7 @@ describe("política do pré-lançamento", () => {
       true,
     );
     expect(isPrelaunchPublicRequest("/pre-lancamento", "GET")).toBe(false);
-    expect(isPrelaunchPublicRequest("/regras", "GET")).toBe(false);
+    expect(isPrelaunchPublicRequest("/regras", "GET")).toBe(true);
     const token = "a".repeat(43);
     expect(isPrelaunchPublicRequest(`/r/${token}`, "GET")).toBe(true);
     expect(isPrelaunchPublicRequest(`/api/tracking/${token}`, "GET")).toBe(

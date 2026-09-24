@@ -136,11 +136,13 @@ describe.skipIf(!enabled)(
       expect(landing.status).toBe(200);
       const html = await landing.text();
       expect(html).toContain("Vapor Entregas");
-      expect(html).toContain("Pedido pronto. Entrega sem complicação.");
-      expect(html).toContain("25 de setembro");
+      expect(html).toContain("Precisou de motoboy?");
+      expect(html).toContain("GRÁTIS PARA EMPRESAS");
+      expect(html).not.toContain("25 de setembro");
       expect((await request("/form")).status).toBe(200);
       expect((await request("/termos")).status).toBe(200);
       expect((await request("/privacidade")).status).toBe(200);
+      expect((await request("/regras")).status).toBe(200);
       expect((await request("/entrar")).status).toBe(200);
       expect((await request("/cadastro/empresa")).status).toBe(200);
       expect((await request("/cadastro/motoboy")).status).toBe(200);
@@ -172,7 +174,6 @@ describe.skipIf(!enabled)(
         "/assinatura/qualquer",
         "/notificacoes/qualquer",
         "/pre-lancamento",
-        "/regras",
       ];
       for (const path of blockedPages) {
         const response = await request(path);
