@@ -59,13 +59,16 @@ describe("prontidão da experiência de produção", () => {
     expect(route).toContain("enforceLocationRateLimit");
   });
 
-  it("não expõe rotas internas na landing de pré-lançamento e mantém o gate default-deny", async () => {
+  it("expõe apenas entradas públicas na landing e mantém o gate default-deny", async () => {
     const landing = await source(
       "src/components/prelaunch/prelaunch-landing.tsx",
     );
     const policy = await source("src/server/prelaunch/policy.ts");
     const robots = await source("src/app/robots.ts");
-    expect(landing).not.toMatch(/href=["']\/(?:app|admin|entrar|cadastro)/);
+    expect(landing).toContain('href="/entrar"');
+    expect(landing).toContain('href="/cadastro/empresa"');
+    expect(landing).toContain('href="/cadastro/motoboy"');
+    expect(landing).not.toMatch(/href=["']\/(?:app|admin)/);
     expect(policy).toContain('return "BLOCKED"');
     expect(robots).toContain('disallow: ["/admin", "/app", "/api"');
   });

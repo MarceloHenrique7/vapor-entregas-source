@@ -6,21 +6,13 @@ import { describe, expect, it } from "vitest";
 const source = (path: string) => readFile(join(process.cwd(), path), "utf8");
 
 describe("integração do Meta Pixel", () => {
-  it("deixa Empresa selecionada por padrão no pré-cadastro", async () => {
-    const form = await source(
-      "src/components/prelaunch/pre-registration-form.tsx",
+  it("leva o CTA principal diretamente ao cadastro completo da empresa", async () => {
+    const landing = await source(
+      "src/components/prelaunch/prelaunch-landing.tsx",
     );
-    expect(form).toContain('useState<AccountType>("COMPANY")');
-    expect(form.indexOf('(["COMPANY", "MOTOBOY"]')).toBeGreaterThan(-1);
-  });
-
-  it("dispara Lead somente para pré-cadastro criado", async () => {
-    const form = await source(
-      "src/components/prelaunch/pre-registration-form.tsx",
-    );
-    expect(form).toContain('if (body.status === "created")');
-    expect(form).toContain('"Lead"');
-    expect(form).toContain('source: "prelaunch_form"');
+    expect(landing).toContain('href="/cadastro/empresa"');
+    expect(landing).toContain("Criar conta grátis");
+    expect(landing).not.toContain("PreRegistrationForm");
   });
 
   it("dispara cadastro completo após a resposta bem-sucedida", async () => {

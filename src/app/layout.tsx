@@ -8,6 +8,9 @@ const description =
   "Conexão local entre empresas e motoboys independentes. Suas entregas, a todo vapor.";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://vaporentregaspnz.com",
+  ),
   title: {
     default: "Vapor Entregas",
     template: "%s | Vapor Entregas",

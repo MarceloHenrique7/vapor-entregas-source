@@ -2,18 +2,45 @@ import Link from "next/link";
 
 import { Logo } from "@/components/brand/logo";
 import { Icon, type IconName } from "@/components/icons/icon";
-import { PreRegistrationForm } from "@/components/prelaunch/pre-registration-form";
 import { buttonStyles } from "@/components/ui/button";
-import {
-  PRELAUNCH_LAUNCH_DATE_LABEL,
-  PRELAUNCH_LAUNCH_DATE_SHORT_LABEL,
-} from "@/config/prelaunch";
 
-const painPoints = [
-  "Pedido pronto e nenhum motoboy disponível?",
-  "Perde tempo procurando alguém para fazer uma entrega?",
-  "Precisa conversar em vários lugares até encontrar quem possa ir?",
-  "No fim do dia, fica difícil acompanhar quem realizou cada entrega?",
+const navigation = [
+  { href: "#como-funciona", label: "Como funciona" },
+  { href: "#recursos", label: "Recursos" },
+  { href: "#gestao-pro", label: "Gestão Pro" },
+  { href: "#para-empresas", label: "Para empresas" },
+  { href: "#duvidas", label: "Dúvidas" },
+] as const;
+
+const painPoints: Array<{
+  icon: IconName;
+  title: string;
+  description: string;
+}> = [
+  {
+    icon: "clock",
+    title: "Pedido pronto e ninguém para levar?",
+    description:
+      "A busca de última hora toma tempo justamente quando sua equipe mais precisa de agilidade.",
+  },
+  {
+    icon: "smartphone",
+    title: "Conversas espalhadas em vários lugares?",
+    description:
+      "Detalhes da entrega, aceite e andamento acabam divididos entre mensagens e ligações.",
+  },
+  {
+    icon: "map-pin",
+    title: "Cliente perguntando: “cadê meu pedido?”",
+    description:
+      "Sem um acompanhamento compartilhável, a equipe precisa interromper a rotina para responder.",
+  },
+  {
+    icon: "file",
+    title: "Difícil saber quanto gastou no mês?",
+    description:
+      "Sem histórico organizado, conferir entregas e valores registrados vira trabalho manual.",
+  },
 ];
 
 const steps: Array<{
@@ -24,537 +51,924 @@ const steps: Array<{
 }> = [
   {
     number: "01",
-    icon: "package",
-    title: "Publique",
-    description: "Informe retirada, destino, valor e os detalhes da entrega.",
+    icon: "building",
+    title: "Crie a conta da empresa",
+    description:
+      "Cadastre sua operação e deixe os dados básicos prontos para publicar.",
   },
   {
     number: "02",
-    icon: "bike",
-    title: "Conecte",
+    icon: "plus",
+    title: "Publique a entrega",
     description:
-      "Motoboys disponíveis na plataforma podem visualizar a oportunidade.",
+      "Informe coleta, destino, valor oferecido e confirme o ponto no mapa.",
   },
   {
     number: "03",
-    icon: "history",
-    title: "Acompanhe",
+    icon: "bike",
+    title: "Conecte-se a um motoboy",
     description:
-      "Gerencie a entrega e mantenha seu histórico organizado pelo App.",
+      "Motoboys disponíveis visualizam a oportunidade e decidem livremente se querem aceitar.",
+  },
+  {
+    number: "04",
+    icon: "route",
+    title: "Acompanhe e organize",
+    description:
+      "Consulte o andamento, compartilhe o link com o cliente e mantenha o histórico reunido.",
   },
 ];
 
-const benefits: Array<{
+const resources: Array<{
   icon: IconName;
   title: string;
   description: string;
 }> = [
   {
     icon: "users",
-    title: "Encontre disponibilidade",
+    title: "Disponibilidade",
     description:
-      "Surgiu uma entrega? Publique a oportunidade para motoboys disponíveis na plataforma.",
+      "Publique oportunidades para motoboys disponíveis na plataforma.",
   },
   {
-    icon: "user",
-    title: "Saiba com quem está entregando",
-    description:
-      "Consulte as informações disponíveis e construa sua própria rede de contatos.",
+    icon: "route",
+    title: "Acompanhamento",
+    description: "Visualize as etapas atualizadas durante a entrega.",
   },
   {
-    icon: "heart",
-    title: "Gostou do serviço? Mantenha por perto",
+    icon: "map-pin",
+    title: "Link para o cliente",
     description:
-      "Use favoritos e histórico para manter bons contatos organizados.",
+      "Compartilhe um link temporário de acompanhamento quando a entrega permitir.",
   },
   {
     icon: "history",
-    title: "Pare de depender da memória",
+    title: "Histórico",
     description:
-      "Consulte seu histórico e mantenha as entregas anteriores organizadas.",
+      "Consulte entregas anteriores, status e informações registradas.",
   },
   {
-    icon: "smartphone",
-    title: "Tudo pelo celular",
+    icon: "star",
+    title: "Avaliações",
     description:
-      "Tenha a Vapor no seu aparelho e acesse a plataforma de onde estiver.",
+      "Registre e consulte experiências depois de entregas concluídas.",
   },
-];
-
-const comparison = [
-  ["Procurar quem está disponível", "Publicar uma oportunidade"],
-  ["Conversas espalhadas", "Informações centralizadas"],
-  ["Tentar lembrar entregas anteriores", "Consultar histórico"],
-  ["Encontrar novamente um bom contato", "Manter favoritos organizados"],
-  ["Organizar informações manualmente", "Acompanhar pelo sistema"],
+  {
+    icon: "heart",
+    title: "Favoritos",
+    description: "Mantenha bons contatos organizados para consultas futuras.",
+  },
+  {
+    icon: "wallet",
+    title: "VaporPay",
+    description:
+      "Registre de forma declaratória a situação do pagamento da corrida.",
+  },
+  {
+    icon: "map",
+    title: "PIN no mapa",
+    description: "Confirme visualmente os pontos informados antes de publicar.",
+  },
 ];
 
 const faqs = [
   [
-    "A Vapor é uma empresa de motoboys?",
-    "Não. A Vapor é uma plataforma que facilita a conexão entre empresas e motoboys independentes.",
+    "A empresa paga para usar a Vapor?",
+    "Não. As funções essenciais para empresas são gratuitas: sem mensalidade, sem taxa de cadastro e sem taxa da Vapor para publicar entregas. O Gestão Pro é um upgrade opcional.",
   ],
   [
-    "Vou precisar instalar alguma coisa?",
-    "Não é obrigatório. A Vapor funciona pelo navegador do celular e também pode ser instalada no aparelho como App.",
+    "Quem define e paga o valor da corrida?",
+    "A empresa define o valor oferecido antes da publicação. O pagamento da entrega é combinado e realizado diretamente entre empresa e motoboy; a Vapor não recebe nem repassa esse dinheiro.",
   ],
   [
-    "Preciso mudar a forma como minha empresa trabalha?",
-    "Não. Você usa a Vapor quando precisar publicar, acompanhar e organizar uma entrega.",
+    "A Vapor garante que haverá motoboy disponível?",
+    "Não. A Vapor aproxima empresas e motoboys independentes. Cada motoboy decide quando ficar disponível e quais oportunidades deseja aceitar.",
   ],
   [
-    "A Vapor já está funcionando?",
-    `Estamos em pré-lançamento. A abertura está marcada para ${PRELAUNCH_LAUNCH_DATE_LABEL}.`,
+    "Posso continuar trabalhando com os motoboys que já conheço?",
+    "Sim. A Vapor não exige exclusividade. Para acompanhar uma entrega dentro da plataforma, o motoboy precisa ter uma conta e participar daquele fluxo.",
   ],
-];
+  [
+    "Como funciona o link de acompanhamento?",
+    "Depois que um motoboy aceita uma entrega elegível, a empresa pode ativar e compartilhar um link temporário. Ele mostra somente os dados necessários e pode ser revogado ou expirar automaticamente.",
+  ],
+  [
+    "O que é o VaporPay?",
+    "É um registro declaratório da situação do pagamento combinado entre as partes. Não é carteira, conta digital, gateway, split, escrow ou meio de transferência de dinheiro.",
+  ],
+  [
+    "Preciso contratar o Gestão Pro?",
+    "Não. O plano gratuito da empresa continua disponível sem o Gestão Pro. O upgrade é opcional e adiciona métricas e relatórios quando o acesso estiver habilitado.",
+  ],
+] as const;
 
 function SectionHeading({
   eyebrow,
   title,
   description,
   centered = false,
+  inverse = false,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   centered?: boolean;
+  inverse?: boolean;
 }) {
   return (
     <div className={centered ? "mx-auto max-w-3xl text-center" : "max-w-3xl"}>
-      <p className="text-xs font-extrabold uppercase tracking-[.2em] text-brand">
+      <p
+        className={`text-xs font-extrabold uppercase tracking-[.2em] ${
+          inverse ? "text-[#ffb4ba]" : "text-brand"
+        }`}
+      >
         {eyebrow}
       </p>
-      <h2 className="text-balance mt-3 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl lg:text-5xl">
+      <h2
+        className={`text-balance mt-3 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl lg:text-5xl ${
+          inverse ? "text-white" : "text-ink"
+        }`}
+      >
         {title}
       </h2>
-      <p className="mt-4 text-base leading-7 text-muted sm:text-lg">
+      <p
+        className={`mt-4 text-base leading-7 sm:text-lg ${
+          inverse ? "text-white/65" : "text-muted"
+        }`}
+      >
         {description}
       </p>
     </div>
   );
 }
 
+function LandingHeader() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-line/70 bg-white/90 backdrop-blur-xl">
+      <div className="page-shell flex min-h-18 items-center justify-between gap-4 py-3">
+        <Logo />
+        <nav
+          className="hidden items-center gap-6 xl:flex"
+          aria-label="Navegação principal"
+        >
+          {navigation.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm font-semibold text-ink-soft transition hover:text-brand"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="hidden items-center gap-2 md:flex">
+          <Link
+            href="/entrar"
+            className={buttonStyles({ variant: "ghost", size: "sm" })}
+          >
+            Entrar
+          </Link>
+          <Link
+            href="/cadastro/empresa"
+            className={buttonStyles({ size: "sm" })}
+          >
+            Criar conta grátis
+          </Link>
+        </div>
+        <details className="group relative md:hidden">
+          <summary className="grid size-11 cursor-pointer list-none place-items-center rounded-2xl border border-line bg-white text-ink [&::-webkit-details-marker]:hidden">
+            <span className="sr-only">Abrir ou fechar menu</span>
+            <Icon name="menu" className="size-5 group-open:hidden" />
+            <Icon name="x" className="hidden size-5 group-open:block" />
+          </summary>
+          <nav
+            className="absolute right-0 top-14 w-[min(19rem,calc(100vw-2rem))] rounded-3xl border border-line bg-white p-3 shadow-soft"
+            aria-label="Navegação móvel"
+          >
+            {navigation.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block rounded-2xl px-4 py-3 text-sm font-bold text-ink-soft hover:bg-brand-light hover:text-brand-dark"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <div className="mt-2 grid gap-2 border-t border-line pt-3">
+              <Link
+                href="/entrar"
+                className={buttonStyles({ variant: "outline" })}
+              >
+                Entrar
+              </Link>
+              <Link href="/cadastro/empresa" className={buttonStyles()}>
+                Criar conta grátis
+              </Link>
+            </div>
+          </nav>
+        </details>
+      </div>
+    </header>
+  );
+}
+
+function ProductPreview() {
+  return (
+    <div className="relative mx-auto w-full max-w-[36rem]">
+      <div className="soft-grid relative overflow-hidden rounded-[2rem] border border-brand/15 bg-white p-4 shadow-[0_30px_90px_rgba(31,31,31,.14)] sm:p-6">
+        <div className="flex items-center justify-between border-b border-line pb-4">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-[.18em] text-brand">
+              Nova entrega
+            </p>
+            <p className="mt-1 font-display text-lg font-extrabold">
+              Publique uma oportunidade
+            </p>
+          </div>
+          <span className="grid size-10 place-items-center rounded-2xl bg-brand text-white">
+            <Icon name="plus" className="size-5" />
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {[
+            ["Coleta", "Informe o ponto de retirada"],
+            ["Destino", "Informe o local de entrega"],
+          ].map(([label, placeholder]) => (
+            <div key={label} className="rounded-2xl border border-line p-3.5">
+              <p className="text-xs font-bold text-ink">{label}</p>
+              <p className="mt-1 text-xs text-muted">{placeholder}</p>
+            </div>
+          ))}
+        </div>
+        <div className="relative mt-3 h-40 overflow-hidden rounded-2xl border border-line bg-brand-soft soft-grid sm:h-48">
+          <svg
+            viewBox="0 0 500 220"
+            className="absolute inset-0 size-full"
+            aria-hidden="true"
+          >
+            <path
+              d="M-20 170c115-15 125-120 235-86s120 68 305-15"
+              fill="none"
+              stroke="#ea1d2c"
+              strokeWidth="5"
+              strokeDasharray="8 10"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span className="absolute left-[24%] top-[52%] grid size-10 place-items-center rounded-full border-4 border-white bg-ink text-white shadow-card">
+            <Icon name="building" className="size-4" />
+          </span>
+          <span className="absolute right-[20%] top-[28%] grid size-11 place-items-center rounded-full border-4 border-white bg-brand text-white shadow-card">
+            <Icon name="map-pin" className="size-5" />
+          </span>
+          <span className="absolute bottom-3 left-3 rounded-xl bg-white px-3 py-2 text-[11px] font-bold shadow-card">
+            Confirme o PIN no mapa
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] font-bold sm:text-xs">
+          <span className="rounded-xl bg-brand-light px-2 py-3 text-brand-dark">
+            Publicada
+          </span>
+          <span className="rounded-xl bg-canvas px-2 py-3 text-ink-soft">
+            Em andamento
+          </span>
+          <span className="rounded-xl bg-canvas px-2 py-3 text-ink-soft">
+            Concluída
+          </span>
+        </div>
+      </div>
+      <div className="absolute -bottom-5 -left-3 hidden max-w-[13rem] rounded-2xl border border-line bg-white p-3 shadow-card sm:block">
+        <p className="text-xs font-extrabold text-ink">
+          Link de acompanhamento
+        </p>
+        <p className="mt-1 text-[11px] leading-4 text-muted">
+          Compartilhe com o cliente quando estiver disponível.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function PrelaunchLanding() {
   return (
-    <main className="min-h-screen overflow-x-hidden bg-canvas text-ink">
-      <section className="relative overflow-hidden px-4 pb-16 pt-5 sm:px-6 lg:px-8 lg:pb-24">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_12%,rgba(255,77,90,.14),transparent_28%),radial-gradient(circle_at_90%_5%,rgba(234,29,44,.12),transparent_34%)]" />
-        <div className="mx-auto max-w-6xl">
-          <div className="flex items-center justify-between">
-            <Logo />
-            <span className="hidden items-center gap-2 rounded-full border border-line bg-white/80 px-4 py-2 text-xs font-bold text-ink-soft shadow-sm sm:inline-flex">
-              <Icon name="map-pin" className="size-4 text-brand" /> Vale do São
-              Francisco
-            </span>
-          </div>
-
-          <div className="grid items-center gap-9 py-9 lg:grid-cols-[1.08fr_.92fr] lg:gap-14 lg:py-16">
+    <div className="min-h-screen bg-canvas text-ink">
+      <LandingHeader />
+      <main className="overflow-x-hidden pb-24 md:pb-0">
+        <section className="relative overflow-hidden px-4 pb-18 pt-10 sm:px-6 sm:pb-24 sm:pt-16 lg:px-8 lg:pb-28 lg:pt-20">
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_8%_8%,rgba(255,77,90,.16),transparent_30%),radial-gradient(circle_at_92%_12%,rgba(246,185,74,.16),transparent_30%)]" />
+          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.02fr_.98fr] lg:gap-16">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand-light px-3 py-2 text-[11px] font-extrabold uppercase tracking-[.15em] text-brand-dark sm:px-4 sm:text-xs">
-                <Icon name="calendar" className="size-4" /> Lançamento •{" "}
-                {PRELAUNCH_LAUNCH_DATE_SHORT_LABEL}
-              </span>
-              <h1 className="text-balance mt-5 max-w-3xl font-display text-[2.65rem] font-extrabold leading-[1.01] tracking-[-.055em] sm:text-6xl lg:text-[4.5rem]">
-                Pedido pronto. Entrega sem complicação.
+              <p className="inline-flex items-center gap-2 rounded-full border border-brand/15 bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[.14em] text-brand-dark shadow-sm sm:px-4 sm:text-xs sm:tracking-[.18em]">
+                <Icon name="map-pin" className="size-4" />
+                Petrolina • Juazeiro • Vale do São Francisco
+              </p>
+              <h1 className="text-balance mt-6 max-w-3xl font-display text-[2.75rem] font-extrabold leading-[1.01] tracking-[-.06em] sm:text-6xl lg:text-[4.7rem]">
+                Precisou de motoboy?
+                <span className="block text-brand">Coloca na Vapor. ⚡</span>
               </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-muted sm:text-xl sm:leading-8">
-                Encontre motoboys disponíveis para as entregas da sua empresa em
-                Petrolina e Juazeiro através do App da Vapor.
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-muted sm:text-xl">
+                Publique sua entrega, conecte-se a motoboys disponíveis e
+                acompanhe tudo em um só lugar.
               </p>
-              <p className="mt-4 font-display text-xl font-extrabold text-brand sm:text-2xl">
-                Sua empresa a todo Vapor. ⚡
+              <div className="mt-7 inline-flex items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-white shadow-card sm:px-5">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand text-sm font-extrabold">
+                  R$0
+                </span>
+                <strong className="font-display text-base tracking-[-.02em] sm:text-lg">
+                  GRÁTIS PARA EMPRESAS
+                </strong>
+              </div>
+              <p className="mt-5 text-sm font-bold leading-6 text-ink-soft">
+                Sem mensalidade • Sem taxa de cadastro • Sem taxa para publicar
+                entregas
               </p>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
+                Você define o valor da corrida e paga diretamente ao motoboy.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="#pre-cadastro"
+                  href="/cadastro/empresa"
                   className={buttonStyles({ size: "lg" })}
                 >
-                  Quero participar do lançamento
+                  Criar conta grátis
                   <Icon name="arrow-right" className="size-5" />
                 </Link>
-                <span className="inline-flex items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-bold text-ink-soft">
-                  <Icon name="smartphone" className="size-5 text-brand" /> App
-                  para celular
-                </span>
+                <Link
+                  href="#como-funciona"
+                  className={buttonStyles({ variant: "outline", size: "lg" })}
+                >
+                  Ver como funciona
+                </Link>
               </div>
               <p className="mt-4 text-xs font-semibold text-muted sm:text-sm">
-                Pré-cadastro gratuito • Sem compromisso • Vale do São Francisco
+                Cadastro da empresa sem cobrança • Comece pelo navegador do
+                celular
               </p>
             </div>
+            <ProductPreview />
+          </div>
+        </section>
 
-            <div
-              id="pre-cadastro"
-              className="scroll-mt-6 rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_24px_80px_rgba(31,31,31,.12)] sm:p-7"
-            >
-              <p className="text-xs font-extrabold uppercase tracking-[.18em] text-brand">
-                ENTRE PARA O LANÇAMENTO
+        <section
+          id="para-empresas"
+          className="scroll-mt-24 border-y border-line bg-white px-4 py-16 sm:px-6 sm:py-24"
+        >
+          <div className="mx-auto max-w-6xl">
+            <SectionHeading
+              eyebrow="O essencial custa zero"
+              title="Sua empresa publica e organiza entregas sem pagar à Vapor."
+              description="As funções essenciais da plataforma continuam gratuitas para empresas. O valor de cada corrida é definido pela própria empresa e pago diretamente ao motoboy."
+              centered
+            />
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              {[
+                ["R$ 0", "de mensalidade"],
+                ["R$ 0", "de taxa de cadastro"],
+                ["R$ 0", "para publicar entregas"],
+              ].map(([value, label]) => (
+                <article
+                  key={label}
+                  className="rounded-3xl border border-line bg-canvas p-6 text-center"
+                >
+                  <p className="font-display text-4xl font-extrabold tracking-[-.05em] text-brand">
+                    {value}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-ink-soft">
+                    {label}
+                  </p>
+                </article>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-col gap-4 rounded-3xl bg-brand-soft p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <p className="max-w-3xl text-sm leading-6 text-ink-soft">
+                <strong className="text-ink">
+                  Pagamento direto entre as partes.
+                </strong>{" "}
+                A Vapor não cobra comissão sobre a corrida e não movimenta o
+                valor da entrega.
               </p>
-              <h2 className="mt-2 font-display text-2xl font-extrabold sm:text-3xl">
-                Deixe sua conta pronta.
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-muted">
-                Comece seu cadastro agora e esteja pronto para o lançamento da
-                Vapor em {PRELAUNCH_LAUNCH_DATE_SHORT_LABEL}.
-              </p>
-              <div className="mt-5">
-                <PreRegistrationForm />
-              </div>
+              <span className="shrink-0 rounded-full border border-brand/20 bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-brand-dark">
+                Gestão Pro é opcional
+              </span>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="border-y border-line bg-white px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <SectionHeading
-            eyebrow="A rotina real"
-            title="Sua empresa já passou por isso?"
-            description="Entregar faz parte da operação. Encontrar disponibilidade e manter as informações organizadas não precisa consumir seu dia."
-            centered
-          />
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {painPoints.map((pain, index) => (
-              <article
-                key={pain}
-                className="rounded-3xl border border-line bg-canvas p-5 sm:p-6"
-              >
-                <span className="grid size-10 place-items-center rounded-2xl bg-brand-light font-display text-sm font-extrabold text-brand">
-                  0{index + 1}
-                </span>
-                <p className="mt-5 font-display text-lg font-extrabold leading-6">
-                  {pain}
-                </p>
-              </article>
-            ))}
+        <section className="px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto max-w-6xl">
+            <SectionHeading
+              eyebrow="A correria é real"
+              title="O problema não é vender. É fazer a entrega caber no dia."
+              description="A Vapor organiza a parte operacional que costuma ficar espalhada, sem mudar a forma como sua empresa atende os clientes."
+              centered
+            />
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {painPoints.map((point) => (
+                <article
+                  key={point.title}
+                  className="rounded-3xl border border-line bg-white p-6 shadow-sm"
+                >
+                  <span className="grid size-12 place-items-center rounded-2xl bg-brand-light text-brand">
+                    <Icon name={point.icon} className="size-6" />
+                  </span>
+                  <h3 className="mt-5 font-display text-lg font-extrabold leading-6">
+                    {point.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-muted">
+                    {point.description}
+                  </p>
+                </article>
+              ))}
+            </div>
           </div>
-          <p className="mt-8 text-center text-base font-bold text-brand-dark sm:text-lg">
-            É justamente essa parte da operação que a Vapor quer simplificar.
-          </p>
-        </div>
-      </section>
+        </section>
 
-      <section className="px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[.85fr_1.15fr]">
-          <div className="rounded-[2rem] bg-ink p-6 text-white shadow-soft sm:p-8">
-            <span className="grid size-13 place-items-center rounded-2xl bg-brand text-white">
-              <Icon name="sparkles" className="size-6" />
-            </span>
-            <p className="mt-8 text-sm font-extrabold uppercase tracking-[.18em] text-[#ffb4ba]">
-              Precisou entregar?
-            </p>
-            <p className="mt-2 font-display text-3xl font-extrabold tracking-[-.04em] sm:text-4xl">
-              Coloca na Vapor. ⚡
-            </p>
-            <p className="mt-5 text-base leading-7 text-white/65">
-              Abra o App, publique sua entrega e conecte sua empresa a motoboys
-              independentes disponíveis na plataforma.
-            </p>
-          </div>
-          <div>
+        <section
+          id="como-funciona"
+          className="scroll-mt-24 bg-white px-4 py-16 sm:px-6 sm:py-24"
+        >
+          <div className="mx-auto max-w-6xl">
             <SectionHeading
               eyebrow="Como funciona"
-              title="Da sua empresa para a rua em poucos passos."
-              description="Uma forma simples de organizar suas entregas sem tirar o foco do que realmente importa: vender e atender seus clientes."
+              title="Da conta criada à entrega acompanhada."
+              description="Um fluxo direto para publicar a oportunidade, encontrar disponibilidade e manter as informações organizadas."
+              centered
             />
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {steps.map((step) => (
                 <article
                   key={step.number}
-                  className="rounded-3xl border border-line bg-white p-5"
+                  className="relative overflow-hidden rounded-3xl border border-line bg-canvas p-6"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="grid size-11 place-items-center rounded-2xl bg-brand-light text-brand">
-                      <Icon name={step.icon} className="size-5" />
+                    <span className="grid size-12 place-items-center rounded-2xl bg-brand text-white">
+                      <Icon name={step.icon} className="size-6" />
                     </span>
-                    <span className="font-display text-2xl font-extrabold text-brand/20">
+                    <span className="font-display text-4xl font-extrabold text-brand/15">
                       {step.number}
                     </span>
                   </div>
-                  <h3 className="mt-5 font-display text-lg font-extrabold uppercase">
+                  <h3 className="mt-6 font-display text-lg font-extrabold">
                     {step.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-muted">
+                  <p className="mt-3 text-sm leading-6 text-muted">
                     {step.description}
                   </p>
                 </article>
               ))}
             </div>
-            <p className="mt-6 font-display text-xl font-extrabold text-ink">
-              Menos tempo procurando. Mais tempo cuidando do seu negócio.
-            </p>
+            <div className="mt-9 text-center">
+              <Link
+                href="/cadastro/empresa"
+                className={buttonStyles({ size: "lg" })}
+              >
+                Publicar minha primeira entrega
+                <Icon name="arrow-right" className="size-5" />
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="bg-brand-soft px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
-          <div>
+        <section className="bg-ink px-4 py-16 text-white sm:px-6 sm:py-24">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[.9fr_1.1fr]">
+            <div>
+              <SectionHeading
+                eyebrow="Acompanhamento para o cliente"
+                title="Compartilhe a entrega sem compartilhar sua operação."
+                description="Quando o acompanhamento estiver disponível, a empresa gera um link temporário para o cliente consultar o andamento. O link não expõe telefone, e-mail, pagamento ou identificadores internos."
+                inverse
+              />
+              <ul className="mt-8 space-y-3 text-sm text-white/75">
+                {[
+                  "Ative depois que um motoboy aceitar a entrega",
+                  "Copie ou compartilhe pelo WhatsApp",
+                  "Revogue o acesso quando precisar",
+                  "O link expira automaticamente",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3">
+                    <Icon
+                      name="check"
+                      className="mt-0.5 size-5 shrink-0 text-[#ffb4ba]"
+                    />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 soft-grid sm:p-8">
+              <div className="rounded-3xl bg-white p-5 text-ink shadow-soft sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-[.16em] text-brand">
+                      Acompanhar entrega
+                    </p>
+                    <p className="mt-1 font-display text-xl font-extrabold">
+                      Andamento compartilhado
+                    </p>
+                  </div>
+                  <span className="grid size-12 place-items-center rounded-2xl bg-brand-light text-brand">
+                    <Icon name="map" className="size-6" />
+                  </span>
+                </div>
+                <div className="mt-6 space-y-3">
+                  {[
+                    ["check", "Entrega aceita"],
+                    ["bike", "Deslocamento em andamento"],
+                    ["map-pin", "Destino informado"],
+                  ].map(([icon, label], index) => (
+                    <div
+                      key={label}
+                      className="flex items-center gap-3 rounded-2xl bg-canvas p-3.5"
+                    >
+                      <span
+                        className={`grid size-9 place-items-center rounded-xl ${
+                          index === 1
+                            ? "bg-brand text-white"
+                            : "bg-white text-brand"
+                        }`}
+                      >
+                        <Icon name={icon as IconName} className="size-4" />
+                      </span>
+                      <span className="text-sm font-bold">{label}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-5 text-xs leading-5 text-muted">
+                  A posição depende do compartilhamento ativo do entregador e
+                  das condições do aparelho e da rede.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="recursos"
+          className="scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24"
+        >
+          <div className="mx-auto max-w-6xl">
             <SectionHeading
-              eyebrow="App da Vapor"
-              title="A Vapor vai com sua empresa. 📱"
-              description="Acesse a plataforma pelo celular e tenha a experiência da Vapor sempre à mão para publicar e acompanhar suas entregas."
+              eyebrow="Recursos reais da plataforma"
+              title="O que sua empresa encontra na Vapor."
+              description="Ferramentas já presentes no produto para publicar, acompanhar e consultar a operação sem promessas de disponibilidade garantida."
+              centered
             />
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {[
-                "Use pelo celular",
-                "Instale a Vapor no seu aparelho",
-                "Publique entregas onde estiver",
-                "Acompanhe sua operação pelo App",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-3 rounded-2xl bg-white p-4 text-sm font-bold shadow-sm"
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {resources.map((resource) => (
+                <article
+                  key={resource.title}
+                  className="rounded-3xl border border-line bg-white p-6 transition motion-safe:hover:-translate-y-1 hover:border-brand/25 hover:shadow-card"
                 >
-                  <Icon name="check" className="size-5 shrink-0 text-brand" />
-                  {item}
+                  <span className="grid size-11 place-items-center rounded-2xl bg-brand-light text-brand">
+                    <Icon name={resource.icon} className="size-5" />
+                  </span>
+                  <h3 className="mt-5 font-display text-lg font-extrabold">
+                    {resource.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    {resource.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-brand-soft px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1fr_.9fr]">
+            <div>
+              <SectionHeading
+                eyebrow="Sua rede continua sendo sua"
+                title="Já tem motoboys de confiança? Ótimo."
+                description="Você não precisa abandonar os contatos que já funcionam. Use a Vapor para organizar oportunidades, acompanhar etapas e manter o histórico da operação. Não exigimos exclusividade de empresas nem de motoboys."
+              />
+              <Link
+                href="/cadastro/empresa"
+                className={buttonStyles({ size: "lg", className: "mt-8" })}
+              >
+                Criar conta da empresa
+                <Icon name="arrow-right" className="size-5" />
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              {[
+                ["users", "Mantenha seus bons contatos por perto"],
+                ["heart", "Organize favoritos para consultas futuras"],
+                ["history", "Consulte o histórico quando precisar"],
+              ].map(([icon, label]) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-4 rounded-3xl border border-brand/10 bg-white p-5 shadow-sm"
+                >
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand-light text-brand">
+                    <Icon name={icon as IconName} className="size-5" />
+                  </span>
+                  <p className="font-display text-base font-extrabold">
+                    {label}
+                  </p>
                 </div>
               ))}
             </div>
-            <p className="mt-7 font-display text-xl font-extrabold text-brand-dark">
-              Seu negócio não fica parado. Seu App de entregas também não.
-            </p>
           </div>
-          <div className="soft-grid relative mx-auto flex min-h-[28rem] w-full max-w-md items-center justify-center overflow-hidden rounded-[2.5rem] border border-brand/15 bg-white p-8 shadow-soft">
-            <div className="absolute -right-16 -top-16 size-52 rounded-full bg-brand/15 blur-3xl" />
-            <div className="relative w-64 rounded-[2.5rem] border-[8px] border-ink bg-white p-4 shadow-[0_28px_80px_rgba(31,31,31,.2)]">
-              <div className="mx-auto h-1.5 w-16 rounded-full bg-ink/15" />
-              <div className="mt-5 rounded-3xl bg-brand p-5 text-white">
-                <Icon name="package" className="size-7" />
-                <p className="mt-5 text-xs font-bold uppercase tracking-[.16em] text-white/70">
-                  Sua empresa
-                </p>
-                <p className="mt-1 font-display text-2xl font-extrabold">
-                  A todo Vapor.
-                </p>
-              </div>
-              <div className="mt-3 space-y-2">
-                {[
-                  ["plus", "Publicar entrega"],
-                  ["route", "Acompanhar operação"],
-                  ["history", "Consultar histórico"],
-                ].map(([icon, label]) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-3 rounded-2xl border border-line p-3 text-xs font-bold"
-                  >
-                    <span className="grid size-9 place-items-center rounded-xl bg-brand-light text-brand">
-                      <Icon name={icon as IconName} className="size-4" />
-                    </span>
-                    {label}
-                  </div>
-                ))}
-              </div>
+        </section>
+
+        <section
+          id="gestao-pro"
+          className="scroll-mt-24 bg-[#171313] px-4 py-16 text-white sm:px-6 sm:py-24"
+        >
+          <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
+            <div>
+              <span className="inline-flex rounded-full border border-[#ffb4ba]/25 bg-brand/15 px-4 py-2 text-xs font-extrabold uppercase tracking-[.16em] text-[#ffb4ba]">
+                Upgrade opcional
+              </span>
+              <h2 className="text-balance mt-5 font-display text-4xl font-extrabold tracking-[-.045em] sm:text-5xl">
+                Vapor Gestão Pro
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-white/65">
+                Uma camada extra de métricas e relatórios para empresas que
+                querem analisar a operação com mais profundidade.
+              </p>
+              <p className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold leading-6 text-white/85">
+                O plano básico gratuito não exige Gestão Pro e não depende dele
+                para publicar entregas.
+              </p>
+              <Link
+                href="/cadastro/empresa"
+                className={buttonStyles({ className: "mt-7" })}
+              >
+                Começar no plano grátis
+              </Link>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                [
+                  "wallet",
+                  "Gastos por período",
+                  "Soma e custo médio das entregas concluídas no período escolhido.",
+                ],
+                [
+                  "package",
+                  "Volume de entregas",
+                  "Totais, status e comparação com o período anterior.",
+                ],
+                [
+                  "users",
+                  "Gastos por motoboy",
+                  "Motoboys mais utilizados e valores registrados na operação.",
+                ],
+                [
+                  "file",
+                  "Relatórios e CSV",
+                  "Filtros por período e exportação dos dados disponíveis.",
+                ],
+              ].map(([icon, title, description]) => (
+                <article
+                  key={title}
+                  className="rounded-3xl border border-white/10 bg-white/5 p-6"
+                >
+                  <span className="grid size-11 place-items-center rounded-2xl bg-brand text-white">
+                    <Icon name={icon as IconName} className="size-5" />
+                  </span>
+                  <h3 className="mt-5 font-display text-lg font-extrabold">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-white/55">
+                    {description}
+                  </p>
+                </article>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="bg-white px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto max-w-6xl">
-          <SectionHeading
-            eyebrow="Benefícios para empresas"
-            title="Mais controle para quem precisa entregar todos os dias."
-            description="Recursos que já existem na plataforma para organizar sua rotina e manter boas conexões por perto."
-            centered
-          />
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {benefits.map((benefit) => (
-              <article
-                key={benefit.title}
-                className="rounded-3xl border border-line bg-canvas p-6 transition hover:-translate-y-1 hover:border-brand/25 hover:shadow-soft"
-              >
-                <span className="grid size-12 place-items-center rounded-2xl bg-brand-light text-brand">
-                  <Icon name={benefit.icon} className="size-6" />
-                </span>
-                <h3 className="mt-5 font-display text-lg font-extrabold">
-                  {benefit.title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-muted">
-                  {benefit.description}
-                </p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
-          <SectionHeading
-            eyebrow="Sem mudar o que funciona"
-            title="A Vapor não quer mudar seu negócio. Quer facilitar uma parte dele."
-            description="Você continua vendendo do seu jeito, atendendo seus clientes e decidindo quando precisa de uma entrega. A Vapor entra quando sua empresa precisa encontrar quem possa entregar."
-          />
-          <div className="overflow-hidden rounded-[2rem] border border-line bg-white shadow-soft">
-            <div className="grid grid-cols-2 border-b border-line bg-ink px-4 py-4 text-center text-xs font-extrabold uppercase tracking-[.14em] text-white sm:px-6">
-              <span className="text-white/55">Na correria</span>
-              <span className="text-[#ffb4ba]">Com a Vapor</span>
-            </div>
-            {comparison.map(([before, after]) => (
-              <div
-                key={before}
-                className="grid grid-cols-2 border-b border-line px-4 py-4 text-sm last:border-0 sm:px-6"
-              >
-                <span className="pr-4 text-muted">{before}</span>
-                <span className="flex gap-2 font-bold text-ink">
-                  <Icon
-                    name="check"
-                    className="mt-0.5 size-4 shrink-0 text-brand"
-                  />
-                  {after}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-ink px-4 py-16 text-white sm:px-6 sm:py-24">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_.9fr]">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[.2em] text-[#ffb4ba]">
-              Feita para o Vale
-            </p>
-            <h2 className="text-balance mt-3 font-display text-4xl font-extrabold tracking-[-.045em] sm:text-5xl">
-              Petrolina e Juazeiro a todo Vapor. ⚡
-            </h2>
-            <p className="mt-5 max-w-3xl text-base leading-7 text-white/65 sm:text-lg">
-              A Vapor nasce no Vale do São Francisco para aproximar empresas e
-              motoboys independentes em uma plataforma pensada para a rotina das
-              entregas locais.
-            </p>
-            <p className="mt-4 max-w-3xl font-bold text-white/85">
-              Começamos por Petrolina e Juazeiro. É daqui que a Vapor começa a
-              se movimentar.
-            </p>
-          </div>
-          <div className="soft-grid relative min-h-64 overflow-hidden rounded-[2rem] border border-white/10 bg-white/5">
-            <Icon
-              name="map"
-              className="absolute left-1/2 top-1/2 size-36 -translate-x-1/2 -translate-y-1/2 text-white/10"
+        <section className="bg-white px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto max-w-6xl">
+            <SectionHeading
+              eyebrow="VaporPay"
+              title="Registro do pagamento, sem intermediar o dinheiro."
+              description="O VaporPay ajuda as partes a registrar a situação do pagamento combinado. A Vapor não recebe, guarda, transfere ou repassa o valor da corrida."
+              centered
             />
-            <span className="absolute left-[24%] top-[34%] flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-extrabold text-ink shadow-card">
-              <Icon name="map-pin" className="size-4 text-brand" /> Petrolina
-            </span>
-            <span className="absolute bottom-[28%] right-[16%] flex items-center gap-2 rounded-full bg-brand px-3 py-2 text-xs font-extrabold text-white shadow-card">
-              <Icon name="map-pin" className="size-4" /> Juazeiro
-            </span>
-            <svg
-              viewBox="0 0 500 260"
-              className="absolute inset-0 size-full"
-              aria-hidden="true"
-            >
-              <path
-                d="M150 95c70 10 105 70 205 75"
-                fill="none"
-                stroke="#ffb4ba"
-                strokeWidth="4"
-                strokeDasharray="8 10"
-                strokeLinecap="round"
-              />
-            </svg>
+            <div className="mt-10 grid gap-4 md:grid-cols-3">
+              {[
+                [
+                  "01",
+                  "Empresa e motoboy combinam",
+                  "Valor e forma de pagamento são informados no fluxo da entrega.",
+                ],
+                [
+                  "02",
+                  "Pagamento acontece diretamente",
+                  "A transação é realizada fora da Vapor, entre as próprias partes.",
+                ],
+                [
+                  "03",
+                  "Situação fica registrada",
+                  "O histórico declaratório ajuda na organização e na conferência posterior.",
+                ],
+              ].map(([number, title, description]) => (
+                <article
+                  key={number}
+                  className="rounded-3xl border border-line bg-canvas p-6"
+                >
+                  <span className="font-display text-4xl font-extrabold text-brand/20">
+                    {number}
+                  </span>
+                  <h3 className="mt-4 font-display text-lg font-extrabold">
+                    {title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-6 text-muted">
+                    {description}
+                  </p>
+                </article>
+              ))}
+            </div>
+            <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-5 text-muted">
+              VaporPay não é carteira digital, gateway, split de pagamentos,
+              escrow nem conta bancária.
+            </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="bg-white px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2">
-          <div className="rounded-[2rem] border border-brand/15 bg-brand-soft p-6 sm:p-8">
-            <span className="grid size-12 place-items-center rounded-2xl bg-brand text-white">
-              <Icon name="bike" className="size-6" />
-            </span>
-            <h2 className="mt-6 font-display text-3xl font-extrabold tracking-[-.04em]">
-              Também é motoboy? A Vapor é para você.
-            </h2>
-            <p className="mt-4 text-base leading-7 text-muted">
-              Faça parte da plataforma, fique disponível quando quiser e
-              visualize oportunidades de entrega de empresas da região.
-            </p>
-            <p className="mt-3 font-bold text-ink-soft">
-              Você escolhe quando ficar disponível e quais oportunidades fazem
-              sentido para você.
-            </p>
-            <Link
-              href="#pre-cadastro"
-              className={buttonStyles({
-                variant: "outline",
-                className: "mt-6 bg-white",
-              })}
-            >
-              Sou motoboy e quero participar
-            </Link>
+        <section className="px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
+            <div className="soft-grid relative min-h-80 overflow-hidden rounded-[2rem] border border-brand/15 bg-brand-soft">
+              <svg
+                viewBox="0 0 500 320"
+                className="absolute inset-0 size-full"
+                aria-hidden="true"
+              >
+                <path
+                  d="M55 80c105 25 80 120 190 112s105-75 205 22"
+                  fill="none"
+                  stroke="#ea1d2c"
+                  strokeWidth="5"
+                  strokeDasharray="8 10"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute left-[14%] top-[19%] rounded-2xl bg-white px-4 py-3 font-display text-sm font-extrabold shadow-card">
+                Petrolina/PE
+              </span>
+              <span className="absolute bottom-[21%] right-[12%] rounded-2xl bg-brand px-4 py-3 font-display text-sm font-extrabold text-white shadow-card">
+                Juazeiro/BA
+              </span>
+              <span className="absolute left-[47%] top-[48%] grid size-14 place-items-center rounded-2xl border-4 border-white bg-ink text-white shadow-soft">
+                <Icon name="bike" className="size-7" />
+              </span>
+            </div>
+            <SectionHeading
+              eyebrow="Feita para o Vale"
+              title="Petrolina e Juazeiro a todo Vapor. ⚡"
+              description="A Vapor nasce no Vale do São Francisco para aproximar empresas e motoboys independentes em uma experiência pensada para a rotina das entregas locais."
+            />
           </div>
-          <div>
+        </section>
+
+        <section className="bg-brand-soft px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
+            <div>
+              <SectionHeading
+                eyebrow="Também é motoboy?"
+                title="Encontre oportunidades e organize sua rotina."
+                description="Crie sua conta, informe quando estiver disponível e escolha livremente as oportunidades que fizerem sentido para você. O plano de acesso do motoboy é apresentado separadamente."
+              />
+              <Link
+                href="/cadastro/motoboy"
+                className={buttonStyles({
+                  variant: "outline",
+                  size: "lg",
+                  className: "mt-8",
+                })}
+              >
+                Criar conta de motoboy
+                <Icon name="arrow-right" className="size-5" />
+              </Link>
+            </div>
+            <div className="rounded-[2rem] bg-ink p-7 text-white shadow-soft sm:p-9">
+              <Icon name="bike" className="size-10 text-[#ffb4ba]" />
+              <p className="mt-7 font-display text-2xl font-extrabold">
+                Você decide quando e o que aceitar.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-white/65">
+                Sem exclusividade, sem vínculo empregatício com a Vapor e com os
+                dados essenciais da oportunidade disponíveis antes da escolha.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="duvidas"
+          className="scroll-mt-24 bg-white px-4 py-16 sm:px-6 sm:py-24"
+        >
+          <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[.72fr_1.28fr]">
             <SectionHeading
               eyebrow="Perguntas frequentes"
-              title="Entenda antes de entrar."
-              description="Sem promessas exageradas: uma plataforma local para conectar e organizar."
+              title="Tudo claro antes de começar."
+              description="Respostas diretas sobre gratuidade, pagamentos, disponibilidade e recursos opcionais."
             />
-            <div className="mt-7 space-y-3">
+            <div className="space-y-3">
               {faqs.map(([question, answer]) => (
                 <details
                   key={question}
                   className="group rounded-2xl border border-line bg-canvas p-5"
                 >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-bold">
-                    {question}
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-bold [&::-webkit-details-marker]:hidden">
+                    <span>{question}</span>
                     <Icon
                       name="chevron-down"
                       className="size-5 shrink-0 text-brand transition group-open:rotate-180"
                     />
                   </summary>
-                  <p className="mt-4 pr-7 text-sm leading-6 text-muted">
+                  <p className="mt-4 pr-6 text-sm leading-6 text-muted">
                     {answer}
                   </p>
                 </details>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="px-4 pb-16 sm:px-6 sm:pb-24">
-        <div className="mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-brand px-6 py-12 text-center text-white shadow-soft sm:px-12 sm:py-16">
-          <p className="text-xs font-extrabold uppercase tracking-[.2em] text-white/70">
-            {PRELAUNCH_LAUNCH_DATE_LABEL}
-          </p>
-          <h2 className="text-balance mx-auto mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-[-.04em] sm:text-5xl">
-            Sua próxima entrega pode começar de um jeito mais simples.
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-white/75 sm:text-lg">
-            Faça seu pré-cadastro e coloque sua empresa entre as primeiras a
-            conhecer o App da Vapor em Petrolina e Juazeiro.
-          </p>
-          <p className="mt-5 font-display text-xl font-extrabold">
-            Sua empresa a todo Vapor. ⚡
-          </p>
-          <Link
-            href="#pre-cadastro"
-            className={buttonStyles({
-              variant: "secondary",
-              size: "lg",
-              className: "mt-8",
-            })}
-          >
-            Quero participar do lançamento
-          </Link>
-          <p className="mt-4 text-xs font-semibold text-white/70">
-            Pré-cadastro gratuito • Sem compromisso
-          </p>
-        </div>
-      </section>
+        <section className="px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-brand px-6 py-12 text-center text-white shadow-soft sm:px-12 sm:py-16">
+            <Icon name="sparkles" className="mx-auto size-8 text-[#ffb4ba]" />
+            <h2 className="text-balance mx-auto mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-[-.04em] sm:text-5xl">
+              Sua próxima entrega pode começar de um jeito mais simples.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/80 sm:text-lg">
+              Crie a conta da empresa gratuitamente e deixe a Vapor pronta para
+              quando a correria chegar.
+            </p>
+            <Link
+              href="/cadastro/empresa"
+              className={buttonStyles({
+                variant: "secondary",
+                size: "lg",
+                className: "mt-8",
+              })}
+            >
+              Criar conta grátis
+              <Icon name="arrow-right" className="size-5" />
+            </Link>
+            <p className="mt-4 text-xs font-semibold text-white/70">
+              Sem mensalidade • Sem taxa de cadastro • Sem taxa para publicar
+            </p>
+          </div>
+        </section>
+      </main>
 
-      <footer className="border-t border-line bg-white px-4 py-8 text-center text-xs text-muted">
-        <p>© Vapor Entregas • Petrolina-PE e Juazeiro-BA</p>
-        <div className="mt-3 flex justify-center gap-5">
-          <Link href="/termos" className="font-bold hover:text-brand">
-            Termos de Uso
-          </Link>
-          <Link href="/privacidade" className="font-bold hover:text-brand">
-            Política de Privacidade
-          </Link>
+      <footer className="border-t border-line bg-white px-4 pb-28 pt-12 sm:px-6 md:pb-0">
+        <div className="mx-auto grid max-w-6xl gap-10 pb-10 md:grid-cols-[1.35fr_1fr_1fr]">
+          <div>
+            <Logo />
+            <p className="mt-4 max-w-sm text-sm leading-6 text-muted">
+              Tecnologia local para aproximar empresas e motoboys independentes
+              em Petrolina e Juazeiro.
+            </p>
+          </div>
+          <div>
+            <h2 className="text-sm font-extrabold">Produto</h2>
+            <nav
+              className="mt-4 flex flex-col gap-3 text-sm text-muted"
+              aria-label="Links do produto"
+            >
+              <Link href="#como-funciona">Como funciona</Link>
+              <Link href="#recursos">Recursos</Link>
+              <Link href="#gestao-pro">Gestão Pro</Link>
+              <Link href="/entrar">Entrar</Link>
+            </nav>
+          </div>
+          <div>
+            <h2 className="text-sm font-extrabold">Transparência</h2>
+            <nav
+              className="mt-4 flex flex-col gap-3 text-sm text-muted"
+              aria-label="Links legais"
+            >
+              <Link href="/termos">Termos de Uso</Link>
+              <Link href="/privacidade">Política de Privacidade</Link>
+              <Link href="/regras">Regras operacionais</Link>
+              <Link href="/cadastro/motoboy">Sou motoboy</Link>
+            </nav>
+          </div>
+        </div>
+        <div className="border-t border-line py-5 text-xs text-muted">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p>© Vapor Entregas.</p>
+            <p>Petrolina/PE · Juazeiro/BA</p>
+          </div>
         </div>
       </footer>
-    </main>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 p-3 shadow-[0_-12px_35px_rgba(31,31,31,.1)] backdrop-blur md:hidden">
+        <Link
+          href="/cadastro/empresa"
+          className={buttonStyles({ className: "w-full" })}
+        >
+          Criar conta grátis
+          <Icon name="arrow-right" className="size-5" />
+        </Link>
+      </div>
+    </div>
   );
 }

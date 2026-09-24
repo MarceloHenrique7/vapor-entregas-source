@@ -28,7 +28,6 @@ describe("identidade Vapor Entregas", () => {
       "src/app/termos/page.tsx",
       "src/app/privacidade/page.tsx",
       "src/components/prelaunch/prelaunch-landing.tsx",
-      "src/components/prelaunch/pre-registration-form.tsx",
       "src/components/marketing/footer.tsx",
       "src/components/brand/logo.tsx",
     ];
@@ -50,19 +49,19 @@ describe("identidade Vapor Entregas", () => {
     expect(dashboard).toContain("<Logo");
   });
 
-  it("posiciona o pré-lançamento para empresas sem prometer trial inativo", async () => {
+  it("posiciona a landing comercial para empresas sem promessas inventadas", async () => {
     const landing = await source(
       "src/components/prelaunch/prelaunch-landing.tsx",
     );
-    const prelaunchConfig = await source("src/config/prelaunch.ts");
-    expect(landing).toContain("Pedido pronto. Entrega sem complicação.");
-    expect(landing).toContain("PRELAUNCH_LAUNCH_DATE_LABEL");
-    expect(prelaunchConfig).toContain('"25 de setembro de 2026"');
-    expect(landing).toContain("App da Vapor");
-    expect(landing).toContain("Petrolina e Juazeiro");
-    expect(landing).toContain("Sua empresa a todo Vapor");
-    expect(landing).not.toMatch(/12 de setembro|12\/09|28 de setembro|28\/09/i);
-    expect(landing).not.toMatch(/7 dias|R\$\s*0/i);
+    expect(landing).toContain("Precisou de motoboy?");
+    expect(landing).toContain("Coloca na Vapor");
+    expect(landing).toContain("GRÁTIS PARA EMPRESAS");
+    expect(landing).toContain('href="/cadastro/empresa"');
+    expect(landing).toContain("Vapor Gestão Pro");
+    expect(landing).toContain("Upgrade opcional");
+    expect(landing).toContain("Petrolina/PE");
+    expect(landing).toContain("Juazeiro/BA");
+    expect(landing).not.toMatch(/pré-cadastro|pré-lançamento|lançamento em/i);
     expect(landing).not.toMatch(
       /entrega garantida|motoboys verificados|renda garantida/i,
     );

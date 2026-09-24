@@ -29,8 +29,8 @@ export default async function RegistrationCompletedPage() {
           </h1>
           <p className="mt-3 text-base leading-7 text-muted">
             {company
-              ? "Sua conta já está pronta para o lançamento. Enquanto isso, você pode deixar algumas configurações preparadas."
-              : "Sua conta está pronta para o lançamento da Vapor."}
+              ? "Sua conta está pronta. Agora você pode configurar os dados da empresa e a localização da loja."
+              : "Sua conta está pronta. Revise seus dados para deixar o perfil organizado."}
           </p>
 
           {company ? (
@@ -53,7 +53,7 @@ export default async function RegistrationCompletedPage() {
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="size-5 rounded-full border-2 border-line" />
-                  Conheça como publicar uma entrega no lançamento
+                  Conheça o fluxo para publicar uma entrega
                 </li>
               </ul>
               <Link
@@ -69,8 +69,8 @@ export default async function RegistrationCompletedPage() {
           ) : (
             <section className="mt-8 rounded-3xl border border-line bg-canvas p-5 sm:p-6">
               <p className="text-sm leading-6 text-muted">
-                Você pode revisar seus dados agora. As oportunidades de entrega
-                continuam protegidas até a abertura oficial da plataforma.
+                Você pode revisar seus dados agora. As oportunidades exibidas
+                respeitam a disponibilidade e as permissões da sua conta.
               </p>
               <Link
                 href="/app/motoboy/configuracoes"
