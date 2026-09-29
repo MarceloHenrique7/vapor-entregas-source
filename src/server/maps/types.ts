@@ -1,5 +1,9 @@
 import type { Coordinates } from "@/lib/maps/geo";
 import type {
+  AddressComponents,
+  GeocodingResultPayload,
+} from "@/lib/maps/location";
+import type {
   GeocodingQuery,
   GeocodingSuggestionQuery,
 } from "@/server/locations/schemas";
@@ -13,8 +17,10 @@ export interface GeocodingAddress {
   state?: string;
 }
 
-export interface GeocodingResult extends Coordinates {
+export interface GeocodingResult extends GeocodingResultPayload {
   displayName: string;
+  formattedAddress: string;
+  components: AddressComponents;
   address?: GeocodingAddress;
 }
 

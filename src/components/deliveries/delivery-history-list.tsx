@@ -60,6 +60,7 @@ export function DeliveryHistoryList({
   );
   const [busyFavorite, setBusyFavorite] = useState<string | null>(null);
   const [success, setSuccess] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const load = useCallback(async () => {
     const search = new URLSearchParams();
@@ -170,65 +171,83 @@ export function DeliveryHistoryList({
           {success}
         </p>
       )}
-      <Card className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
-        <FormField label="Status" htmlFor="history-status">
-          <Select
-            id="history-status"
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3 sm:hidden">
+          <div>
+            <p className="font-bold">Filtros</p>
+            <p className="text-xs text-muted">Período, status e pagamento</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((value) => !value)}
           >
-            <option value="">Concluídas e canceladas</option>
-            {(
-              [
-                "COMPLETED",
-                "CANCELLED_BY_COMPANY",
-                "CANCELLED_BY_MOTOBOY",
-              ] as DeliveryStatus[]
-            ).map((value) => (
-              <option key={value} value={value}>
-                {DELIVERY_STATUS_LABELS[value]}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-        <FormField label="Pagamento" htmlFor="history-payment-status">
-          <Select
-            id="history-payment-status"
-            value={paymentStatus}
-            onChange={(event) => setPaymentStatus(event.target.value)}
-          >
-            <option value="">Todos os estados</option>
-            {(
-              [
-                "UNTRACKED",
-                "PENDING",
-                "REPORTED_PAID",
-                "CONFIRMED",
-                "DISPUTED",
-              ] as DeliveryPaymentStatus[]
-            ).map((value) => (
-              <option key={value} value={value}>
-                {DELIVERY_PAYMENT_STATUS_LABELS[value]}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-        <FormField label="Data inicial" htmlFor="history-from">
-          <Input
-            id="history-from"
-            type="date"
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-          />
-        </FormField>
-        <FormField label="Data final" htmlFor="history-to">
-          <Input
-            id="history-to"
-            type="date"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-          />
-        </FormField>
+            {filtersOpen ? "Ocultar" : "Abrir filtros"}
+          </Button>
+        </div>
+        <div
+          className={`${filtersOpen ? "mt-5 grid" : "hidden"} gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-4`}
+        >
+          <FormField label="Status" htmlFor="history-status">
+            <Select
+              id="history-status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="">Concluídas e canceladas</option>
+              {(
+                [
+                  "COMPLETED",
+                  "CANCELLED_BY_COMPANY",
+                  "CANCELLED_BY_MOTOBOY",
+                ] as DeliveryStatus[]
+              ).map((value) => (
+                <option key={value} value={value}>
+                  {DELIVERY_STATUS_LABELS[value]}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Pagamento" htmlFor="history-payment-status">
+            <Select
+              id="history-payment-status"
+              value={paymentStatus}
+              onChange={(event) => setPaymentStatus(event.target.value)}
+            >
+              <option value="">Todos os estados</option>
+              {(
+                [
+                  "UNTRACKED",
+                  "PENDING",
+                  "REPORTED_PAID",
+                  "CONFIRMED",
+                  "DISPUTED",
+                ] as DeliveryPaymentStatus[]
+              ).map((value) => (
+                <option key={value} value={value}>
+                  {DELIVERY_PAYMENT_STATUS_LABELS[value]}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Data inicial" htmlFor="history-from">
+            <Input
+              id="history-from"
+              type="date"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+            />
+          </FormField>
+          <FormField label="Data final" htmlFor="history-to">
+            <Input
+              id="history-to"
+              type="date"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+            />
+          </FormField>
+        </div>
       </Card>
 
       {error && (
@@ -357,24 +376,29 @@ export function DeliveryHistoryList({
                 </Link>
               )}
             </div>
-            <div className="mt-4">
-              <DeliveryPaymentPanel
-                compact
-                delivery={delivery}
-                actorRole={actorRole}
-                onUpdated={(updated) =>
-                  setDeliveries(
-                    (current) =>
-                      current?.map((item) =>
-                        item.id === updated.id ? updated : item,
-                      ) ?? null,
-                  )
-                }
-              />
-            </div>
-            <div className="mt-4">
-              <DeliveryExtrasSummary extras={delivery.extras} />
-            </div>
+            <details className="mt-4 border-t border-line pt-4">
+              <summary className="cursor-pointer text-sm font-bold text-ink-soft">
+                Pagamento e condições
+              </summary>
+              <div className="mt-4">
+                <DeliveryPaymentPanel
+                  compact
+                  delivery={delivery}
+                  actorRole={actorRole}
+                  onUpdated={(updated) =>
+                    setDeliveries(
+                      (current) =>
+                        current?.map((item) =>
+                          item.id === updated.id ? updated : item,
+                        ) ?? null,
+                    )
+                  }
+                />
+              </div>
+              <div className="mt-4">
+                <DeliveryExtrasSummary extras={delivery.extras} />
+              </div>
+            </details>
           </Card>
         );
       })}

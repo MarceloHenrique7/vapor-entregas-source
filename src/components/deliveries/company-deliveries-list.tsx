@@ -81,11 +81,11 @@ export function CompanyDeliveriesList() {
       <Card>
         <EmptyState
           icon="package"
-          title="Nenhuma entrega publicada"
-          description="Crie uma oportunidade com coleta, destino, valor e forma de pagamento."
+          title="Você ainda não publicou nenhuma entrega"
+          description="Crie sua primeira oportunidade com rota, valor e forma de pagamento."
           action={
             <Link href="/app/empresa/entregas/nova" className={buttonStyles()}>
-              Nova entrega
+              Criar primeira entrega
             </Link>
           }
         />
@@ -106,7 +106,11 @@ export function CompanyDeliveriesList() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
                     variant={
-                      delivery.status === "ACCEPTED" ? "success" : "info"
+                      delivery.status === "COMPLETED"
+                        ? "success"
+                        : delivery.status.includes("CANCELLED")
+                          ? "neutral"
+                          : "info"
                     }
                   >
                     {status}
@@ -122,6 +126,11 @@ export function CompanyDeliveriesList() {
                 <p className="mt-2 text-sm leading-6 text-muted">
                   Destino: {delivery.destinationAddress},{" "}
                   {delivery.destinationNumber}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-ink-soft">
+                  {delivery.motoboyName
+                    ? `Motoboy: ${delivery.motoboyName}`
+                    : "Aguardando um motoboy aceitar"}
                 </p>
               </div>
               <div className="rounded-2xl bg-brand-light/55 px-5 py-4 text-left sm:text-right">
@@ -143,11 +152,6 @@ export function CompanyDeliveriesList() {
                 >
                   {DELIVERY_PAYMENT_STATUS_LABELS[delivery.paymentStatus]}
                 </Badge>
-                {delivery.suggestedPrice !== null && (
-                  <p className="mt-1 text-xs text-muted">
-                    Sugestão: {currency.format(delivery.suggestedPrice)}
-                  </p>
-                )}
               </div>
             </div>
             <div className="mt-4">
@@ -160,15 +164,14 @@ export function CompanyDeliveriesList() {
                   ? ` · ~${Math.max(1, Math.ceil(delivery.routeDurationSeconds / 60))} min por rota`
                   : " em linha reta"}
               </span>
-              <span>
-                Expira às{" "}
-                {new Date(delivery.expiresAt).toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-              {delivery.status === "ACCEPTED" && (
-                <span className="font-bold text-brand">Motoboy confirmado</span>
+              {delivery.status === "SEARCHING_MOTOBOY" && (
+                <span>
+                  Disponível até{" "}
+                  {new Date(delivery.expiresAt).toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               )}
               <Link
                 href={`/app/empresa/entregas/${delivery.id}`}

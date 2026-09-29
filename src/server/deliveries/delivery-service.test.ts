@@ -231,6 +231,10 @@ describe("entregas e oportunidades", () => {
     expect(result).toHaveLength(1);
     expect(result[0].distanceToPickupKm).toBeLessThan(1);
     expect(result[0]).not.toHaveProperty("pickupLatitude");
+    expect(result[0]).not.toHaveProperty("destinationAddress");
+    expect(result[0]).not.toHaveProperty("destinationNumber");
+    expect(result[0]).not.toHaveProperty("destinationReference");
+    expect(result[0]).not.toHaveProperty("notes");
   });
 
   it("não entrega oportunidades ao motoboy offline", async () => {

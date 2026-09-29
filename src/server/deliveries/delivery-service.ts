@@ -39,6 +39,7 @@ import type {
   DeliveryPaymentStatus,
   DeliveryRecord,
   DeliveryStatus,
+  DeliveryOpportunityView,
   DeliveryView,
   MotoboyDeliveryContext,
 } from "./types";
@@ -257,7 +258,7 @@ export async function listMotoboyOpportunities(
   now: Date,
   presenceTtlMinutes: number,
   radiusKm: number,
-): Promise<DeliveryView[]> {
+): Promise<DeliveryOpportunityView[]> {
   const actorMotoboy = requireActor(actor, "MOTOBOY");
   const motoboy = await repository.getMotoboyContext(actorMotoboy.userId);
   if (
@@ -287,7 +288,28 @@ export async function listMotoboyOpportunities(
         ) / 100,
     }))
     .filter((delivery) => delivery.distanceToPickupKm <= radiusKm)
-    .map((delivery) => toPublicDelivery(delivery));
+    .map((delivery) => ({
+      id: delivery.id,
+      companyName: delivery.companyName,
+      pickupAddress: delivery.pickupAddress,
+      pickupNeighborhood: delivery.pickupNeighborhood,
+      destinationNeighborhood: delivery.destinationNeighborhood,
+      distanceEstimateKm: delivery.distanceEstimateKm,
+      distanceMethod: delivery.distanceMethod,
+      routeDurationSeconds: delivery.routeDurationSeconds,
+      companyRatingAverage: delivery.companyRatingAverage ?? null,
+      companyRatingCount: delivery.companyRatingCount ?? 0,
+      distanceToPickupKm: delivery.distanceToPickupKm,
+      offeredPrice: delivery.offeredPrice,
+      paymentMethod: delivery.paymentMethod,
+      extras: (delivery.extras ?? []).map((extra) => ({
+        id: extra.id,
+        type: extra.type,
+        description: extra.description,
+        amount: extra.amount,
+        status: extra.status,
+      })),
+    }));
 }
 
 export async function acceptDelivery(

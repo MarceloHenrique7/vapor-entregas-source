@@ -55,8 +55,9 @@ class MapErrorBoundary extends Component<
 
 export function CompanyLocationMapLoader(props: {
   coordinates: Coordinates;
-  onChange: (coordinates: Coordinates) => void;
+  onChange: (coordinates: Coordinates, reason: "click" | "dragend") => void;
   onTileError: () => void;
+  recenterKey?: number;
 }) {
   return (
     <MapErrorBoundary>

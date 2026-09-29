@@ -66,6 +66,7 @@ export function CompanyHistoryList() {
   const [result, setResult] = useState<HistoryResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
     status: "",
@@ -127,10 +128,24 @@ export function CompanyHistoryList() {
 
   return (
     <div className="space-y-5">
-      <Card className="p-5 sm:p-6">
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3 md:hidden">
+          <div>
+            <p className="font-bold">Filtros</p>
+            <p className="text-xs text-muted">Refine o histórico</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((value) => !value)}
+          >
+            {filtersOpen ? "Ocultar" : "Abrir filtros"}
+          </Button>
+        </div>
         <form
           onSubmit={apply}
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+          className={`${filtersOpen ? "mt-5 grid" : "hidden"} gap-4 md:grid md:grid-cols-2 xl:grid-cols-3`}
         >
           <label className="text-sm font-bold">
             Busca
@@ -264,7 +279,7 @@ export function CompanyHistoryList() {
       {!loading &&
         result?.items.map((delivery) => (
           <Card key={delivery.id} className="p-5 sm:p-6">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
@@ -279,38 +294,20 @@ export function CompanyHistoryList() {
                   </span>
                 </div>
                 <h2 className="mt-3 font-display text-lg font-extrabold">
-                  {delivery.pickupNeighborhood} →{" "}
                   {delivery.destinationNeighborhood}
                 </h2>
                 <p className="mt-2 text-sm text-muted">
-                  Coleta: {delivery.pickupAddress}, {delivery.pickupNumber} ·
-                  Destino: {delivery.destinationAddress},{" "}
-                  {delivery.destinationNumber}
+                  {delivery.motoboyName ?? "Sem motoboy vinculado"} ·{" "}
+                  {delivery.pickupNeighborhood} →{" "}
+                  {delivery.destinationNeighborhood}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                  <span className="font-bold text-ink">
-                    {delivery.motoboyName ?? "Sem motoboy vinculado"}
-                  </span>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink-soft">
                   <span>
                     {delivery.distanceEstimateKm.toLocaleString("pt-BR")} km
                     {delivery.distanceMethod === "GOOGLE_ROUTES"
                       ? " por rota"
                       : " em linha reta"}
                   </span>
-                  <span>
-                    R${" "}
-                    {delivery.offeredPrice.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                  {delivery.suggestedPrice !== null && (
-                    <span>
-                      Sugestão registrada: R${" "}
-                      {delivery.suggestedPrice.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  )}
                   <span>{PAYMENT_METHOD_LABELS[delivery.paymentMethod]}</span>
                 </div>
                 {delivery.companyRating !== null && (
@@ -331,13 +328,30 @@ export function CompanyHistoryList() {
                   </div>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="shrink-0 sm:text-right">
+                <p className="font-display text-xl font-extrabold text-brand">
+                  R${" "}
+                  {delivery.offeredPrice.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
+                </p>
                 <Link
                   href={`/app/empresa/entregas/${delivery.id}`}
-                  className={buttonStyles({ variant: "outline", size: "sm" })}
+                  className={buttonStyles({
+                    variant: "outline",
+                    size: "sm",
+                    className: "mt-3 w-full sm:w-auto",
+                  })}
                 >
                   Ver detalhes
                 </Link>
+              </div>
+            </div>
+            <details className="mt-4 border-t border-line pt-4">
+              <summary className="cursor-pointer text-sm font-bold text-ink-soft">
+                Mais ações
+              </summary>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Link
                   href={`/app/empresa/entregas/nova?repetir=${delivery.id}`}
                   className={buttonStyles({ size: "sm" })}
@@ -353,7 +367,7 @@ export function CompanyHistoryList() {
                   </Link>
                 )}
               </div>
-            </div>
+            </details>
           </Card>
         ))}
       {result && result.pagination.totalPages > 1 && (

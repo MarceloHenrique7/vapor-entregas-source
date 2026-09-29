@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeGeocodingResult } from "@/lib/maps/location";
 import type { GeocodingQuery } from "@/server/locations/schemas";
 
 import { GeocodingUnavailableError } from "./errors";
@@ -13,6 +14,7 @@ interface NominatimOptions {
 }
 
 interface NominatimItem {
+  place_id?: number | string;
   lat?: string;
   lon?: string;
   display_name?: string;
@@ -28,6 +30,7 @@ interface NominatimItem {
     town?: string;
     municipality?: string;
     state?: string;
+    country?: string;
   };
 }
 
@@ -90,15 +93,15 @@ function parseResult(item: NominatimItem | undefined): GeocodingResult | null {
   if (!item?.lat || !item.lon) return null;
   const latitude = Number(item.lat);
   const longitude = Number(item.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-  return {
+  const normalized = normalizeGeocodingResult({
     latitude,
     longitude,
-    displayName: item.display_name ?? "Endereço aproximado",
-    address: item.address
+    formattedAddress: item.display_name,
+    ...(item.place_id !== undefined ? { placeId: String(item.place_id) } : {}),
+    components: item.address
       ? {
-          road: item.address.road ?? item.address.pedestrian,
-          houseNumber: item.address.house_number,
+          street: item.address.road ?? item.address.pedestrian,
+          number: item.address.house_number,
           neighborhood:
             item.address.neighbourhood ??
             item.address.suburb ??
@@ -107,6 +110,22 @@ function parseResult(item: NominatimItem | undefined): GeocodingResult | null {
           city:
             item.address.city ?? item.address.town ?? item.address.municipality,
           state: item.address.state,
+          country: item.address.country,
+        }
+      : undefined,
+  });
+  if (!normalized) return null;
+  return {
+    ...normalized,
+    displayName: normalized.formattedAddress,
+    address: item.address
+      ? {
+          road: normalized.components.street,
+          houseNumber: normalized.components.number,
+          neighborhood: normalized.components.neighborhood,
+          postalCode: normalized.components.postalCode,
+          city: normalized.components.city,
+          state: normalized.components.state,
         }
       : undefined,
   };

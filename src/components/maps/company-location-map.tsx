@@ -25,20 +25,28 @@ const tileUrl =
 function MapController({
   coordinates,
   onChange,
+  recenterKey,
 }: {
   coordinates: Coordinates;
-  onChange: (coordinates: Coordinates) => void;
+  onChange: (coordinates: Coordinates, reason: "click" | "dragend") => void;
+  recenterKey: number;
 }) {
   const map = useMap();
+  const lastRecenterKey = useRef(recenterKey);
   useEffect(() => {
+    if (lastRecenterKey.current === recenterKey) return;
+    lastRecenterKey.current = recenterKey;
     map.flyTo([coordinates.latitude, coordinates.longitude], map.getZoom(), {
       animate: true,
       duration: 0.45,
     });
-  }, [coordinates.latitude, coordinates.longitude, map]);
+  }, [coordinates.latitude, coordinates.longitude, map, recenterKey]);
   useMapEvents({
     click(event: LeafletMouseEvent) {
-      onChange({ latitude: event.latlng.lat, longitude: event.latlng.lng });
+      onChange(
+        { latitude: event.latlng.lat, longitude: event.latlng.lng },
+        "click",
+      );
     },
   });
   return null;
@@ -48,10 +56,12 @@ export default function CompanyLocationMap({
   coordinates,
   onChange,
   onTileError,
+  recenterKey = 0,
 }: {
   coordinates: Coordinates;
-  onChange: (coordinates: Coordinates) => void;
+  onChange: (coordinates: Coordinates, reason: "click" | "dragend") => void;
   onTileError: () => void;
+  recenterKey?: number;
 }) {
   const markerRef = useRef<LeafletMarker>(null);
   const icon = useMemo(
@@ -87,12 +97,19 @@ export default function CompanyLocationMap({
           dragend() {
             const position = markerRef.current?.getLatLng();
             if (position) {
-              onChange({ latitude: position.lat, longitude: position.lng });
+              onChange(
+                { latitude: position.lat, longitude: position.lng },
+                "dragend",
+              );
             }
           },
         }}
       />
-      <MapController coordinates={coordinates} onChange={onChange} />
+      <MapController
+        coordinates={coordinates}
+        onChange={onChange}
+        recenterKey={recenterKey}
+      />
     </MapContainer>
   );
 }

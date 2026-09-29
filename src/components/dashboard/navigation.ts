@@ -66,7 +66,6 @@ export const companyNavigation: NavigationItem[] = [
   { href: "/app/empresa/historico", label: "Histórico", icon: "history" },
   { href: "/app/empresa/assinatura", label: "Plano", icon: "wallet" },
   { href: "/app/empresa/gestao", label: "Gestão Pro", icon: "wallet" },
-  { href: "/app/empresa/relatorios", label: "Relatórios Pro", icon: "file" },
   { href: "/app/empresa/favoritos", label: "Favoritos", icon: "heart" },
   { href: "/app/empresa/denuncias", label: "Minhas denúncias", icon: "shield" },
   { href: "/app/empresa/notificacoes", label: "Notificações", icon: "bell" },

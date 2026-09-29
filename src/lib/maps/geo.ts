@@ -3,7 +3,10 @@ export interface Coordinates {
   longitude: number;
 }
 
-function validCoordinates(latitude: number, longitude: number) {
+export function isValidCoordinates(
+  coordinates: Coordinates,
+): coordinates is Coordinates {
+  const { latitude, longitude } = coordinates;
   return (
     Number.isFinite(latitude) &&
     Number.isFinite(longitude) &&
@@ -14,11 +17,32 @@ function validCoordinates(latitude: number, longitude: number) {
   );
 }
 
+export function normalizeCoordinates(
+  coordinates: Coordinates,
+): Coordinates | null {
+  if (!isValidCoordinates(coordinates)) return null;
+  return {
+    latitude: Math.round(coordinates.latitude * 1_000_000) / 1_000_000,
+    longitude: Math.round(coordinates.longitude * 1_000_000) / 1_000_000,
+  };
+}
+
+export function coordinatesMatch(
+  first: Coordinates,
+  second: Coordinates,
+  tolerance = 0.000001,
+) {
+  return (
+    Math.abs(first.latitude - second.latitude) <= tolerance &&
+    Math.abs(first.longitude - second.longitude) <= tolerance
+  );
+}
+
 function coordinatesFromMatch(match: RegExpMatchArray | null) {
   if (!match) return null;
   const latitude = Number(match[1]);
   const longitude = Number(match[2]);
-  return validCoordinates(latitude, longitude) ? { latitude, longitude } : null;
+  return normalizeCoordinates({ latitude, longitude });
 }
 
 export function parseCoordinatesInput(value: string): Coordinates | null {

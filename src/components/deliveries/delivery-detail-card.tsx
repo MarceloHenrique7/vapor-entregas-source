@@ -280,19 +280,29 @@ export function DeliveryDetailCard({
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,.75fr)]">
       <div className="space-y-6">
         <Card className="overflow-hidden">
-          <div className="bg-brand p-5 text-white sm:p-7">
-            <Badge className="bg-white/15 text-white">
-              {DELIVERY_STATUS_LABELS[delivery.status]}
-            </Badge>
-            <h2 className="mt-4 font-display text-2xl font-extrabold">
-              {delivery.companyName}
-            </h2>
-            {delivery.motoboyName && (
-              <p className="mt-2 text-sm text-white/80">
-                Motoboy responsável:{" "}
-                <strong className="text-white">{delivery.motoboyName}</strong>
+          <div className="flex flex-col gap-4 bg-brand p-5 text-white sm:flex-row sm:items-start sm:justify-between sm:p-7">
+            <div>
+              <Badge className="bg-white/15 text-white">
+                {DELIVERY_STATUS_LABELS[delivery.status]}
+              </Badge>
+              <h2 className="mt-4 font-display text-2xl font-extrabold">
+                {delivery.companyName}
+              </h2>
+              {delivery.motoboyName && (
+                <p className="mt-2 text-sm text-white/80">
+                  Motoboy:{" "}
+                  <strong className="text-white">{delivery.motoboyName}</strong>
+                </p>
+              )}
+            </div>
+            <div className="sm:text-right">
+              <p className="font-display text-3xl font-extrabold">
+                {currency.format(delivery.offeredPrice)}
               </p>
-            )}
+              <p className="mt-1 text-xs font-semibold text-white/75">
+                valor da corrida
+              </p>
+            </div>
           </div>
           <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-7">
             <section className="rounded-2xl bg-canvas p-4">
@@ -337,20 +347,11 @@ export function DeliveryDetailCard({
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                Valor e pagamento direto
+                Forma de pagamento
               </p>
-              <p className="mt-2 font-display text-xl font-extrabold text-brand">
-                {currency.format(delivery.offeredPrice)}
-              </p>
-              <p className="text-sm text-muted">
+              <p className="mt-2 font-bold text-ink">
                 {PAYMENT_METHOD_LABELS[delivery.paymentMethod]}
               </p>
-              {delivery.suggestedPrice !== null && (
-                <p className="mt-1 text-xs text-muted">
-                  Sugestão registrada:{" "}
-                  {currency.format(delivery.suggestedPrice)}
-                </p>
-              )}
             </div>
             {delivery.notes && (
               <div className="sm:col-span-2">
@@ -364,23 +365,6 @@ export function DeliveryDetailCard({
           <p className="border-t border-line p-5 text-xs leading-5 text-muted sm:px-7">
             {DIRECT_PAYMENT_NOTICE}
           </p>
-        </Card>
-
-        {actorRole === "COMPANY" ? (
-          <CompanyTrackingPanel deliveryId={delivery.id} />
-        ) : (
-          <MotoboyDeliveryTracker
-            deliveryId={delivery.id}
-            status={delivery.status}
-          />
-        )}
-
-        <Card className="p-5 sm:p-6">
-          <DeliveryPaymentPanel
-            delivery={delivery}
-            actorRole={actorRole}
-            onUpdated={setDelivery}
-          />
         </Card>
 
         {(action || canCancel || error) && (
@@ -415,11 +399,26 @@ export function DeliveryDetailCard({
                 </Button>
               )}
             </div>
-            <p className="mt-3 text-xs text-muted">
-              Todas as mudanças são confirmadas e registradas pelo servidor.
-            </p>
           </Card>
         )}
+
+        {actorRole === "COMPANY" ? (
+          <CompanyTrackingPanel deliveryId={delivery.id} />
+        ) : (
+          <MotoboyDeliveryTracker
+            deliveryId={delivery.id}
+            status={delivery.status}
+          />
+        )}
+
+        <Card className="p-5 sm:p-6">
+          <DeliveryPaymentPanel
+            delivery={delivery}
+            actorRole={actorRole}
+            onUpdated={setDelivery}
+          />
+        </Card>
+
         <DeliveryExtrasPanel
           deliveryId={delivery.id}
           deliveryStatus={delivery.status}
@@ -430,17 +429,21 @@ export function DeliveryDetailCard({
       </div>
 
       <Card className="h-fit p-5 sm:p-6">
-        <h3 className="font-display text-xl font-extrabold">Acompanhamento</h3>
-        <p className="mt-1 text-sm text-muted">
-          Horários registrados pelo servidor.
-        </p>
-        <div className="mt-6">
-          <Timeline
-            history={delivery.history ?? []}
-            extras={delivery.extras ?? []}
-            paymentEvents={delivery.paymentEvents ?? []}
-          />
-        </div>
+        <details>
+          <summary className="cursor-pointer list-none font-display text-xl font-extrabold">
+            Mais detalhes e histórico
+          </summary>
+          <p className="mt-2 text-sm text-muted">
+            Horários e mudanças registrados pelo servidor.
+          </p>
+          <div className="mt-6">
+            <Timeline
+              history={delivery.history ?? []}
+              extras={delivery.extras ?? []}
+              paymentEvents={delivery.paymentEvents ?? []}
+            />
+          </div>
+        </details>
       </Card>
 
       <Dialog

@@ -147,34 +147,12 @@ a {
   animation: pulse-soft 1.8s ease-in-out infinite;
 }
 
-@keyframes opportunity-highlight {
-  0%,
-  100% {
-    box-shadow: var(--shadow-card);
-  }
-  50% {
-    box-shadow:
-      0 0 0 3px rgba(234, 29, 44, 0.12),
-      var(--shadow-card);
-  }
-}
-
-@keyframes attention-badge {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.78;
-  }
-}
-
 .opportunity-card-attention {
-  animation: opportunity-highlight 1.25s ease-out 2;
+  border-color: color-mix(in srgb, var(--brand-primary) 22%, var(--line));
 }
 
 .new-opportunity-badge {
-  animation: attention-badge 1.25s ease-out 2;
+  letter-spacing: 0.01em;
 }
 
 .primary-action-attention {

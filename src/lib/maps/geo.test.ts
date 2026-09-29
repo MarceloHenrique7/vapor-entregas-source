@@ -4,6 +4,8 @@ import {
   buildGoogleMapsUrl,
   buildWazeUrl,
   calculateStraightLineDistance,
+  isValidCoordinates,
+  normalizeCoordinates,
   parseCoordinatesInput,
 } from "./geo";
 
@@ -53,5 +55,15 @@ describe("utilitários geográficos", () => {
     expect(
       parseCoordinatesInput("https://example.com/?q=-9.4,-40.5"),
     ).toBeNull();
+  });
+
+  it("valida e arredonda coordenadas por um contrato central", () => {
+    expect(isValidCoordinates({ latitude: 0, longitude: -40 })).toBe(true);
+    expect(isValidCoordinates({ latitude: Infinity, longitude: -40 })).toBe(
+      false,
+    );
+    expect(
+      normalizeCoordinates({ latitude: -9.1234567, longitude: 0 }),
+    ).toEqual({ latitude: -9.123457, longitude: 0 });
   });
 });

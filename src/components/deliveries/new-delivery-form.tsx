@@ -19,9 +19,20 @@ import {
 import { trackMetaCustomEvent } from "@/lib/analytics/meta-pixel";
 import {
   calculateStraightLineDistance,
+  coordinatesMatch,
+  normalizeCoordinates,
   parseCoordinatesInput,
   type Coordinates,
 } from "@/lib/maps/geo";
+import {
+  canonicalLocationFromResult,
+  createLatestRequestGate,
+  isLocationDefiningAddressField,
+  mergeCanonicalAddress,
+  type GeocodingResultPayload,
+  type CanonicalLocation,
+  type LocationSource,
+} from "@/lib/maps/location";
 
 type City = "PETROLINA_PE" | "JUAZEIRO_BA";
 type PaymentMethod = keyof typeof PAYMENT_METHOD_LABELS;
@@ -44,17 +55,7 @@ interface DeliveryQuote {
   pricingRuleId: string | null;
 }
 
-interface AddressSuggestion extends Coordinates {
-  displayName: string;
-  address?: {
-    road?: string;
-    houseNumber?: string;
-    neighborhood?: string;
-    postalCode?: string;
-    city?: string;
-    state?: string;
-  };
-}
+type AddressSuggestion = GeocodingResultPayload;
 
 export interface PickupSummary {
   companyName: string;
@@ -135,6 +136,10 @@ export function NewDeliveryForm({
   );
   const [pinConfirmed, setPinConfirmed] = useState(false);
   const [locationResolved, setLocationResolved] = useState(false);
+  const [selectedLocation, setSelectedLocation] =
+    useState<CanonicalLocation | null>(null);
+  const [confirmedLocation, setConfirmedLocation] =
+    useState<CanonicalLocation | null>(null);
   const [addressSearch, setAddressSearch] = useState("");
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [suggestionStatus, setSuggestionStatus] = useState<
@@ -142,6 +147,14 @@ export function NewDeliveryForm({
   >("idle");
   const [locationMessage, setLocationMessage] = useState("");
   const suggestionCache = useRef(new Map<string, AddressSuggestion[]>());
+  const programmaticSearchValue = useRef<string | null>(null);
+  const suggestionRequests = useRef(createLatestRequestGate());
+  const geocodeRequests = useRef(createLatestRequestGate());
+  const reverseRequests = useRef(createLatestRequestGate());
+  const quoteRequests = useRef(createLatestRequestGate());
+  const geocodeController = useRef<AbortController | null>(null);
+  const reverseController = useRef<AbortController | null>(null);
+  const [mapRecenterKey, setMapRecenterKey] = useState(0);
   const [status, setStatus] = useState<"idle" | "searching" | "publishing">(
     "idle",
   );
@@ -163,9 +176,28 @@ export function NewDeliveryForm({
     [coordinates, pickup.latitude, pickup.longitude],
   );
 
+  useEffect(
+    () => () => {
+      geocodeController.current?.abort();
+      reverseController.current?.abort();
+      suggestionRequests.current.invalidate();
+      geocodeRequests.current.invalidate();
+      reverseRequests.current.invalidate();
+      quoteRequests.current.invalidate();
+    },
+    [],
+  );
+
   useEffect(() => {
+    if (programmaticSearchValue.current === addressSearch) {
+      programmaticSearchValue.current = null;
+      suggestionRequests.current.invalidate();
+      return;
+    }
+    programmaticSearchValue.current = null;
     const query = addressSearch.trim();
     if (query.length < 3 || parseCoordinatesInput(query)) {
+      suggestionRequests.current.invalidate();
       return;
     }
     const cacheKey = `${form.destinationCity}:${query.toLocaleLowerCase("pt-BR")}`;
@@ -175,6 +207,7 @@ export function NewDeliveryForm({
       setSuggestionStatus("idle");
       return;
     }
+    const requestId = suggestionRequests.current.next();
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setSuggestionStatus("searching");
@@ -189,6 +222,7 @@ export function NewDeliveryForm({
           results?: AddressSuggestion[];
         };
         if (!response.ok) throw new Error("suggestions-unavailable");
+        if (!suggestionRequests.current.isLatest(requestId)) return;
         const results = (payload.results ?? []).slice(0, 5);
         if (suggestionCache.current.size >= 20) {
           const oldest = suggestionCache.current.keys().next().value;
@@ -198,7 +232,10 @@ export function NewDeliveryForm({
         setSuggestions(results);
         setSuggestionStatus("idle");
       } catch (error) {
-        if ((error as Error).name !== "AbortError") {
+        if (
+          (error as Error).name !== "AbortError" &&
+          suggestionRequests.current.isLatest(requestId)
+        ) {
           setSuggestions([]);
           setSuggestionStatus("error");
         }
@@ -212,11 +249,14 @@ export function NewDeliveryForm({
 
   useEffect(() => {
     if (!pinConfirmed) {
+      quoteRequests.current.invalidate();
       // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing a quote invalidated by a changed PIN
       setQuote(null);
+      setQuoteLoading(false);
       setQuoteError("");
       return;
     }
+    const requestId = quoteRequests.current.next();
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setQuoteLoading(true);
@@ -236,6 +276,7 @@ export function NewDeliveryForm({
           quote?: DeliveryQuote;
           error?: string;
         };
+        if (!quoteRequests.current.isLatest(requestId)) return;
         if (!response.ok || !payload.quote) {
           setQuoteError(
             payload.error ?? "A sugestão de valor está indisponível.",
@@ -244,10 +285,17 @@ export function NewDeliveryForm({
         }
         setQuote(payload.quote);
       } catch (error) {
-        if ((error as Error).name !== "AbortError")
+        if (
+          (error as Error).name !== "AbortError" &&
+          quoteRequests.current.isLatest(requestId)
+        )
           setQuoteError("A sugestão de valor está indisponível.");
       } finally {
-        if (!controller.signal.aborted) setQuoteLoading(false);
+        if (
+          !controller.signal.aborted &&
+          quoteRequests.current.isLatest(requestId)
+        )
+          setQuoteLoading(false);
       }
     }, 500);
     return () => {
@@ -297,6 +345,8 @@ export function NewDeliveryForm({
           latitude: draft.destinationLatitude,
           longitude: draft.destinationLongitude,
         });
+        setMapRecenterKey((current) => current + 1);
+        programmaticSearchValue.current = `${draft.destinationAddress}, ${draft.destinationNumber} - ${draft.destinationNeighborhood}`;
         setAddressSearch(
           `${draft.destinationAddress}, ${draft.destinationNumber} - ${draft.destinationNeighborhood}`,
         );
@@ -305,6 +355,25 @@ export function NewDeliveryForm({
         );
         setLocationResolved(true);
         setPinConfirmed(true);
+        const repeatedLocation: CanonicalLocation = {
+          formattedAddress: `${draft.destinationAddress}, ${draft.destinationNumber} - ${draft.destinationNeighborhood}`,
+          latitude: draft.destinationLatitude,
+          longitude: draft.destinationLongitude,
+          source: "saved_location",
+          components: {
+            street: draft.destinationAddress,
+            number: draft.destinationNumber,
+            neighborhood: draft.destinationNeighborhood,
+            city:
+              draft.destinationCity === "PETROLINA_PE"
+                ? "Petrolina"
+                : "Juazeiro",
+            state: draft.destinationState,
+            postalCode: draft.destinationPostalCode ?? undefined,
+          },
+        };
+        setSelectedLocation(repeatedLocation);
+        setConfirmedLocation(repeatedLocation);
         setExtras(
           initialExtras.map((row) => {
             const copied = draft.extras?.find(
@@ -352,117 +421,249 @@ export function NewDeliveryForm({
   }
 
   function update(key: keyof typeof form, value: string) {
+    if (status === "publishing") return;
     setForm((current) => ({ ...current, [key]: value }));
-    if (
-      key === "destinationAddress" ||
-      key === "destinationNumber" ||
-      key === "destinationNeighborhood" ||
-      key === "destinationPostalCode"
-    ) {
+    const locationField =
+      key === "destinationAddress"
+        ? "street"
+        : key === "destinationNumber"
+          ? "number"
+          : key === "destinationNeighborhood"
+            ? "neighborhood"
+            : key === "destinationPostalCode"
+              ? "postalCode"
+              : key === "destinationComplement"
+                ? "complement"
+                : key === "destinationReference"
+                  ? "reference"
+                  : null;
+    if (locationField && isLocationDefiningAddressField(locationField)) {
+      geocodeController.current?.abort();
+      reverseController.current?.abort();
+      geocodeRequests.current.invalidate();
+      reverseRequests.current.invalidate();
       setLocationResolved(false);
       setPinConfirmed(false);
+      setSelectedLocation(null);
+      setConfirmedLocation(null);
+      setStatus("idle");
+      setSuggestionStatus("idle");
       setLocationMessage("");
+      quoteRequests.current.invalidate();
+      setQuote(null);
+      setQuoteError("");
     }
     setMessage("");
   }
 
   function chooseCity(city: City) {
+    if (status === "publishing") return;
     setForm((current) => ({
       ...current,
       destinationCity: city,
       destinationState: city === "PETROLINA_PE" ? "PE" : "BA",
     }));
+    geocodeController.current?.abort();
+    reverseController.current?.abort();
+    geocodeRequests.current.invalidate();
+    reverseRequests.current.invalidate();
     setCoordinates(cityCenters[city]);
+    setMapRecenterKey((current) => current + 1);
     setSuggestions([]);
     setLocationResolved(false);
     setPinConfirmed(false);
+    setSelectedLocation(null);
+    setConfirmedLocation(null);
+    setStatus("idle");
+    setSuggestionStatus("idle");
     setLocationMessage("");
+    quoteRequests.current.invalidate();
+    setQuote(null);
+    setQuoteError("");
   }
 
-  function fillAddressFromResult(result: AddressSuggestion) {
+  function applyDestinationLocation(
+    result: AddressSuggestion,
+    source: LocationSource,
+    options: {
+      exactCoordinates?: Coordinates;
+      preserveEnteredNumber?: boolean;
+    } = {},
+  ) {
+    const location = canonicalLocationFromResult(
+      result,
+      source,
+      options.exactCoordinates,
+    );
+    if (!location) return false;
+    const address = mergeCanonicalAddress(
+      {
+        street: form.destinationAddress,
+        number: form.destinationNumber,
+        neighborhood: form.destinationNeighborhood,
+        postalCode: form.destinationPostalCode,
+        city: form.destinationCity,
+      },
+      location,
+      options.preserveEnteredNumber,
+    );
+    const nextAddress = address.street;
+    const nextNumber = address.number;
+    const nextNeighborhood = address.neighborhood;
+    const nextPostalCode = address.postalCode;
+    const nextCity = address.city;
     setForm((current) => ({
       ...current,
-      destinationAddress:
-        result.address?.road ??
-        (current.destinationAddress || "Localização por coordenadas"),
-      destinationNumber:
-        result.address?.houseNumber ?? (current.destinationNumber || "S/N"),
-      destinationNeighborhood:
-        result.address?.neighborhood ??
-        (current.destinationNeighborhood ||
-          (current.destinationCity === "PETROLINA_PE"
-            ? "Petrolina"
-            : "Juazeiro")),
-      destinationPostalCode:
-        result.address?.postalCode?.replace(/\D/g, "") ??
-        current.destinationPostalCode,
+      destinationAddress: nextAddress,
+      destinationNumber: nextNumber,
+      destinationNeighborhood: nextNeighborhood,
+      destinationPostalCode: nextPostalCode,
+      destinationCity: nextCity,
+      destinationState: nextCity === "PETROLINA_PE" ? "PE" : "BA",
     }));
+    setCoordinates({
+      latitude: location.latitude,
+      longitude: location.longitude,
+    });
+    programmaticSearchValue.current = location.formattedAddress;
+    setAddressSearch(location.formattedAddress);
+    setApproximateAddress(location.formattedAddress);
+    setSuggestions([]);
+    const complete = Boolean(
+      nextAddress.trim() && nextNumber.trim() && nextNeighborhood.trim(),
+    );
+    const synchronizedLocation: CanonicalLocation = {
+      ...location,
+      components: {
+        ...location.components,
+        street: nextAddress,
+        number: nextNumber,
+        neighborhood: nextNeighborhood,
+        postalCode: nextPostalCode || undefined,
+        city: nextCity === "PETROLINA_PE" ? "Petrolina" : "Juazeiro",
+        state: nextCity === "PETROLINA_PE" ? "PE" : "BA",
+      },
+    };
+    setSelectedLocation(complete ? synchronizedLocation : null);
+    setConfirmedLocation(null);
+    setLocationResolved(complete);
+    return complete;
   }
 
   function chooseSuggestion(result: AddressSuggestion) {
-    fillAddressFromResult(result);
-    setAddressSearch(result.displayName);
-    setCoordinates({
-      latitude: result.latitude,
-      longitude: result.longitude,
+    suggestionRequests.current.invalidate();
+    geocodeRequests.current.invalidate();
+    reverseRequests.current.invalidate();
+    geocodeController.current?.abort();
+    reverseController.current?.abort();
+    const complete = applyDestinationLocation(result, "autocomplete", {
+      preserveEnteredNumber: false,
     });
-    setApproximateAddress(result.displayName);
+    setMapRecenterKey((current) => current + 1);
     setSuggestions([]);
-    setLocationResolved(true);
     setPinConfirmed(false);
+    setStatus("idle");
+    setSuggestionStatus("idle");
+    quoteRequests.current.invalidate();
+    setQuote(null);
+    setQuoteError("");
     setLocationMessage(
-      "Endereço encontrado. Confira o pin e salve o endereço do cliente.",
+      complete
+        ? "Endereço localizado. Confira o ponto no mapa e confirme o destino."
+        : "Endereço aproximado. Informe o número e localize novamente.",
     );
     setMessage("");
   }
 
   async function resolveExactCoordinates(next: Coordinates) {
-    setCoordinates(next);
+    const normalized = normalizeCoordinates(next);
+    if (!normalized) {
+      setMessage("As coordenadas informadas não são válidas.");
+      return;
+    }
+    geocodeController.current?.abort();
+    geocodeRequests.current.invalidate();
+    reverseController.current?.abort();
+    const controller = new AbortController();
+    reverseController.current = controller;
+    const requestId = reverseRequests.current.next();
+    setCoordinates(normalized);
+    setMapRecenterKey((current) => current + 1);
     setSuggestions([]);
-    setLocationResolved(true);
+    setLocationResolved(false);
     setPinConfirmed(false);
+    setSelectedLocation(null);
+    setConfirmedLocation(null);
+    quoteRequests.current.invalidate();
+    setQuote(null);
+    setQuoteError("");
     setSuggestionStatus("searching");
+    setStatus("idle");
     setApproximateAddress(
-      `${next.latitude.toFixed(6)}, ${next.longitude.toFixed(6)}`,
+      `${normalized.latitude.toFixed(6)}, ${normalized.longitude.toFixed(6)}`,
     );
     setLocationMessage(
-      "Coordenadas reconhecidas. Confira o pin e salve o endereço do cliente.",
+      "Coordenadas reconhecidas. Identificando o endereço do ponto…",
     );
     try {
       const response = await fetch("/api/maps/reverse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(next),
+        body: JSON.stringify(normalized),
+        signal: controller.signal,
       });
       const payload = (await response.json()) as {
         result?: AddressSuggestion | null;
       };
+      if (!reverseRequests.current.isLatest(requestId)) return;
       if (response.ok && payload.result) {
-        fillAddressFromResult(payload.result);
-        setApproximateAddress(payload.result.displayName);
+        const complete = applyDestinationLocation(
+          payload.result,
+          "coordinates",
+          { exactCoordinates: normalized },
+        );
+        setLocationMessage(
+          complete
+            ? "Ponto identificado. Confira o mapa e confirme o destino."
+            : "Ponto preservado, mas o endereço está incompleto. Preencha os campos e localize novamente.",
+        );
       } else {
-        fillAddressFromResult({
-          ...next,
-          displayName: "Localização por coordenadas",
-        });
+        setLocationMessage(
+          "O ponto foi marcado, mas não conseguimos identificar o endereço completo. Tente novamente.",
+        );
       }
-    } catch {
-      fillAddressFromResult({
-        ...next,
-        displayName: "Localização por coordenadas",
-      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (!reverseRequests.current.isLatest(requestId)) return;
+      setLocationMessage(
+        "O ponto foi marcado, mas não foi possível consultar o endereço agora. Tente novamente.",
+      );
     } finally {
-      setSuggestionStatus("idle");
+      if (reverseRequests.current.isLatest(requestId))
+        setSuggestionStatus("idle");
     }
   }
 
   function changeAddressSearch(value: string) {
+    if (status === "publishing") return;
+    programmaticSearchValue.current = null;
+    suggestionRequests.current.invalidate();
+    geocodeController.current?.abort();
+    reverseController.current?.abort();
+    geocodeRequests.current.invalidate();
+    reverseRequests.current.invalidate();
     setAddressSearch(value);
     setSuggestions([]);
     setSuggestionStatus("idle");
+    setStatus("idle");
     setLocationResolved(false);
     setPinConfirmed(false);
+    setSelectedLocation(null);
+    setConfirmedLocation(null);
     setLocationMessage("");
+    quoteRequests.current.invalidate();
+    setQuote(null);
+    setQuoteError("");
     setMessage("");
     const exact = parseCoordinatesInput(value);
     if (exact) void resolveExactCoordinates(exact);
@@ -482,8 +683,18 @@ export function NewDeliveryForm({
 
   async function locateDestination() {
     if (!hasRequiredAddress()) return;
+    geocodeController.current?.abort();
+    reverseController.current?.abort();
+    reverseRequests.current.invalidate();
+    const controller = new AbortController();
+    geocodeController.current = controller;
+    const requestId = geocodeRequests.current.next();
     setStatus("searching");
     setMessage("");
+    setPinConfirmed(false);
+    quoteRequests.current.invalidate();
+    setQuote(null);
+    setQuoteError("");
     try {
       const response = await fetch("/api/maps/geocode", {
         method: "POST",
@@ -496,52 +707,135 @@ export function NewDeliveryForm({
           state: form.destinationState,
           postalCode: form.destinationPostalCode,
         }),
+        signal: controller.signal,
       });
       const payload = (await response.json()) as {
         error?: string;
-        result?: Coordinates & { displayName: string };
+        result?: AddressSuggestion;
       };
+      if (!geocodeRequests.current.isLatest(requestId)) return;
       if (!response.ok || !payload.result) {
         setMessage(
           payload.error ?? "Destino não encontrado. Ajuste o PIN manualmente.",
         );
         return;
       }
-      setCoordinates(payload.result);
-      setAddressSearch(payload.result.displayName);
-      setLocationResolved(true);
-      setPinConfirmed(true);
-      setApproximateAddress(payload.result.displayName);
+      const complete = applyDestinationLocation(payload.result, "geocode", {
+        preserveEnteredNumber: true,
+      });
+      setMapRecenterKey((current) => current + 1);
+      setPinConfirmed(false);
       setLocationMessage(
-        "Endereço salvo. Confira o pin no mapa antes de publicar. Se necessário, ajuste manualmente para o ponto exato da entrega.",
+        complete
+          ? "Endereço localizado. Confira o ponto no mapa e confirme o destino."
+          : "O endereço foi localizado de forma aproximada. Confira os campos e o PIN.",
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (!geocodeRequests.current.isLatest(requestId)) return;
       setMessage("Busca indisponível. Ajuste o PIN manualmente.");
     } finally {
-      setStatus("idle");
+      if (geocodeRequests.current.isLatest(requestId)) setStatus("idle");
     }
   }
 
   async function saveDestination() {
-    if (!locationResolved) {
+    if (!locationResolved || !selectedLocation) {
       await locateDestination();
       return;
     }
     if (!hasRequiredAddress()) return;
+    setConfirmedLocation(selectedLocation);
     setPinConfirmed(true);
     setLocationMessage(
-      "Endereço salvo. Confira o pin no mapa antes de publicar. Se necessário, ajuste manualmente para o ponto exato da entrega.",
+      "Destino confirmado. Distância e sugestão de valor serão atualizadas para este ponto.",
     );
     setMessage("");
+  }
+
+  async function handlePinChange(next: Coordinates) {
+    if (status === "publishing") return;
+    const normalized = normalizeCoordinates(next);
+    if (!normalized) {
+      setMessage("Não foi possível usar esse ponto do mapa.");
+      return;
+    }
+    geocodeController.current?.abort();
+    geocodeRequests.current.invalidate();
+    reverseController.current?.abort();
+    const controller = new AbortController();
+    reverseController.current = controller;
+    const requestId = reverseRequests.current.next();
+    setCoordinates(normalized);
+    setLocationResolved(false);
+    setPinConfirmed(false);
+    setSelectedLocation(null);
+    setConfirmedLocation(null);
+    quoteRequests.current.invalidate();
+    setQuote(null);
+    setQuoteError("");
+    setSuggestionStatus("searching");
+    setStatus("idle");
+    setApproximateAddress(
+      `${normalized.latitude.toFixed(6)}, ${normalized.longitude.toFixed(6)}`,
+    );
+    setLocationMessage("Identificando o endereço do ponto ajustado…");
+    setMessage("");
+    try {
+      const response = await fetch("/api/maps/reverse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(normalized),
+        signal: controller.signal,
+      });
+      const payload = (await response.json()) as {
+        result?: AddressSuggestion | null;
+      };
+      if (!reverseRequests.current.isLatest(requestId)) return;
+      if (!response.ok || !payload.result) {
+        setLocationMessage(
+          "O ponto foi marcado no mapa, mas não conseguimos identificar o endereço completo. Tente novamente.",
+        );
+        return;
+      }
+      const complete = applyDestinationLocation(payload.result, "pin", {
+        exactCoordinates: normalized,
+      });
+      setLocationMessage(
+        complete
+          ? "Ponto ajustado no mapa. Confira os dados e confirme o destino."
+          : "Ponto preservado. Complete o endereço e localize-o novamente antes de confirmar.",
+      );
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (!reverseRequests.current.isLatest(requestId)) return;
+      setLocationMessage(
+        "O ponto foi marcado no mapa, mas não foi possível consultar o endereço agora. Tente novamente.",
+      );
+    } finally {
+      if (reverseRequests.current.isLatest(requestId))
+        setSuggestionStatus("idle");
+    }
   }
 
   async function publish(event: FormEvent) {
     event.preventDefault();
     if (!hasRequiredAddress()) return;
-    if (!pinConfirmed) {
+    if (!pinConfirmed || !confirmedLocation) {
       setMessage(
         "Localize o destino e confirme o PIN no mapa antes de publicar.",
       );
+      return;
+    }
+    if (!coordinatesMatch(confirmedLocation, coordinates)) {
+      setMessage(
+        "O PIN mudou. Confirme novamente o destino antes de publicar.",
+      );
+      return;
+    }
+    const confirmedCoordinates = normalizeCoordinates(confirmedLocation);
+    if (!confirmedCoordinates) {
+      setMessage("As coordenadas do destino não são válidas.");
       return;
     }
     setStatus("publishing");
@@ -553,8 +847,8 @@ export function NewDeliveryForm({
         body: JSON.stringify({
           ...form,
           offeredPrice: Number(form.offeredPrice.replace(",", ".")),
-          destinationLatitude: coordinates.latitude,
-          destinationLongitude: coordinates.longitude,
+          destinationLatitude: confirmedCoordinates.latitude,
+          destinationLongitude: confirmedCoordinates.longitude,
           extras: extras
             .filter((extra) => extra.enabled)
             .map((extra) => ({
@@ -617,14 +911,14 @@ export function NewDeliveryForm({
 
         <Card className="p-5 sm:p-7">
           <p className="text-xs font-extrabold uppercase tracking-[.15em] text-brand">
-            Condições especiais
+            Informações da entrega
           </p>
           <h2 className="mt-2 font-display text-xl font-extrabold">
-            Adicionais conhecidos antes da publicação
+            Condições especiais
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Informe tudo que possa mudar a execução. O motoboy verá estas
-            condições antes de decidir se aceita.
+            Informe apenas condições que o motoboy precisa conhecer antes de
+            aceitar.
           </p>
           <div className="mt-5 space-y-4">
             {extras.map((extra) => (
@@ -712,17 +1006,18 @@ export function NewDeliveryForm({
           </p>
           <div className="relative mt-5">
             <FormField
-              label="Buscar endereço ou colar coordenadas"
+              label="Endereço de destino"
               htmlFor="destinationSearch"
               hint="Digite rua, número e bairro, ou cole latitude, longitude ou um link completo do Google Maps."
             >
               <Input
                 id="destinationSearch"
                 value={addressSearch}
-                placeholder="Ex.: Av. Souza Filho, 120, Centro"
+                placeholder="Rua, número ou estabelecimento"
                 autoComplete="off"
                 aria-autocomplete="list"
                 aria-controls="destination-suggestions"
+                disabled={status === "publishing"}
                 onChange={(event) => changeAddressSearch(event.target.value)}
               />
             </FormField>
@@ -745,7 +1040,7 @@ export function NewDeliveryForm({
               >
                 {suggestions.map((suggestion) => (
                   <button
-                    key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.displayName}`}
+                    key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.formattedAddress ?? suggestion.displayName}`}
                     type="button"
                     role="option"
                     aria-selected="false"
@@ -757,7 +1052,7 @@ export function NewDeliveryForm({
                       className="mt-0.5 size-5 shrink-0 text-brand"
                     />
                     <span className="leading-5 text-ink-soft">
-                      {suggestion.displayName}
+                      {suggestion.formattedAddress ?? suggestion.displayName}
                     </span>
                   </button>
                 ))}
@@ -821,12 +1116,13 @@ export function NewDeliveryForm({
               />
             </FormField>
             <FormField
-              label="Complemento"
+              label="Complemento / referência"
               htmlFor="destinationComplement"
               hint="Opcional"
             >
               <Input
                 id="destinationComplement"
+                placeholder="Ex.: Apt. 202, portão azul"
                 value={form.destinationComplement}
                 onChange={(event) =>
                   update("destinationComplement", event.target.value)
@@ -850,19 +1146,24 @@ export function NewDeliveryForm({
             </div>
           </div>
           <Button
+            type="button"
             className="mt-6 w-full sm:w-auto"
             variant="outline"
-            onClick={saveDestination}
+            onClick={locateDestination}
             disabled={status !== "idle"}
           >
             <Icon name="map" className="size-5" />
             {status === "searching"
               ? "Buscando destino..."
-              : "Salvar endereço do cliente"}
+              : "Localizar no mapa"}
           </Button>
           {locationMessage && (
             <p
-              className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+              className={
+                locationResolved
+                  ? "mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+                  : "mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+              }
               role="status"
             >
               {locationMessage}
@@ -887,18 +1188,44 @@ export function NewDeliveryForm({
           <div className="h-[25rem] border-y border-line bg-[#f3eeee] sm:h-[30rem]">
             <CompanyLocationMapLoader
               coordinates={coordinates}
-              onChange={(next) => {
-                setCoordinates(next);
-                setLocationResolved(true);
-                setPinConfirmed(true);
-                setLocationMessage(
-                  "Pin ajustado manualmente e endereço do cliente confirmado.",
-                );
-              }}
+              onChange={handlePinChange}
               onTileError={() =>
                 setMessage("Alguns blocos do mapa não carregaram.")
               }
+              recenterKey={mapRecenterKey}
             />
+          </div>
+          <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+            <p className="text-xs leading-5 text-muted">
+              Confira o ponto no mapa. Se necessário, arraste o PIN até a
+              entrada correta.
+            </p>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+              {!locationResolved && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handlePinChange(coordinates)}
+                  disabled={suggestionStatus === "searching"}
+                >
+                  Tentar identificar o ponto
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                onClick={saveDestination}
+                disabled={
+                  status !== "idle" ||
+                  suggestionStatus === "searching" ||
+                  !locationResolved
+                }
+              >
+                <Icon name="check" className="size-4" />
+                {pinConfirmed ? "Destino confirmado" : "Confirmar destino"}
+              </Button>
+            </div>
           </div>
         </Card>
       </div>
@@ -906,7 +1233,7 @@ export function NewDeliveryForm({
       <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
         <Card className="p-5 sm:p-7">
           <p className="text-xs font-extrabold uppercase tracking-[.15em] text-brand">
-            3 · Oferta
+            3 · Valor e pagamento
           </p>
           <div className="mt-5 space-y-5">
             <FormField
@@ -992,6 +1319,7 @@ export function NewDeliveryForm({
               <textarea
                 id="notes"
                 maxLength={500}
+                placeholder="Ex.: retornar com maquineta"
                 className="min-h-28 w-full rounded-2xl border border-line bg-white p-4 text-sm text-ink shadow-sm focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10"
                 value={form.notes}
                 onChange={(event) => update("notes", event.target.value)}
@@ -1015,8 +1343,15 @@ export function NewDeliveryForm({
             <div>
               <dt className="font-bold text-muted">Destino</dt>
               <dd className="mt-1 text-ink">
-                {form.destinationNeighborhood || "Informe o bairro"}
+                {form.destinationAddress
+                  ? `${form.destinationAddress}, ${form.destinationNumber || "s/n"} · ${form.destinationNeighborhood || "bairro não informado"}`
+                  : "Informe o endereço"}
               </dd>
+              {form.destinationComplement && (
+                <dd className="mt-1 text-xs text-muted">
+                  {form.destinationComplement}
+                </dd>
+              )}
             </div>
             <div>
               <dt className="font-bold text-muted">Distância estimada</dt>
@@ -1076,9 +1411,7 @@ export function NewDeliveryForm({
             disabled={status !== "idle" || !form.offeredPrice || !pinConfirmed}
           >
             <Icon name="package" className="size-5" />
-            {status === "publishing"
-              ? "Publicando..."
-              : "Publicar oportunidade"}
+            {status === "publishing" ? "Publicando..." : "Publicar entrega"}
           </Button>
         </Card>
       </div>

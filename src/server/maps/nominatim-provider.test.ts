@@ -14,6 +14,7 @@ describe("NominatimProvider", () => {
       return new Response(
         JSON.stringify([
           {
+            place_id: 1234,
             lat: "-9.3891",
             lon: "-40.5031",
             display_name: "Avenida Guararapes, Centro, Petrolina, PE",
@@ -23,6 +24,7 @@ describe("NominatimProvider", () => {
               postcode: "56300-000",
               city: "Petrolina",
               state: "Pernambuco",
+              country: "Brasil",
             },
           },
         ]),
@@ -51,6 +53,16 @@ describe("NominatimProvider", () => {
         road: "Avenida Guararapes",
         neighborhood: "Centro",
         postalCode: "56300-000",
+      },
+      formattedAddress: "Avenida Guararapes, Centro, Petrolina, PE",
+      placeId: "1234",
+      components: {
+        street: "Avenida Guararapes",
+        neighborhood: "Centro",
+        postalCode: "56300-000",
+        city: "Petrolina",
+        state: "Pernambuco",
+        country: "Brasil",
       },
     });
     expect(fetchImplementation).toHaveBeenCalledTimes(1);

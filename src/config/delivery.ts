@@ -12,11 +12,11 @@ export const PAYMENT_METHOD_LABELS = {
 } as const;
 
 export const DELIVERY_PAYMENT_STATUS_LABELS = {
-  UNTRACKED: "Sem acompanhamento financeiro",
-  PENDING: "Pagamento pendente",
+  UNTRACKED: "Pagamento ainda não informado",
+  PENDING: "Pagamento aguardando atualização",
   REPORTED_PAID: "Empresa informou pagamento",
-  CONFIRMED: "Recebimento confirmado",
-  DISPUTED: "Divergência",
+  CONFIRMED: "Pagamento confirmado",
+  DISPUTED: "Pagamento com pendência",
 } as const;
 
 export const DELIVERY_STATUS_LABELS = {

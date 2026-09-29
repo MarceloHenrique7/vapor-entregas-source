@@ -52,8 +52,9 @@ describe("prontidão da experiência de produção", () => {
     expect(form).toContain("parseCoordinatesInput");
     expect(form).toContain("new AbortController");
     expect(form).toContain("}, 450)");
-    expect(form).toContain("Salvar endereço do cliente");
-    expect(form).toContain("Confira o pin no mapa antes de publicar");
+    expect(form).toContain("Confirmar destino");
+    expect(form).toContain("createLatestRequestGate");
+    expect(form).toContain("Ponto ajustado no mapa");
     expect(form).toContain("slice(0, 5)");
     expect(route).toContain('requireRole(["COMPANY", "ADMIN"])');
     expect(route).toContain("enforceLocationRateLimit");

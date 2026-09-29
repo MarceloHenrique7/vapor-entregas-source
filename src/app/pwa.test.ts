@@ -91,14 +91,13 @@ describe("PWA segura", () => {
     expect(button).toContain("Instalar Vapor");
   });
 
-  it("mantém destaques temporários compatíveis com redução de movimento", async () => {
+  it("mantém destaques discretos compatíveis com redução de movimento", async () => {
     const styles = await readFile(
       join(process.cwd(), "src/app/globals.css"),
       "utf8",
     );
-    expect(styles).toContain(
-      "animation: opportunity-highlight 1.25s ease-out 2",
-    );
+    expect(styles).toContain(".opportunity-card-attention");
+    expect(styles).not.toContain("opportunity-highlight");
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(styles).toContain("animation-iteration-count: 1 !important");
   });
@@ -111,7 +110,7 @@ describe("PWA segura", () => {
       ),
       "utf8",
     );
-    expect(opportunities).toContain("NOVA");
+    expect(opportunities).toContain("Nova oportunidade");
     expect(opportunities).toContain("Aceitar entrega");
     expect(opportunities).toContain("new-opportunity-badge");
     expect(opportunities).toContain('aria-live="polite"');

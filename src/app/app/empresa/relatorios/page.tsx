@@ -1,5 +1,5 @@
-import { CompanyProDashboard } from "@/components/company-pro/company-pro-dashboard";
+import { redirect } from "next/navigation";
 
 export default function CompanyReportsPage() {
-  return <CompanyProDashboard reportMode />;
+  redirect("/app/empresa/gestao");
 }

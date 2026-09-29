@@ -12,6 +12,10 @@ import { apiErrorMessage, CONNECTION_ERROR } from "@/lib/http/client-error";
 
 import { RatingDialog } from "./rating-dialog";
 
+function stars(score: number) {
+  return `${"★".repeat(score)}${"☆".repeat(5 - score)}`;
+}
+
 export function ReputationOverview() {
   const [overview, setOverview] = useState<RatingOverview | null>(null);
   const [selected, setSelected] = useState<{
@@ -148,10 +152,14 @@ export function ReputationOverview() {
                       {new Intl.DateTimeFormat("pt-BR", {
                         dateStyle: "medium",
                       }).format(new Date(rating.createdAt))}
-                      {` · Entrega ${rating.deliveryId.slice(0, 8)}`}
                     </p>
                   </div>
-                  <Badge variant="warning">{rating.score} ★</Badge>
+                  <Badge
+                    variant="warning"
+                    aria-label={`${rating.score} de 5 estrelas`}
+                  >
+                    {stars(rating.score)}
+                  </Badge>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-ink-soft">
                   {rating.comment || "Sem comentário."}
@@ -180,7 +188,12 @@ export function ReputationOverview() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-bold">{rating.reviewedName}</p>
-                  <Badge variant="warning">{rating.score} ★</Badge>
+                  <Badge
+                    variant="warning"
+                    aria-label={`${rating.score} de 5 estrelas`}
+                  >
+                    {stars(rating.score)}
+                  </Badge>
                 </div>
                 {rating.comment && (
                   <p className="mt-3 text-sm leading-6 text-ink-soft">

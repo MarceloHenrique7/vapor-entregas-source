@@ -135,6 +135,30 @@ export interface DeliveryView {
   paymentEvents?: DeliveryPaymentEventView[];
 }
 
+/**
+ * Dados mínimos necessários para o motoboy decidir se aceita uma corrida.
+ * O endereço exato do cliente e observações privadas só ficam disponíveis
+ * depois do aceite, pela rota protegida da entrega atual.
+ */
+export interface DeliveryOpportunityView {
+  id: string;
+  companyName: string;
+  pickupAddress: string;
+  pickupNeighborhood: string;
+  destinationNeighborhood: string;
+  distanceEstimateKm: number;
+  distanceMethod: DistanceMethod;
+  routeDurationSeconds: number | null;
+  companyRatingAverage: number | null;
+  companyRatingCount: number;
+  distanceToPickupKm: number;
+  offeredPrice: number;
+  paymentMethod: DeliveryView["paymentMethod"];
+  extras: Array<
+    Pick<DeliveryExtraView, "id" | "type" | "description" | "amount" | "status">
+  >;
+}
+
 export interface DeliveryRecord extends DeliveryView {
   pickupLatitude: number;
   pickupLongitude: number;

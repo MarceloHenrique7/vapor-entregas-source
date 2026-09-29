@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-elements";
 import { Icon } from "@/components/icons/icon";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -82,14 +83,13 @@ export function NotificationCenter() {
       <DashboardHeader
         eyebrow="Central interna"
         title="Notificações"
-        description="Atualizações persistentes sobre oportunidades, entregas e denúncias. A central funciona mesmo sem notificações push."
+        description="Atualizações importantes sobre oportunidades, entregas e sua conta."
       />
       <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-bold text-ink">{unread} não lida(s)</p>
           <p className="mt-1 text-sm text-muted">
-            Esta central funciona sem push remoto e não solicita permissões ao
-            abrir o app.
+            Acompanhe o que precisa da sua atenção.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -136,7 +136,10 @@ export function NotificationCenter() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h2 className="font-bold text-ink">{item.title}</h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="font-bold text-ink">{item.title}</h2>
+                        {!item.readAt && <Badge variant="info">Não lida</Badge>}
+                      </div>
                       <p className="mt-1 text-sm leading-6 text-muted">
                         {item.message}
                       </p>

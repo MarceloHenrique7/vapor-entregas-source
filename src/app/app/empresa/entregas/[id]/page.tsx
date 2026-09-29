@@ -17,7 +17,7 @@ export default async function CompanyDeliveryDetailsPage({
       <DashboardHeader
         eyebrow="Acompanhamento"
         title="Detalhes da entrega"
-        description="Acompanhe o motoboy responsável, a timeline e os horários registrados pelo servidor."
+        description="Veja o status, acompanhe o motoboy e resolva o que precisar nesta entrega."
       />
       <DeliveryDetailCard
         endpoint={`/api/deliveries/${id}`}
