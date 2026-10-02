@@ -104,24 +104,14 @@ describe.skipIf(!enabled)("ETAPA 11 — fluxo real no banco relacional", () => {
   beforeAll(async () => {
     const encryptionKey = randomBytes(32).toString("base64");
     const password = "SenhaForte123";
+    const companyPhone = `879${digitSeed.slice(0, 8)}`;
     const company = await registerCompany(
       {
-        responsibleName: "Responsável Integração",
         fantasyName: "Empresa Integração",
-        legalDocument: validCpf(0),
-        phone: `879${digitSeed.slice(0, 8)}`,
-        email: `stage11-company-${suffix}@example.test`,
-        city: "PETROLINA_PE",
-        address: "Rua da Integração",
-        addressNumber: "100",
-        neighborhood: "Centro",
+        phone: companyPhone,
         password,
-        passwordConfirmation: password,
-        termsAccepted: true,
-        privacyAccepted: true,
       },
       prismaRegistrationRepository,
-      encryptionKey,
     );
     companyActor.userId = company.id;
     createdUserIds.push(company.id);
@@ -136,7 +126,7 @@ describe.skipIf(!enabled)("ETAPA 11 — fluxo real no banco relacional", () => {
     });
     await expect(
       authenticateCredentials(
-        { email: company.email, password },
+        { identifier: companyPhone, password },
         prismaAuthRepository,
       ),
     ).resolves.toMatchObject({ id: company.id, role: "COMPANY" });

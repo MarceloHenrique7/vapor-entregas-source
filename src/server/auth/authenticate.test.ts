@@ -10,7 +10,7 @@ import { hashPassword } from "./password";
 
 function createRepository(user: CredentialUserRecord | null): AuthRepository {
   return {
-    findUserByEmail: vi.fn().mockResolvedValue(user),
+    findUserByIdentifier: vi.fn().mockResolvedValue(user),
     recordFailedLogin: vi.fn().mockResolvedValue(undefined),
     recordSuccessfulLogin: vi.fn().mockResolvedValue(undefined),
   };
@@ -50,7 +50,30 @@ describe("authenticateCredentials", () => {
       role: "ADMIN",
     });
     expect(repository.recordSuccessfulLogin).toHaveBeenCalledOnce();
+    expect(repository.findUserByIdentifier).toHaveBeenCalledWith({
+      kind: "email",
+      value: "admin@vapor-entregas.local",
+    });
     expect(user).not.toHaveProperty("passwordHash");
+  });
+
+  it("autentica empresa pelo WhatsApp normalizado", async () => {
+    const company = {
+      ...activeUser,
+      email: null,
+      role: "COMPANY" as const,
+    };
+    const repository = createRepository(company);
+    const user = await authenticateCredentials(
+      { identifier: "(87) 99999-9999", password: "SenhaSegura123" },
+      repository,
+    );
+
+    expect(user.email).toBeNull();
+    expect(repository.findUserByIdentifier).toHaveBeenCalledWith({
+      kind: "phone",
+      value: "+5587999999999",
+    });
   });
 
   it("rejeita senha incorreta e registra a falha", async () => {

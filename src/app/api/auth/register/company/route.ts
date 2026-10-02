@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createSession } from "@/server/auth/session";
-import { getSensitiveDataEnv } from "@/server/config/env";
 import { hasValidRequestOrigin } from "@/server/http/origin";
 import { prismaRegistrationRepository } from "@/server/registration/prisma-registration-repository";
 import { registerCompany } from "@/server/registration/register";
@@ -42,21 +41,10 @@ export async function POST(request: NextRequest) {
     return registrationErrorResponse(parsed.error);
   }
 
-  let encryptionKey: string;
-  try {
-    encryptionKey = getSensitiveDataEnv().FIELD_ENCRYPTION_KEY;
-  } catch {
-    return NextResponse.json(
-      { error: "Cadastro temporariamente indisponível." },
-      { status: 503 },
-    );
-  }
-
   try {
     const user = await registerCompany(
       parsed.data,
       prismaRegistrationRepository,
-      encryptionKey,
     );
     await createSession(user.id);
     return NextResponse.json({ user }, { status: 201 });

@@ -1,6 +1,6 @@
 export class RegistrationConflictError extends Error {
-  constructor() {
-    super("Já existe um cadastro com um dos dados informados.");
+  constructor(message = "Já existe um cadastro com um dos dados informados.") {
+    super(message);
     this.name = "RegistrationConflictError";
   }
 }

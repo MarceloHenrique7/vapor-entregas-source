@@ -618,7 +618,7 @@ export function AdminUserDetails({ id }: { id: string }) {
     ["Conta", roleLabel[user.role]],
     ["Cidade", user.city ? cityLabel[user.city] : "—"],
     ["Cadastro", date(user.createdAt)],
-    ["E-mail", user.email],
+    ["E-mail", user.email ?? "Não informado"],
     ["Telefone", user.phone],
     ["Documento", user.documentMasked ?? "—"],
     ...(user.role === "MOTOBOY" && user.vehiclePlate

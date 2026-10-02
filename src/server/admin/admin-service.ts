@@ -81,7 +81,7 @@ function dateRange(
 
 function cityFromUser(user: {
   motoboyProfile: { city: string } | null;
-  companyProfile: { city: string } | null;
+  companyProfile: { city: string | null } | null;
 }) {
   return user.motoboyProfile?.city ?? user.companyProfile?.city ?? null;
 }
@@ -528,7 +528,7 @@ export async function getAdminUser(
     ratingCount: rating._count._all,
     documentMasked: user.motoboyProfile
       ? `CPF final ${user.motoboyProfile.cpfLastDigits}`
-      : user.companyProfile
+      : user.companyProfile?.legalDocumentLastDigits
         ? `CPF/CNPJ final ${user.companyProfile.legalDocumentLastDigits}`
         : null,
     vehiclePlate: user.motoboyProfile?.vehiclePlate ?? null,

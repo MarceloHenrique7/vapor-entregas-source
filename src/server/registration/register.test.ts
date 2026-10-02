@@ -93,65 +93,57 @@ describe("cadastro público", () => {
     ).rejects.toThrow();
   });
 
-  it("cria empresa com role fixa", async () => {
+  it("cria empresa somente com nome, WhatsApp e senha", async () => {
     const repo = repository();
     const input = {
-      responsibleName: "João da Silva",
       fantasyName: "Mercado do Vale",
-      legalDocument: "11.222.333/0001-81",
       phone: "87999999999",
-      email: "mercado@example.com",
-      city: "JUAZEIRO_BA" as const,
-      address: "Rua das Flores",
-      addressNumber: "100",
-      neighborhood: "Centro",
-      complement: "",
-      referencePoint: "",
-      password: "SenhaForte123",
-      passwordConfirmation: "SenhaForte123",
-      termsAccepted: true,
-      privacyAccepted: true,
+      password: "segredo8",
     };
-    const user = await registerCompany(input, repo, key);
+    const user = await registerCompany(input, repo);
     expect(user.role).toBe("COMPANY");
     expect(repo.createCompany).toHaveBeenCalledWith(
       expect.objectContaining({
         role: "COMPANY",
+        name: "Mercado do Vale",
+        email: null,
+        phone: "+5587999999999",
         profile: expect.objectContaining({
-          documentType: "CNPJ",
-          legalDocumentLastDigits: "0181",
+          fantasyName: "Mercado do Vale",
+          documentType: null,
+          legalDocumentLastDigits: null,
+          city: null,
         }),
       }),
     );
     const payload = vi.mocked(repo.createCompany).mock.calls[0][0];
-    expect(payload.profile).not.toHaveProperty("vehiclePlate");
+    expect(payload.passwordHash).not.toBe("segredo8");
+  });
+
+  it("rejeita senha de empresa com menos de 8 caracteres", async () => {
+    await expect(
+      registerCompany(
+        {
+          fantasyName: "Mercado do Vale",
+          phone: "87999999999",
+          password: "curta7",
+        },
+        repository(),
+      ),
+    ).rejects.toThrow(/8 caracteres/);
   });
 
   it("rejeita mass assignment de role e campos de outro perfil", async () => {
     await expect(
       registerCompany(
         {
-          responsibleName: "João da Silva",
           fantasyName: "Mercado do Vale",
-          legalDocument: "11.222.333/0001-81",
           phone: "87999999999",
-          email: "mercado@example.com",
-          city: "JUAZEIRO_BA",
-          address: "Rua das Flores",
-          addressNumber: "100",
-          neighborhood: "Centro",
-          complement: "",
-          referencePoint: "",
           password: "SenhaForte123",
-          passwordConfirmation: "SenhaForte123",
-          termsAccepted: true,
-          privacyAccepted: true,
           role: "ADMIN",
-          vehiclePlate: "ABC1D23",
         },
         repository(),
-        key,
       ),
-    ).rejects.toThrow(/Unrecognized keys/);
+    ).rejects.toThrow(/Unrecognized key/);
   });
 });

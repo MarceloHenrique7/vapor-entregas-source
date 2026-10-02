@@ -1,11 +1,8 @@
 import { z } from "zod";
 
-import {
-  getBrazilianDocumentType,
-  isValidCpf,
-  onlyDigits,
-} from "@/lib/validators/br-documents";
+import { isValidCpf } from "@/lib/validators/br-documents";
 import { optionalVehiclePlateSchema } from "@/lib/validators/vehicle-plate";
+import { normalizeBrazilPhone } from "@/lib/validators/phone";
 import { passwordSchema } from "@/server/auth/schemas";
 
 export const supportedCitySchema = z.enum(["PETROLINA_PE", "JUAZEIRO_BA"]);
@@ -22,18 +19,15 @@ const nameSchema = z
 
 const emailSchema = z.string().trim().toLowerCase().email().max(254);
 
-const phoneSchema = z
+export const registrationPhoneSchema = z
   .string()
   .trim()
-  .transform(onlyDigits)
+  .max(24)
+  .transform(normalizeBrazilPhone)
   .refine(
-    (value) =>
-      value.length === 10 ||
-      value.length === 11 ||
-      (value.startsWith("55") && (value.length === 12 || value.length === 13)),
-    "Informe um telefone válido com DDD.",
-  )
-  .transform((value) => (value.startsWith("55") ? `+${value}` : `+55${value}`));
+    (value): value is string => value !== null,
+    "Informe um WhatsApp válido.",
+  );
 
 const confirmationFields = {
   termsAccepted: z.boolean().refine(Boolean, "Aceite os Termos de Uso."),
@@ -41,14 +35,6 @@ const confirmationFields = {
     .boolean()
     .refine(Boolean, "Aceite a Política de Privacidade."),
 };
-
-const optionalText = (maximum: number) =>
-  z
-    .string()
-    .trim()
-    .max(maximum)
-    .transform((value) => value || undefined)
-    .optional();
 
 export const motoboyRegistrationSchema = z
   .object({
@@ -60,7 +46,7 @@ export const motoboyRegistrationSchema = z
       .min(4, "Informe o número do RG.")
       .max(20)
       .regex(/^[0-9A-Za-z.\-/\s]+$/, "Formato de RG inválido."),
-    phone: phoneSchema,
+    phone: registrationPhoneSchema,
     email: emailSchema,
     birthDate: z
       .string()
@@ -89,32 +75,18 @@ export const motoboyRegistrationSchema = z
 
 export const companyRegistrationSchema = z
   .object({
-    responsibleName: nameSchema,
-    fantasyName: z.string().trim().min(2).max(120),
-    legalDocument: z
+    fantasyName: z
       .string()
       .trim()
-      .refine(
-        (value) => getBrazilianDocumentType(value) !== null,
-        "Informe um CPF ou CNPJ válido.",
-      ),
-    phone: phoneSchema,
-    email: emailSchema,
-    city: supportedCitySchema,
-    address: z.string().trim().min(3).max(180),
-    addressNumber: z.string().trim().min(1).max(20),
-    neighborhood: z.string().trim().min(2).max(100),
-    complement: optionalText(120),
-    referencePoint: optionalText(180),
-    password: passwordSchema,
-    passwordConfirmation: z.string(),
-    ...confirmationFields,
+      .min(2, "Informe o nome da empresa.")
+      .max(120),
+    phone: registrationPhoneSchema,
+    password: z
+      .string()
+      .min(8, "A senha precisa ter pelo menos 8 caracteres.")
+      .max(128, "A senha deve ter no máximo 128 caracteres."),
   })
-  .strict()
-  .refine((data) => data.password === data.passwordConfirmation, {
-    message: "As senhas não coincidem.",
-    path: ["passwordConfirmation"],
-  });
+  .strict();
 
 export type MotoboyRegistrationInput = z.input<
   typeof motoboyRegistrationSchema

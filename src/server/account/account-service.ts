@@ -154,10 +154,12 @@ export async function exportOwnData(
             type: "COMPANY",
             fantasyName: record.companyProfile.fantasyName,
             documentType: record.companyProfile.documentType,
-            legalDocument: decryptPrivateField(
-              record.companyProfile.legalDocumentEncrypted,
-              encryptionKey,
-            ),
+            legalDocument: record.companyProfile.legalDocumentEncrypted
+              ? decryptPrivateField(
+                  record.companyProfile.legalDocumentEncrypted,
+                  encryptionKey,
+                )
+              : null,
             city: record.companyProfile.city,
             locations: record.companyProfile.locations,
           }

@@ -1,7 +1,8 @@
 import { InvalidCredentialsError } from "./errors";
 import { verifyPassword } from "./password";
-import { loginSchema, type LoginInput } from "./schemas";
+import { loginEmailSchema, loginSchema, type LoginInput } from "./schemas";
 import type { AuthenticatedUser, Role, UserStatus } from "./types";
+import { normalizeBrazilPhone } from "@/lib/validators/phone";
 
 const MAX_ACCOUNT_FAILURES = 5;
 const ACCOUNT_LOCK_DURATION_MS = 15 * 60 * 1_000;
@@ -11,7 +12,7 @@ const DUMMY_PASSWORD_HASH =
 export interface CredentialUserRecord {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   role: Role;
   status: UserStatus;
   passwordHash: string;
@@ -20,7 +21,10 @@ export interface CredentialUserRecord {
 }
 
 export interface AuthRepository {
-  findUserByEmail(email: string): Promise<CredentialUserRecord | null>;
+  findUserByIdentifier(identifier: {
+    kind: "email" | "phone";
+    value: string;
+  }): Promise<CredentialUserRecord | null>;
   recordFailedLogin(
     userId: string,
     failedAttempts: number,
@@ -40,7 +44,16 @@ export async function authenticateCredentials(
     throw new InvalidCredentialsError();
   }
 
-  const user = await repository.findUserByEmail(parsed.data.email);
+  const rawIdentifier = parsed.data.identifier ?? parsed.data.email ?? "";
+  const parsedEmail = rawIdentifier.includes("@")
+    ? loginEmailSchema.safeParse(rawIdentifier)
+    : null;
+  const email = parsedEmail?.success ? parsedEmail.data : null;
+  const phone = email ? null : normalizeBrazilPhone(rawIdentifier);
+  if (!email && !phone) throw new InvalidCredentialsError();
+  const user = await repository.findUserByIdentifier(
+    email ? { kind: "email", value: email } : { kind: "phone", value: phone! },
+  );
   const passwordMatches = await verifyPassword(
     user?.passwordHash ?? DUMMY_PASSWORD_HASH,
     parsed.data.password,

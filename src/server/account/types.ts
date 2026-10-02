@@ -8,7 +8,7 @@ export interface AccountActor {
 export interface AccountOverview {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone: string;
   role: Role;
   status: UserStatus;
@@ -33,7 +33,7 @@ export interface AccountExportRecord {
   account: {
     id: string;
     name: string;
-    email: string;
+    email: string | null;
     phone: string;
     role: Role;
     status: UserStatus;
@@ -54,9 +54,9 @@ export interface AccountExportRecord {
   };
   companyProfile: null | {
     fantasyName: string;
-    documentType: string;
-    legalDocumentEncrypted: string;
-    city: string;
+    documentType: string | null;
+    legalDocumentEncrypted: string | null;
+    city: string | null;
     locations: Array<{
       label: string;
       address: string;

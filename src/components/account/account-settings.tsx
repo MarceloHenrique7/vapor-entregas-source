@@ -191,15 +191,19 @@ export function AccountSettings() {
             <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
               <div>
                 <dt className="font-bold text-muted">E-mail</dt>
-                <dd className="break-all">{account.email}</dd>
+                <dd className="break-all">
+                  {account.email ?? "Não informado"}
+                </dd>
               </div>
               <div>
                 <dt className="font-bold text-muted">Cidade</dt>
-                <dd>{account.city ? cityLabel[account.city] : "—"}</dd>
+                <dd>
+                  {account.city ? cityLabel[account.city] : "Não informado"}
+                </dd>
               </div>
               <div>
                 <dt className="font-bold text-muted">Documento</dt>
-                <dd>{account.documentMasked ?? "—"}</dd>
+                <dd>{account.documentMasked ?? "Não informado"}</dd>
               </div>
               {account.birthDate && (
                 <div>

@@ -20,7 +20,7 @@ const blockingStatuses = [
 function overviewFromUser(user: {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone: string;
   role: "MOTOBOY" | "COMPANY" | "ADMIN";
   status: "ACTIVE" | "SUSPENDED" | "BLOCKED" | "DELETED";
@@ -32,9 +32,9 @@ function overviewFromUser(user: {
     vehiclePlate: string | null;
   };
   companyProfile: null | {
-    city: string;
+    city: string | null;
     fantasyName: string;
-    legalDocumentLastDigits: string;
+    legalDocumentLastDigits: string | null;
   };
   legalAcceptances: Array<{
     documentType: "TERMS_OF_USE" | "PRIVACY_POLICY";
@@ -54,7 +54,7 @@ function overviewFromUser(user: {
     fantasyName: user.companyProfile?.fantasyName ?? null,
     documentMasked: user.motoboyProfile
       ? `CPF final ${user.motoboyProfile.cpfLastDigits}`
-      : user.companyProfile
+      : user.companyProfile?.legalDocumentLastDigits
         ? `CPF/CNPJ final ${user.companyProfile.legalDocumentLastDigits}`
         : null,
     birthDate:

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Icon } from "@/components/icons/icon";
@@ -9,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { trackMetaCustomEventOnce } from "@/lib/analytics/meta-pixel";
 import {
   coordinatesMatch,
   normalizeCoordinates,
@@ -55,8 +57,12 @@ function cityName(city: City) {
 
 export function CompanyLocationForm({
   initial,
+  onboarding = false,
+  nextHref = "/app/empresa/entregas/nova",
 }: {
   initial: InitialCompanyLocation;
+  onboarding?: boolean;
+  nextHref?: string;
 }) {
   const [form, setForm] = useState(initial);
   const [coordinates, setCoordinates] = useState<Coordinates>(() =>
@@ -509,6 +515,12 @@ export function CompanyLocationForm({
       setLocationResolved(true);
       setStatus("saved");
       setMessage("Localização salva como ponto padrão de coleta.");
+      if (onboarding) {
+        trackMetaCustomEventOnce(
+          `company-location-configured:${payload.location.id}`,
+          "CompanyLocationConfigured",
+        );
+      }
     } catch {
       setStatus("idle");
       setMessage("Não foi possível salvar agora. Tente novamente.");
@@ -790,10 +802,35 @@ export function CompanyLocationForm({
             }
           >
             <Icon name="check" className="size-5" />
-            {status === "saving" ? "Salvando..." : "Salvar localização"}
+            {status === "saving"
+              ? "Salvando..."
+              : onboarding
+                ? "Confirmar localização"
+                : "Salvar localização"}
           </Button>
         </div>
       </Card>
+      {onboarding && status === "saved" && (
+        <Card className="border-green-200 bg-green-50 p-6 sm:p-7">
+          <p className="text-xs font-extrabold uppercase tracking-[.16em] text-green-700">
+            Tudo pronto!
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-extrabold text-ink">
+            Sua loja está configurada.
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            O endereço e o PIN foram salvos juntos como ponto padrão de coleta.
+          </p>
+          <Link
+            href={nextHref}
+            className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-brand px-5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(234,29,44,.2)] transition hover:bg-brand-hover sm:w-auto"
+          >
+            {nextHref.includes("entregas/nova")
+              ? "Criar primeira entrega"
+              : "Ir para a Vapor"}
+          </Link>
+        </Card>
+      )}
     </form>
   );
 }

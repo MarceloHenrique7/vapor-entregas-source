@@ -189,7 +189,7 @@ model User {
   id                        String                 @id @default(uuid()) @db.Char(36)
   role                      Role
   name                      String                 @db.VarChar(120)
-  email                     String                 @unique @db.VarChar(254)
+  email                     String?                @unique @db.VarChar(254)
   phone                     String                 @unique @db.VarChar(20)
   passwordHash              String                 @db.VarChar(255)
   status                    UserStatus             @default(ACTIVE)
@@ -406,11 +406,11 @@ model CompanyProfile {
   id                      String                  @id @default(uuid()) @db.Char(36)
   userId                  String                  @unique @db.Char(36)
   fantasyName             String                  @db.VarChar(120)
-  documentType            CompanyDocumentType
-  legalDocumentEncrypted  String                  @db.Text
-  legalDocumentHash       String                  @unique @db.Char(64)
-  legalDocumentLastDigits String                  @db.Char(4)
-  city                    SupportedCity
+  documentType            CompanyDocumentType?
+  legalDocumentEncrypted  String?                 @db.Text
+  legalDocumentHash       String?                 @unique @db.Char(64)
+  legalDocumentLastDigits String?                 @db.Char(4)
+  city                    SupportedCity?
   proEnabled              Boolean                 @default(false)
   proEnabledAt            DateTime?               @db.DateTime(3)
   proExpiresAt            DateTime?               @db.DateTime(3)

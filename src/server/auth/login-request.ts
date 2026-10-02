@@ -54,7 +54,7 @@ export async function handleLoginRequest(
 
   try {
     const user = await authenticateCredentials(
-      body as { email: string; password: string },
+      body as { identifier?: string; email?: string; password: string },
       prismaAuthRepository,
     );
     if (!options.authorize(user)) {
@@ -73,7 +73,7 @@ export async function handleLoginRequest(
     if (error instanceof InvalidCredentialsError) {
       await recordLoginThrottleFailure(throttleKey);
       return NextResponse.json(
-        { error: "E-mail ou senha inválidos." },
+        { error: "WhatsApp/e-mail ou senha inválidos." },
         { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }

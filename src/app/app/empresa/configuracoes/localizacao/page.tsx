@@ -7,7 +7,9 @@ import {
   type InitialCompanyLocation,
 } from "@/components/maps/company-location-form";
 import { requirePageRole } from "@/server/auth/page-guard";
+import { getPrelaunchEnv } from "@/server/config/env";
 import { getPrisma } from "@/server/db/prisma";
+import { canBypassPrelaunch } from "@/server/prelaunch/policy";
 
 export const metadata: Metadata = {
   title: "Localização da empresa",
@@ -45,7 +47,7 @@ export default async function CompanyLocationPage() {
   if (!profile) notFound();
 
   const existing = profile.locations[0];
-  const city = existing?.city ?? profile.city;
+  const city = existing?.city ?? profile.city ?? "PETROLINA_PE";
   const state = city === "PETROLINA_PE" ? "PE" : "BA";
   const initial: InitialCompanyLocation = existing
     ? {
@@ -73,14 +75,35 @@ export default async function CompanyLocationPage() {
         isDefault: false,
       };
 
+  const onboarding = !existing;
+  const prelaunch = getPrelaunchEnv();
+  const operationalAccess =
+    !prelaunch.enabled || canBypassPrelaunch(user, prelaunch.testUserIds);
+
   return (
     <div className="space-y-7">
       <DashboardHeader
-        eyebrow="Configurações da empresa"
-        title="Localização da empresa"
-        description="Cadastre o ponto exato que será usado futuramente como origem padrão das coletas."
+        eyebrow={
+          onboarding ? "Passo 2 de 2 · Localização" : "Configurações da empresa"
+        }
+        title={
+          onboarding ? "Agora configure sua loja" : "Localização da empresa"
+        }
+        description={
+          onboarding
+            ? "Precisamos saber de onde os motoboys irão retirar suas entregas."
+            : "Cadastre o ponto exato que será usado como origem padrão das coletas."
+        }
       />
-      <CompanyLocationForm initial={initial} />
+      <CompanyLocationForm
+        initial={initial}
+        onboarding={onboarding}
+        nextHref={
+          operationalAccess
+            ? "/app/empresa/entregas/nova"
+            : "/cadastro/concluido"
+        }
+      />
     </div>
   );
 }

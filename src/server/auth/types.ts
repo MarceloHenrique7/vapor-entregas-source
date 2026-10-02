@@ -12,7 +12,7 @@ export type UserStatus = (typeof USER_STATUSES)[number];
 export interface AuthenticatedUser {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   role: Role;
 }
 

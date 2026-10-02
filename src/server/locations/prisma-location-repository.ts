@@ -78,6 +78,10 @@ export const prismaLocationRepository: LocationRepository = {
         where: { companyId, isDefault: true },
         data: { isDefault: false, defaultCompanyKey: null },
       });
+      await transaction.companyProfile.update({
+        where: { id: companyId },
+        data: { city: input.city },
+      });
       const data = {
         ...input,
         postalCode: input.postalCode,

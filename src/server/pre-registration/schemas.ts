@@ -1,24 +1,15 @@
 import { z } from "zod";
-
-const onlyDigits = (value: string) => value.replace(/\D/g, "");
+import {
+  formatBrazilPhoneInput,
+  normalizeBrazilPhone,
+} from "@/lib/validators/phone";
 
 export function normalizeBrazilianPhone(value: string) {
-  let digits = onlyDigits(value);
-  if (
-    digits.startsWith("55") &&
-    (digits.length === 12 || digits.length === 13)
-  ) {
-    digits = digits.slice(2);
-  }
-  if (!/^[1-9]{2}[2-9]\d{7,8}$/.test(digits)) return null;
-  return `+55${digits}`;
+  return normalizeBrazilPhone(value);
 }
 
 export function formatBrazilianPhone(normalized: string) {
-  const digits = normalized.replace(/^\+55/, "");
-  return digits.length === 11
-    ? `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-    : `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return formatBrazilPhoneInput(normalized);
 }
 
 export const preRegistrationSchema = z

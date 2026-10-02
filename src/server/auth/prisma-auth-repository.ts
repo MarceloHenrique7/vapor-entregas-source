@@ -4,9 +4,12 @@ import type { AuthRepository } from "./authenticate";
 import { getPrisma } from "../db/prisma";
 
 export const prismaAuthRepository: AuthRepository = {
-  async findUserByEmail(email) {
+  async findUserByIdentifier(identifier) {
     return getPrisma().user.findUnique({
-      where: { email },
+      where:
+        identifier.kind === "email"
+          ? { email: identifier.value }
+          : { phone: identifier.value },
       select: {
         id: true,
         name: true,

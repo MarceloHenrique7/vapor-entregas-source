@@ -211,10 +211,11 @@ export const prismaSubscriptionRepository: SubscriptionRepository = {
     return plan ? toPlan(plan) : null;
   },
   async getBillingUser(userId) {
-    return getPrisma().user.findUnique({
+    const user = await getPrisma().user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, role: true, status: true },
     });
+    return user?.email ? { ...user, email: user.email } : null;
   },
   async getLatest(userId) {
     const value = await getPrisma().subscription.findFirst({

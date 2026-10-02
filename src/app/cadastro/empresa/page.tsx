@@ -6,10 +6,10 @@ export const metadata: Metadata = { title: "Cadastro de empresa" };
 export default function CompanyRegistrationPage() {
   return (
     <AuthShell
-      eyebrow="Cadastro • Sou empresa"
-      title="Comece com a Vapor."
-      description="Crie sua conta e tenha o App da Vapor pronto para publicar e organizar as entregas do seu negócio."
-      sideTitle="Vamos colocar sua empresa a todo Vapor. ⚡"
+      eyebrow="Cadastro · Sou empresa"
+      title="Crie sua conta"
+      description="É grátis para empresas e leva poucos passos."
+      sideTitle="Entre com o essencial. Configure sua loja logo depois."
     >
       <CompanyRegistrationForm />
     </AuthShell>

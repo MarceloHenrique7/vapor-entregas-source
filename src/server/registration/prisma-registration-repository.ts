@@ -8,12 +8,15 @@ import { getPrisma } from "@/server/db/prisma";
 import { RegistrationConflictError } from "./errors";
 import type { RegistrationRepository } from "./register";
 
-function handlePrismaRegistrationError(error: unknown): never {
+function handlePrismaRegistrationError(
+  error: unknown,
+  conflictMessage?: string,
+): never {
   if (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   ) {
-    throw new RegistrationConflictError();
+    throw new RegistrationConflictError(conflictMessage);
   }
   throw error;
 }
@@ -132,19 +135,6 @@ export const prismaRegistrationRepository: RegistrationRepository = {
                 legalDocumentHash: data.profile.legalDocumentHash,
                 legalDocumentLastDigits: data.profile.legalDocumentLastDigits,
                 city: data.profile.city,
-                locations: {
-                  create: {
-                    label: "Loja principal",
-                    address: data.profile.address,
-                    number: data.profile.addressNumber,
-                    neighborhood: data.profile.neighborhood,
-                    complement: data.profile.complement,
-                    reference: data.profile.referencePoint,
-                    city: data.profile.city,
-                    state: data.profile.city === "PETROLINA_PE" ? "PE" : "BA",
-                    isDefault: false,
-                  },
-                },
               },
             },
             termsAcceptances: { create: { version: data.termsVersion } },
@@ -178,7 +168,10 @@ export const prismaRegistrationRepository: RegistrationRepository = {
       });
       return user;
     } catch (error) {
-      return handlePrismaRegistrationError(error);
+      return handlePrismaRegistrationError(
+        error,
+        "Já existe uma conta com este WhatsApp. Entre na sua conta ou recupere o acesso.",
+      );
     }
   },
 };

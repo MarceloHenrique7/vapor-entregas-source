@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { onlyDigits } from "@/lib/validators/br-documents";
+import { normalizeBrazilPhone } from "@/lib/validators/phone";
 import { editableVehiclePlateSchema } from "@/lib/validators/vehicle-plate";
 import { passwordSchema } from "@/server/auth/schemas";
 
@@ -8,15 +8,12 @@ const nameSchema = z.string().trim().min(3).max(120);
 const phoneSchema = z
   .string()
   .trim()
-  .transform(onlyDigits)
+  .max(24)
+  .transform(normalizeBrazilPhone)
   .refine(
-    (value) =>
-      value.length === 10 ||
-      value.length === 11 ||
-      (value.startsWith("55") && [12, 13].includes(value.length)),
-    "Informe um telefone válido com DDD.",
-  )
-  .transform((value) => (value.startsWith("55") ? `+${value}` : `+55${value}`));
+    (value): value is string => value !== null,
+    "Informe um WhatsApp válido.",
+  );
 const currentPassword = z.string().min(1).max(128);
 
 export const updateAccountSchema = z

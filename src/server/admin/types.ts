@@ -56,7 +56,7 @@ export interface AdminUserListItem {
 }
 
 export interface AdminUserDetail extends AdminUserListItem {
-  email: string;
+  email: string | null;
   phone: string;
   documentMasked: string | null;
   vehiclePlate: string | null;

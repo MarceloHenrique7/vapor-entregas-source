@@ -9,10 +9,19 @@ const normalizedEmail = z
   .email("Informe um e-mail válido.")
   .max(254);
 
-export const loginSchema = z.object({
-  email: normalizedEmail,
-  password: z.string().min(1).max(128),
-});
+export const loginEmailSchema = normalizedEmail;
+
+export const loginSchema = z
+  .object({
+    identifier: z.string().trim().min(3).max(254).optional(),
+    email: normalizedEmail.optional(),
+    password: z.string().min(1).max(128),
+  })
+  .strict()
+  .refine((data) => Boolean(data.identifier || data.email), {
+    path: ["identifier"],
+    message: "Informe seu WhatsApp ou e-mail.",
+  });
 
 export const passwordSchema = z
   .string()
@@ -34,4 +43,4 @@ export const adminSeedEnvSchema = z.object({
   ADMIN_PASSWORD: passwordSchema,
 });
 
-export type LoginInput = z.infer<typeof loginSchema>;
+export type LoginInput = z.input<typeof loginSchema>;

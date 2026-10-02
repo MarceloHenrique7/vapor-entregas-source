@@ -208,6 +208,11 @@ npm run dev
 
 Acesse `http://localhost:3000`.
 
+O cadastro inicial de empresa usa nome da empresa, WhatsApp e senha; a localização
+é configurada logo depois com endereço, mapa e PIN sincronizados. A arquitetura,
+compatibilidade com contas antigas e a migration incremental estão documentadas em
+[`docs/company-onboarding.md`](docs/company-onboarding.md).
+
 ## Mapa e localização da empresa
 
 A Etapa 4 usa Leaflet/React-Leaflet com tiles do OpenStreetMap. A busca de endereço

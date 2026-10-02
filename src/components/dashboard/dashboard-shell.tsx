@@ -20,7 +20,7 @@ export function DashboardShell({
 }: {
   children: React.ReactNode;
   navigation: NavigationItem[];
-  user: { name: string; email: string };
+  user: { name: string; email: string | null };
   roleLabel: string;
 }) {
   const pathname = usePathname();
@@ -67,7 +67,9 @@ export function DashboardShell({
             {roleLabel}
           </p>
           <p className="mt-2 truncate font-bold text-ink">{user.name}</p>
-          <p className="mt-1 truncate text-xs text-muted">{user.email}</p>
+          <p className="mt-1 truncate text-xs text-muted">
+            {user.email ?? "Conta via WhatsApp"}
+          </p>
         </div>
         <nav className="mt-6 flex-1 space-y-1" aria-label="Navegação do painel">
           {navigation.map((item) => (

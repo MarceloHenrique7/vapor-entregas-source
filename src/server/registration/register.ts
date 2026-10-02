@@ -2,10 +2,7 @@ import {
   CURRENT_PRIVACY_VERSION,
   CURRENT_TERMS_VERSION,
 } from "@/config/product";
-import {
-  getBrazilianDocumentType,
-  onlyDigits,
-} from "@/lib/validators/br-documents";
+import { onlyDigits } from "@/lib/validators/br-documents";
 import { hashPassword } from "@/server/auth/password";
 import type { AuthenticatedUser } from "@/server/auth/types";
 import {
@@ -45,7 +42,7 @@ export interface NewMotoboyAccount {
 export interface NewCompanyAccount {
   role: "COMPANY";
   name: string;
-  email: string;
+  email: null;
   phone: string;
   passwordHash: string;
   termsVersion: string;
@@ -53,16 +50,11 @@ export interface NewCompanyAccount {
   registeredAt: Date;
   profile: {
     fantasyName: string;
-    documentType: "CPF" | "CNPJ";
-    legalDocumentEncrypted: string;
-    legalDocumentHash: string;
-    legalDocumentLastDigits: string;
-    city: "PETROLINA_PE" | "JUAZEIRO_BA";
-    address: string;
-    addressNumber: string;
-    neighborhood: string;
-    complement?: string;
-    referencePoint?: string;
+    documentType: null;
+    legalDocumentEncrypted: null;
+    legalDocumentHash: null;
+    legalDocumentLastDigits: null;
+    city: null;
   };
 }
 
@@ -107,21 +99,14 @@ export async function registerMotoboy(
 export async function registerCompany(
   input: CompanyRegistrationInput,
   repository: RegistrationRepository,
-  encryptionKey: string,
   now = new Date(),
 ) {
   const data = companyRegistrationSchema.parse(input);
-  const legalDocument = onlyDigits(data.legalDocument);
-  const documentType = getBrazilianDocumentType(legalDocument);
-
-  if (!documentType) {
-    throw new Error("Documento inválido após validação.");
-  }
 
   return repository.createCompany({
     role: "COMPANY",
-    name: data.responsibleName,
-    email: data.email,
+    name: data.fantasyName,
+    email: null,
     phone: data.phone,
     passwordHash: await hashPassword(data.password),
     termsVersion: CURRENT_TERMS_VERSION,
@@ -129,16 +114,11 @@ export async function registerCompany(
     registeredAt: now,
     profile: {
       fantasyName: data.fantasyName,
-      documentType,
-      legalDocumentEncrypted: encryptPrivateField(legalDocument, encryptionKey),
-      legalDocumentHash: fingerprintPrivateField(legalDocument, encryptionKey),
-      legalDocumentLastDigits: legalDocument.slice(-4),
-      city: data.city,
-      address: data.address,
-      addressNumber: data.addressNumber,
-      neighborhood: data.neighborhood,
-      complement: data.complement,
-      referencePoint: data.referencePoint,
+      documentType: null,
+      legalDocumentEncrypted: null,
+      legalDocumentHash: null,
+      legalDocumentLastDigits: null,
+      city: null,
     },
   });
 }
