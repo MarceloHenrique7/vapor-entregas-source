@@ -54,7 +54,7 @@ describe("prontidão da experiência de produção", () => {
     expect(form).toContain("}, 450)");
     expect(form).toContain("Confirmar destino");
     expect(form).toContain("createLatestRequestGate");
-    expect(form).toContain("Ponto ajustado no mapa");
+    expect(form).toContain("Ponto ajustado e endereço preenchido");
     expect(form).toContain("slice(0, 5)");
     expect(route).toContain('requireRole(["COMPANY", "ADMIN"])');
     expect(route).toContain("enforceLocationRateLimit");

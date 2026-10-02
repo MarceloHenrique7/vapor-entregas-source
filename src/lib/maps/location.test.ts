@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   canonicalLocationFromResult,
+  completeCanonicalAddress,
+  createPinnedLocationFallback,
   createLatestRequestGate,
   isLocationDefiningAddressField,
   mergeCanonicalAddress,
@@ -117,5 +119,49 @@ describe("localização canônica", () => {
     };
     expect(mergeCanonicalAddress(current, location).number).toBe("");
     expect(mergeCanonicalAddress(current, location, true).number).toBe("99");
+  });
+
+  it("aceita um ponto válido quando o provedor não conhece número ou bairro", () => {
+    const address = completeCanonicalAddress(
+      {
+        street: "Rua antiga",
+        number: "99",
+        neighborhood: "Bairro antigo",
+        postalCode: "",
+        city: "PETROLINA_PE",
+      },
+      {
+        formattedAddress: "Rua do Caqui, Petrolina, Pernambuco",
+        components: { street: "Rua do Caqui", city: "Petrolina" },
+      },
+    );
+
+    expect(address).toEqual({
+      street: "Rua do Caqui",
+      number: "s/n",
+      neighborhood: "Bairro não informado",
+      postalCode: "",
+      city: "PETROLINA_PE",
+    });
+  });
+
+  it("preserva coordenadas mesmo quando o reverse geocoding falha", () => {
+    const fallback = createPinnedLocationFallback(
+      { latitude: -9.3912344, longitude: -40.5012344 },
+      "PETROLINA_PE",
+    );
+
+    expect(fallback).toMatchObject({
+      address: {
+        street: "Local marcado no mapa",
+        number: "s/n",
+        neighborhood: "Bairro não informado",
+      },
+      location: {
+        latitude: -9.391234,
+        longitude: -40.501234,
+        source: "pin",
+      },
+    });
   });
 });

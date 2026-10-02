@@ -146,6 +146,14 @@ export function AddressLocationPicker({
               aria-controls={`${idPrefix}-suggestions`}
               disabled={disabled}
               onChange={(event) => onSearchChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                const firstSuggestion = suggestions[0];
+                if (!firstSuggestion) return;
+                setManuallyEditingAddress(false);
+                onSelectSuggestion(firstSuggestion);
+              }}
             />
           </FormField>
           {suggestionStatus === "searching" && (
@@ -384,15 +392,20 @@ function AddressFields({
           onChange={(event) => onAddressChange("street", event.target.value)}
         />
       </FormField>
-      <FormField label="Número" htmlFor={`${idPrefix}-number`} required>
+      <FormField
+        label="Número"
+        htmlFor={`${idPrefix}-number`}
+        hint="Preenchido automaticamente quando disponível"
+      >
         <Input
           id={`${idPrefix}-number`}
+          placeholder="s/n"
           value={address.number}
           disabled={disabled}
           onChange={(event) => onAddressChange("number", event.target.value)}
         />
       </FormField>
-      <FormField label="Bairro" htmlFor={`${idPrefix}-neighborhood`} required>
+      <FormField label="Bairro" htmlFor={`${idPrefix}-neighborhood`}>
         <Input
           id={`${idPrefix}-neighborhood`}
           value={address.neighborhood}

@@ -170,7 +170,7 @@ export function createNominatimProvider({
     async geocode(query: GeocodingQuery) {
       const city = query.city === "PETROLINA_PE" ? "Petrolina" : "Juazeiro";
       const parts = [
-        `${query.address}, ${query.number}`,
+        query.number ? `${query.address}, ${query.number}` : query.address,
         query.neighborhood,
         city,
         query.state,

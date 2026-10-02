@@ -60,6 +60,10 @@ export interface StructuredAddressDraft {
   city: SupportedLocationCity;
 }
 
+export const ADDRESS_WITHOUT_NUMBER = "s/n";
+export const UNKNOWN_NEIGHBORHOOD = "Bairro não informado";
+export const PINNED_LOCATION_STREET = "Local marcado no mapa";
+
 export function isLocationDefiningAddressField(field: LocationAddressField) {
   return field !== "complement" && field !== "reference";
 }
@@ -101,6 +105,70 @@ export function mergeCanonicalAddress(
     postalCode:
       location.components.postalCode?.replace(/\D/g, "") ?? current.postalCode,
     city: resolveSupportedCity(location.components, current.city),
+  };
+}
+
+export function completeCanonicalAddress(
+  current: StructuredAddressDraft,
+  location: Pick<CanonicalLocation, "components" | "formattedAddress">,
+  options: {
+    preserveCurrentAddress?: boolean;
+    preserveEnteredNumber?: boolean;
+  } = {},
+): StructuredAddressDraft {
+  const base = options.preserveCurrentAddress
+    ? current
+    : {
+        street: "",
+        number: options.preserveEnteredNumber ? current.number : "",
+        neighborhood: "",
+        postalCode: "",
+        city: current.city,
+      };
+  const merged = mergeCanonicalAddress(
+    base,
+    location,
+    options.preserveEnteredNumber,
+  );
+  const formattedStreet = location.formattedAddress.split(",")[0]?.trim();
+  return {
+    ...merged,
+    street: merged.street.trim() || formattedStreet || PINNED_LOCATION_STREET,
+    number: merged.number.trim() || ADDRESS_WITHOUT_NUMBER,
+    neighborhood: merged.neighborhood.trim() || UNKNOWN_NEIGHBORHOOD,
+  };
+}
+
+export function createPinnedLocationFallback(
+  coordinates: Coordinates,
+  city: SupportedLocationCity,
+): { location: CanonicalLocation; address: StructuredAddressDraft } | null {
+  const normalized = normalizeCoordinates(coordinates);
+  if (!normalized) return null;
+  const state = city === "PETROLINA_PE" ? "PE" : "BA";
+  const cityName = city === "PETROLINA_PE" ? "Petrolina" : "Juazeiro";
+  const formattedAddress = `${normalized.latitude.toFixed(6)}, ${normalized.longitude.toFixed(6)}`;
+  const address: StructuredAddressDraft = {
+    street: PINNED_LOCATION_STREET,
+    number: ADDRESS_WITHOUT_NUMBER,
+    neighborhood: UNKNOWN_NEIGHBORHOOD,
+    postalCode: "",
+    city,
+  };
+  return {
+    address,
+    location: {
+      ...normalized,
+      formattedAddress,
+      source: "pin",
+      components: {
+        street: address.street,
+        number: address.number,
+        neighborhood: address.neighborhood,
+        city: cityName,
+        state,
+      },
+    },
   };
 }
 

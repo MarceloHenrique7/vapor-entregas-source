@@ -26,9 +26,10 @@ import {
 } from "@/lib/maps/geo";
 import {
   canonicalLocationFromResult,
+  completeCanonicalAddress,
+  createPinnedLocationFallback,
   createLatestRequestGate,
   isLocationDefiningAddressField,
-  mergeCanonicalAddress,
   type GeocodingResultPayload,
   type CanonicalLocation,
   type LocationSource,
@@ -422,7 +423,8 @@ export function NewDeliveryForm({
 
   function update(key: keyof typeof form, value: string) {
     if (status === "publishing") return;
-    setForm((current) => ({ ...current, [key]: value }));
+    const nextForm = { ...form, [key]: value };
+    setForm(nextForm);
     const locationField =
       key === "destinationAddress"
         ? "street"
@@ -438,6 +440,35 @@ export function NewDeliveryForm({
                   ? "reference"
                   : null;
     if (locationField && isLocationDefiningAddressField(locationField)) {
+      if (selectedLocation && coordinatesMatch(selectedLocation, coordinates)) {
+        const formattedAddress = `${nextForm.destinationAddress || "Local marcado no mapa"}, ${nextForm.destinationNumber || "s/n"} - ${nextForm.destinationNeighborhood || "Bairro não informado"}`;
+        const synchronizedLocation: CanonicalLocation = {
+          ...selectedLocation,
+          formattedAddress,
+          components: {
+            ...selectedLocation.components,
+            street: nextForm.destinationAddress || undefined,
+            number: nextForm.destinationNumber || undefined,
+            neighborhood: nextForm.destinationNeighborhood || undefined,
+            postalCode: nextForm.destinationPostalCode || undefined,
+          },
+        };
+        setSelectedLocation(synchronizedLocation);
+        setConfirmedLocation(null);
+        setApproximateAddress(formattedAddress);
+        programmaticSearchValue.current = formattedAddress;
+        setAddressSearch(formattedAddress);
+        setLocationResolved(true);
+        setPinConfirmed(false);
+        setLocationMessage(
+          "Endereço ajustado. O PIN foi preservado; confirme o destino.",
+        );
+        quoteRequests.current.invalidate();
+        setQuote(null);
+        setQuoteError("");
+        setMessage("");
+        return;
+      }
       geocodeController.current?.abort();
       reverseController.current?.abort();
       geocodeRequests.current.invalidate();
@@ -496,7 +527,7 @@ export function NewDeliveryForm({
       options.exactCoordinates,
     );
     if (!location) return false;
-    const address = mergeCanonicalAddress(
+    const address = completeCanonicalAddress(
       {
         street: form.destinationAddress,
         number: form.destinationNumber,
@@ -505,7 +536,10 @@ export function NewDeliveryForm({
         city: form.destinationCity,
       },
       location,
-      options.preserveEnteredNumber,
+      {
+        preserveCurrentAddress: source === "geocode",
+        preserveEnteredNumber: options.preserveEnteredNumber,
+      },
     );
     const nextAddress = address.street;
     const nextNumber = address.number;
@@ -529,9 +563,6 @@ export function NewDeliveryForm({
     setAddressSearch(location.formattedAddress);
     setApproximateAddress(location.formattedAddress);
     setSuggestions([]);
-    const complete = Boolean(
-      nextAddress.trim() && nextNumber.trim() && nextNeighborhood.trim(),
-    );
     const synchronizedLocation: CanonicalLocation = {
       ...location,
       components: {
@@ -544,10 +575,30 @@ export function NewDeliveryForm({
         state: nextCity === "PETROLINA_PE" ? "PE" : "BA",
       },
     };
-    setSelectedLocation(complete ? synchronizedLocation : null);
+    setSelectedLocation(synchronizedLocation);
     setConfirmedLocation(null);
-    setLocationResolved(complete);
-    return complete;
+    setLocationResolved(true);
+    return true;
+  }
+
+  function preserveDestinationPin(next: Coordinates) {
+    const fallback = createPinnedLocationFallback(next, form.destinationCity);
+    if (!fallback) return false;
+    setForm((current) => ({
+      ...current,
+      destinationAddress: fallback.address.street,
+      destinationNumber: fallback.address.number,
+      destinationNeighborhood: fallback.address.neighborhood,
+      destinationPostalCode: fallback.address.postalCode,
+    }));
+    setSelectedLocation(fallback.location);
+    setConfirmedLocation(null);
+    setLocationResolved(true);
+    setPinConfirmed(false);
+    setApproximateAddress(fallback.location.formattedAddress);
+    programmaticSearchValue.current = fallback.location.formattedAddress;
+    setAddressSearch(fallback.location.formattedAddress);
+    return true;
   }
 
   function chooseSuggestion(result: AddressSuggestion) {
@@ -556,7 +607,7 @@ export function NewDeliveryForm({
     reverseRequests.current.invalidate();
     geocodeController.current?.abort();
     reverseController.current?.abort();
-    const complete = applyDestinationLocation(result, "autocomplete", {
+    applyDestinationLocation(result, "autocomplete", {
       preserveEnteredNumber: false,
     });
     setMapRecenterKey((current) => current + 1);
@@ -568,9 +619,7 @@ export function NewDeliveryForm({
     setQuote(null);
     setQuoteError("");
     setLocationMessage(
-      complete
-        ? "Endereço localizado. Confira o ponto no mapa e confirme o destino."
-        : "Endereço aproximado. Informe o número e localize novamente.",
+      "Endereço localizado e PIN sincronizado. Confirme o destino.",
     );
     setMessage("");
   }
@@ -617,26 +666,24 @@ export function NewDeliveryForm({
       };
       if (!reverseRequests.current.isLatest(requestId)) return;
       if (response.ok && payload.result) {
-        const complete = applyDestinationLocation(
-          payload.result,
-          "coordinates",
-          { exactCoordinates: normalized },
-        );
+        applyDestinationLocation(payload.result, "coordinates", {
+          exactCoordinates: normalized,
+        });
         setLocationMessage(
-          complete
-            ? "Ponto identificado. Confira o mapa e confirme o destino."
-            : "Ponto preservado, mas o endereço está incompleto. Preencha os campos e localize novamente.",
+          "Ponto identificado e endereço preenchido. Confirme o destino.",
         );
       } else {
+        preserveDestinationPin(normalized);
         setLocationMessage(
-          "O ponto foi marcado, mas não conseguimos identificar o endereço completo. Tente novamente.",
+          "PIN confirmado. O endereço automático não estava disponível, mas você pode usar este ponto.",
         );
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (!reverseRequests.current.isLatest(requestId)) return;
+      preserveDestinationPin(normalized);
       setLocationMessage(
-        "O ponto foi marcado, mas não foi possível consultar o endereço agora. Tente novamente.",
+        "PIN confirmado. A consulta do endereço falhou, mas você pode usar este ponto.",
       );
     } finally {
       if (reverseRequests.current.isLatest(requestId))
@@ -670,12 +717,10 @@ export function NewDeliveryForm({
   }
 
   function hasRequiredAddress() {
-    if (
-      !form.destinationAddress.trim() ||
-      !form.destinationNumber.trim() ||
-      !form.destinationNeighborhood.trim()
-    ) {
-      setMessage("Preencha rua, número e bairro do destino.");
+    if (!form.destinationAddress.trim()) {
+      setMessage(
+        "Digite uma rua, escolha uma sugestão ou marque o destino no mapa.",
+      );
       return false;
     }
     return true;
@@ -720,15 +765,13 @@ export function NewDeliveryForm({
         );
         return;
       }
-      const complete = applyDestinationLocation(payload.result, "geocode", {
+      applyDestinationLocation(payload.result, "geocode", {
         preserveEnteredNumber: true,
       });
       setMapRecenterKey((current) => current + 1);
       setPinConfirmed(false);
       setLocationMessage(
-        complete
-          ? "Endereço localizado. Confira o ponto no mapa e confirme o destino."
-          : "O endereço foi localizado de forma aproximada. Confira os campos e o PIN.",
+        "Endereço localizado e PIN sincronizado. Confirme o destino.",
       );
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -744,7 +787,6 @@ export function NewDeliveryForm({
       await locateDestination();
       return;
     }
-    if (!hasRequiredAddress()) return;
     setConfirmedLocation(selectedLocation);
     setPinConfirmed(true);
     setLocationMessage(
@@ -793,24 +835,24 @@ export function NewDeliveryForm({
       };
       if (!reverseRequests.current.isLatest(requestId)) return;
       if (!response.ok || !payload.result) {
+        preserveDestinationPin(normalized);
         setLocationMessage(
-          "O ponto foi marcado no mapa, mas não conseguimos identificar o endereço completo. Tente novamente.",
+          "PIN confirmado. O endereço automático não estava disponível, mas você pode usar este ponto.",
         );
         return;
       }
-      const complete = applyDestinationLocation(payload.result, "pin", {
+      applyDestinationLocation(payload.result, "pin", {
         exactCoordinates: normalized,
       });
       setLocationMessage(
-        complete
-          ? "Ponto ajustado no mapa. Confira os dados e confirme o destino."
-          : "Ponto preservado. Complete o endereço e localize-o novamente antes de confirmar.",
+        "Ponto ajustado e endereço preenchido. Confirme o destino.",
       );
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (!reverseRequests.current.isLatest(requestId)) return;
+      preserveDestinationPin(normalized);
       setLocationMessage(
-        "O ponto foi marcado no mapa, mas não foi possível consultar o endereço agora. Tente novamente.",
+        "PIN confirmado. A consulta do endereço falhou, mas você pode usar este ponto.",
       );
     } finally {
       if (reverseRequests.current.isLatest(requestId))
@@ -820,7 +862,6 @@ export function NewDeliveryForm({
 
   async function publish(event: FormEvent) {
     event.preventDefault();
-    if (!hasRequiredAddress()) return;
     const incompleteOtherCondition = extras.some(
       (extra) =>
         extra.enabled &&
@@ -851,11 +892,26 @@ export function NewDeliveryForm({
     setStatus("publishing");
     setMessage("");
     try {
+      const persistedAddress = completeCanonicalAddress(
+        {
+          street: form.destinationAddress,
+          number: form.destinationNumber,
+          neighborhood: form.destinationNeighborhood,
+          postalCode: form.destinationPostalCode,
+          city: form.destinationCity,
+        },
+        confirmedLocation,
+        { preserveCurrentAddress: true, preserveEnteredNumber: true },
+      );
       const response = await fetch("/api/deliveries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          destinationAddress: persistedAddress.street,
+          destinationNumber: persistedAddress.number,
+          destinationNeighborhood: persistedAddress.neighborhood,
+          destinationPostalCode: persistedAddress.postalCode,
           offeredPrice: Number(form.offeredPrice.replace(",", ".")),
           destinationLatitude: confirmedCoordinates.latitude,
           destinationLongitude: confirmedCoordinates.longitude,

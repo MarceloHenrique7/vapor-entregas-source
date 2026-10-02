@@ -8,6 +8,7 @@ import {
   type LocationRepository,
   updateCompanyLocation,
 } from "./location-service";
+import { geocodingQuerySchema } from "./schemas";
 import type { CompanyLocationRecord } from "./types";
 
 const companyUserId = "c4e534d4-5d2b-4d72-b0c8-a03cf7cd948f";
@@ -53,6 +54,26 @@ function repository(
 }
 
 describe("localização da empresa", () => {
+  it("permite geocodificar rua sem exigir número ou bairro", () => {
+    expect(
+      geocodingQuerySchema.parse({
+        address: "Rua do Caqui",
+        number: "",
+        neighborhood: "",
+        city: "PETROLINA_PE",
+        state: "PE",
+        postalCode: "",
+      }),
+    ).toEqual({
+      address: "Rua do Caqui",
+      number: undefined,
+      neighborhood: undefined,
+      city: "PETROLINA_PE",
+      state: "PE",
+      postalCode: undefined,
+    });
+  });
+
   it("permite que a empresa crie seu ponto padrão", async () => {
     const repo = repository();
     await expect(

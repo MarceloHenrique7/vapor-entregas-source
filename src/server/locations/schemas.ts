@@ -48,14 +48,14 @@ export const coordinatesSchema = z.object({
 export const saveCompanyLocationSchema =
   locationAddressSchema.and(coordinatesSchema);
 
-export const geocodingQuerySchema = locationAddressObjectSchema
-  .pick({
-    address: true,
-    number: true,
-    neighborhood: true,
-    city: true,
-    state: true,
-    postalCode: true,
+export const geocodingQuerySchema = z
+  .object({
+    address: z.string().trim().min(3).max(180),
+    number: optionalText(20),
+    neighborhood: optionalText(100),
+    city: z.enum(["PETROLINA_PE", "JUAZEIRO_BA"]),
+    state: z.enum(["PE", "BA"]),
+    postalCode: postalCodeSchema,
   })
   .refine(cityMatchesState, {
     message: "A cidade e o estado não correspondem.",
