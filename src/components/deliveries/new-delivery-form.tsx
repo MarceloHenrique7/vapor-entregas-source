@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
-import { CompanyLocationMapLoader } from "@/components/maps/company-location-map-loader";
+import { AddressLocationPicker } from "@/components/maps/address-location-picker";
 import { Icon } from "@/components/icons/icon";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -100,7 +100,7 @@ const initialExtras: PlannedExtra[] = (
 ).map((type) => ({
   type,
   enabled: false,
-  description: DELIVERY_EXTRA_TYPE_LABELS[type],
+  description: type === "OTHER" ? "" : DELIVERY_EXTRA_TYPE_LABELS[type],
   amount: "",
   note: "",
 }));
@@ -821,6 +821,16 @@ export function NewDeliveryForm({
   async function publish(event: FormEvent) {
     event.preventDefault();
     if (!hasRequiredAddress()) return;
+    const incompleteOtherCondition = extras.some(
+      (extra) =>
+        extra.enabled &&
+        extra.type === "OTHER" &&
+        extra.description.trim().length < 3,
+    );
+    if (incompleteOtherCondition) {
+      setMessage("Descreva a condição especial antes de publicar.");
+      return;
+    }
     if (!pinConfirmed || !confirmedLocation) {
       setMessage(
         "Localize o destino e confirme o PIN no mapa antes de publicar.",
@@ -909,331 +919,79 @@ export function NewDeliveryForm({
           </p>
         </Card>
 
-        <Card className="p-5 sm:p-7">
-          <p className="text-xs font-extrabold uppercase tracking-[.15em] text-brand">
-            Informações da entrega
-          </p>
-          <h2 className="mt-2 font-display text-xl font-extrabold">
-            Condições especiais
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Informe apenas condições que o motoboy precisa conhecer antes de
-            aceitar.
-          </p>
-          <div className="mt-5 space-y-4">
-            {extras.map((extra) => (
-              <div
-                key={extra.type}
-                className="rounded-2xl border border-line p-4"
-              >
-                <label className="flex cursor-pointer items-start gap-3 text-sm font-bold">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-5 accent-brand"
-                    checked={extra.enabled}
-                    onChange={(event) =>
-                      updateExtra(extra.type, { enabled: event.target.checked })
-                    }
-                  />
-                  <span>{DELIVERY_EXTRA_TYPE_LABELS[extra.type]}</span>
-                </label>
-                {extra.enabled && (
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <FormField
-                      label="Descrição"
-                      htmlFor={`extra-description-${extra.type}`}
-                      required
-                    >
-                      <Input
-                        id={`extra-description-${extra.type}`}
-                        maxLength={240}
-                        value={extra.description}
-                        onChange={(event) =>
-                          updateExtra(extra.type, {
-                            description: event.target.value,
-                          })
-                        }
-                      />
-                    </FormField>
-                    <FormField
-                      label="Valor adicional informado"
-                      htmlFor={`extra-amount-${extra.type}`}
-                      hint="Opcional · pagamento direto"
-                    >
-                      <Input
-                        id={`extra-amount-${extra.type}`}
-                        inputMode="decimal"
-                        placeholder="Ex.: 5,00"
-                        value={extra.amount}
-                        onChange={(event) =>
-                          updateExtra(extra.type, {
-                            amount: event.target.value,
-                          })
-                        }
-                      />
-                    </FormField>
-                    <div className="sm:col-span-2">
-                      <FormField
-                        label="Observação do adicional"
-                        htmlFor={`extra-note-${extra.type}`}
-                        hint="Opcional"
-                      >
-                        <Input
-                          id={`extra-note-${extra.type}`}
-                          maxLength={300}
-                          value={extra.note}
-                          onChange={(event) =>
-                            updateExtra(extra.type, {
-                              note: event.target.value,
-                            })
-                          }
-                        />
-                      </FormField>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="mt-5 rounded-2xl bg-amber-50 p-4 text-xs leading-5 text-amber-900">
-            {DELIVERY_EXTRAS_NOTICE}
-          </p>
-        </Card>
-
-        <Card className="p-5 sm:p-7">
-          <p className="text-xs font-extrabold uppercase tracking-[.15em] text-brand">
-            2 · Destino
-          </p>
-          <div className="relative mt-5">
-            <FormField
-              label="Endereço de destino"
-              htmlFor="destinationSearch"
-              hint="Digite rua, número e bairro, ou cole latitude, longitude ou um link completo do Google Maps."
-            >
-              <Input
-                id="destinationSearch"
-                value={addressSearch}
-                placeholder="Rua, número ou estabelecimento"
-                autoComplete="off"
-                aria-autocomplete="list"
-                aria-controls="destination-suggestions"
-                disabled={status === "publishing"}
-                onChange={(event) => changeAddressSearch(event.target.value)}
-              />
-            </FormField>
-            {suggestionStatus === "searching" && (
-              <p className="mt-2 text-xs text-muted" role="status">
-                Buscando endereços…
-              </p>
-            )}
-            {suggestionStatus === "error" && (
-              <p className="mt-2 text-xs text-amber-800" role="status">
-                A busca automática está indisponível. Preencha os campos e
-                ajuste o pin no mapa.
-              </p>
-            )}
-            {suggestions.length > 0 && (
-              <div
-                id="destination-suggestions"
-                role="listbox"
-                className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-2xl border border-line bg-white p-2 shadow-soft"
-              >
-                {suggestions.map((suggestion) => (
-                  <button
-                    key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.formattedAddress ?? suggestion.displayName}`}
-                    type="button"
-                    role="option"
-                    aria-selected="false"
-                    className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-brand-light/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-                    onClick={() => chooseSuggestion(suggestion)}
-                  >
-                    <Icon
-                      name="map-pin"
-                      className="mt-0.5 size-5 shrink-0 text-brand"
-                    />
-                    <span className="leading-5 text-ink-soft">
-                      {suggestion.formattedAddress ?? suggestion.displayName}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="mt-5 grid gap-5 sm:grid-cols-2">
-            <FormField
-              label="CEP"
-              htmlFor="destinationPostalCode"
-              hint="Opcional"
-            >
-              <Input
-                id="destinationPostalCode"
-                inputMode="numeric"
-                value={form.destinationPostalCode}
-                onChange={(event) =>
-                  update("destinationPostalCode", event.target.value)
-                }
-              />
-            </FormField>
-            <FormField label="Cidade" htmlFor="destinationCity" required>
-              <Select
-                id="destinationCity"
-                value={form.destinationCity}
-                onChange={(event) => chooseCity(event.target.value as City)}
-              >
-                <option value="PETROLINA_PE">Petrolina / PE</option>
-                <option value="JUAZEIRO_BA">Juazeiro / BA</option>
-              </Select>
-            </FormField>
-            <FormField label="Rua" htmlFor="destinationAddress" required>
-              <Input
-                id="destinationAddress"
-                value={form.destinationAddress}
-                onChange={(event) =>
-                  update("destinationAddress", event.target.value)
-                }
-              />
-            </FormField>
-            <FormField label="Número" htmlFor="destinationNumber" required>
-              <Input
-                id="destinationNumber"
-                value={form.destinationNumber}
-                onChange={(event) =>
-                  update("destinationNumber", event.target.value)
-                }
-              />
-            </FormField>
-            <FormField
-              label="Bairro"
-              htmlFor="destinationNeighborhood"
-              required
-            >
-              <Input
-                id="destinationNeighborhood"
-                value={form.destinationNeighborhood}
-                onChange={(event) =>
-                  update("destinationNeighborhood", event.target.value)
-                }
-              />
-            </FormField>
-            <FormField
-              label="Complemento / referência"
-              htmlFor="destinationComplement"
-              hint="Opcional"
-            >
-              <Input
-                id="destinationComplement"
-                placeholder="Ex.: Apt. 202, portão azul"
-                value={form.destinationComplement}
-                onChange={(event) =>
-                  update("destinationComplement", event.target.value)
-                }
-              />
-            </FormField>
-            <div className="sm:col-span-2">
-              <FormField
-                label="Ponto de referência"
-                htmlFor="destinationReference"
-                hint="Opcional"
-              >
-                <Input
-                  id="destinationReference"
-                  value={form.destinationReference}
-                  onChange={(event) =>
-                    update("destinationReference", event.target.value)
-                  }
-                />
-              </FormField>
-            </div>
-          </div>
-          <Button
-            type="button"
-            className="mt-6 w-full sm:w-auto"
-            variant="outline"
-            onClick={locateDestination}
-            disabled={status !== "idle"}
-          >
-            <Icon name="map" className="size-5" />
-            {status === "searching"
-              ? "Buscando destino..."
-              : "Localizar no mapa"}
-          </Button>
-          {locationMessage && (
-            <p
-              className={
-                locationResolved
-                  ? "mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
-                  : "mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
-              }
-              role="status"
-            >
-              {locationMessage}
-            </p>
-          )}
-        </Card>
-
-        <Card className="overflow-hidden">
-          <div className="p-5 sm:p-7">
-            <h2 className="font-display text-xl font-extrabold">
-              Confirme o destino no mapa
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Clique no mapa ou arraste o PIN até a entrada correta do destino.
-            </p>
-            {approximateAddress && (
-              <p className="mt-3 text-xs text-muted">
-                Endereço aproximado: {approximateAddress}
-              </p>
-            )}
-          </div>
-          <div className="h-[25rem] border-y border-line bg-[#f3eeee] sm:h-[30rem]">
-            <CompanyLocationMapLoader
-              coordinates={coordinates}
-              onChange={handlePinChange}
-              onTileError={() =>
-                setMessage("Alguns blocos do mapa não carregaram.")
-              }
-              recenterKey={mapRecenterKey}
-            />
-          </div>
-          <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-            <p className="text-xs leading-5 text-muted">
-              Confira o ponto no mapa. Se necessário, arraste o PIN até a
-              entrada correta.
-            </p>
-            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-              {!locationResolved && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handlePinChange(coordinates)}
-                  disabled={suggestionStatus === "searching"}
-                >
-                  Tentar identificar o ponto
-                </Button>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                onClick={saveDestination}
-                disabled={
-                  status !== "idle" ||
-                  suggestionStatus === "searching" ||
-                  !locationResolved
-                }
-              >
-                <Icon name="check" className="size-4" />
-                {pinConfirmed ? "Destino confirmado" : "Confirmar destino"}
-              </Button>
-            </div>
-          </div>
-        </Card>
+        <AddressLocationPicker
+          idPrefix="delivery-destination"
+          eyebrow="2 · Destino"
+          title="Onde será a entrega?"
+          description="Pesquise o destino ou ajuste o PIN exatamente na entrada correta."
+          searchValue={addressSearch}
+          onSearchChange={changeAddressSearch}
+          suggestions={suggestions}
+          suggestionStatus={suggestionStatus}
+          onSelectSuggestion={chooseSuggestion}
+          address={{
+            street: form.destinationAddress,
+            number: form.destinationNumber,
+            neighborhood: form.destinationNeighborhood,
+            postalCode: form.destinationPostalCode,
+            city: form.destinationCity,
+            state: form.destinationState as "PE" | "BA",
+            complement: form.destinationComplement,
+            reference: form.destinationReference,
+          }}
+          onAddressChange={(field, value) => {
+            const target = {
+              street: "destinationAddress",
+              number: "destinationNumber",
+              neighborhood: "destinationNeighborhood",
+              postalCode: "destinationPostalCode",
+              complement: "destinationComplement",
+              reference: "destinationReference",
+            }[field] as keyof typeof form;
+            update(target, value);
+          }}
+          onCityChange={chooseCity}
+          onLocate={() => void locateDestination()}
+          coordinates={coordinates}
+          onPinChange={(next) => void handlePinChange(next)}
+          recenterKey={mapRecenterKey}
+          locationResolved={locationResolved}
+          confirmed={pinConfirmed}
+          formattedAddress={approximateAddress}
+          message={locationMessage}
+          messageTone={
+            pinConfirmed
+              ? "success"
+              : locationResolved
+                ? "neutral"
+                : locationMessage
+                  ? "warning"
+                  : "neutral"
+          }
+          identifying={
+            suggestionStatus === "searching" || status === "searching"
+          }
+          disabled={status === "publishing"}
+          primaryLabel="Confirmar destino"
+          primaryDoneLabel="Destino confirmado"
+          primaryDisabled={
+            status !== "idle" ||
+            suggestionStatus === "searching" ||
+            !locationResolved
+          }
+          onPrimaryAction={() => void saveDestination()}
+          onRetry={
+            !locationResolved
+              ? () => void handlePinChange(coordinates)
+              : undefined
+          }
+        />
       </div>
 
       <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
         <Card className="p-5 sm:p-7">
           <p className="text-xs font-extrabold uppercase tracking-[.15em] text-brand">
-            3 · Valor e pagamento
+            3 · Entrega
           </p>
           <div className="mt-5 space-y-5">
             <FormField
@@ -1311,6 +1069,11 @@ export function NewDeliveryForm({
                 ))}
               </Select>
             </FormField>
+            <SpecialConditionsField
+              extras={extras}
+              disabled={status !== "idle"}
+              onUpdate={updateExtra}
+            />
             <FormField
               label="Observações"
               htmlFor="notes"
@@ -1319,7 +1082,7 @@ export function NewDeliveryForm({
               <textarea
                 id="notes"
                 maxLength={500}
-                placeholder="Ex.: retornar com maquineta"
+                placeholder="Informação curta para o motoboy"
                 className="min-h-28 w-full rounded-2xl border border-line bg-white p-4 text-sm text-ink shadow-sm focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10"
                 value={form.notes}
                 onChange={(event) => update("notes", event.target.value)}
@@ -1390,9 +1153,14 @@ export function NewDeliveryForm({
               </dd>
             </div>
             <div>
-              <dt className="font-bold text-muted">Adicionais</dt>
+              <dt className="font-bold text-muted">Condições</dt>
               <dd className="mt-1 text-ink">
-                {extras.filter((extra) => extra.enabled).length || "Nenhum"}
+                {extras.some((extra) => extra.enabled)
+                  ? extras
+                      .filter((extra) => extra.enabled)
+                      .map((extra) => DELIVERY_EXTRA_TYPE_LABELS[extra.type])
+                      .join(", ")
+                  : "Nenhuma"}
               </dd>
             </div>
           </dl>
@@ -1416,5 +1184,135 @@ export function NewDeliveryForm({
         </Card>
       </div>
     </form>
+  );
+}
+
+function SpecialConditionsField({
+  extras,
+  disabled,
+  onUpdate,
+}: {
+  extras: PlannedExtra[];
+  disabled: boolean;
+  onUpdate: (
+    type: ExtraType,
+    values: Partial<Omit<PlannedExtra, "type">>,
+  ) => void;
+}) {
+  const enabledExtras = extras.filter((extra) => extra.enabled);
+  const availableExtras = extras.filter((extra) => !extra.enabled);
+
+  return (
+    <div className="space-y-3">
+      <FormField
+        label="Condição especial"
+        htmlFor="special-condition"
+        hint="Opcional"
+      >
+        <Select
+          id="special-condition"
+          value=""
+          disabled={disabled || availableExtras.length === 0}
+          onChange={(event) => {
+            const type = event.target.value as ExtraType;
+            if (type) onUpdate(type, { enabled: true });
+          }}
+        >
+          <option value="">
+            {enabledExtras.length > 0 ? "Adicionar outra condição" : "Nenhuma"}
+          </option>
+          {availableExtras.map((extra) => (
+            <option key={extra.type} value={extra.type}>
+              {DELIVERY_EXTRA_TYPE_LABELS[extra.type]}
+            </option>
+          ))}
+        </Select>
+      </FormField>
+
+      {enabledExtras.map((extra) => (
+        <div
+          key={extra.type}
+          className="rounded-2xl border border-line bg-canvas p-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-bold text-ink">
+              {DELIVERY_EXTRA_TYPE_LABELS[extra.type]}
+            </p>
+            <button
+              type="button"
+              className="text-xs font-bold text-brand hover:underline disabled:opacity-50"
+              disabled={disabled}
+              onClick={() => onUpdate(extra.type, { enabled: false })}
+            >
+              Remover
+            </button>
+          </div>
+
+          {extra.type === "OTHER" && (
+            <div className="mt-3">
+              <FormField
+                label="Descrição"
+                htmlFor={`extra-${extra.type}-description`}
+                required
+              >
+                <Input
+                  id={`extra-${extra.type}-description`}
+                  value={extra.description}
+                  disabled={disabled}
+                  maxLength={120}
+                  placeholder="Descreva a condição"
+                  onChange={(event) =>
+                    onUpdate(extra.type, { description: event.target.value })
+                  }
+                />
+              </FormField>
+            </div>
+          )}
+
+          <details className="mt-3 text-sm">
+            <summary className="cursor-pointer font-semibold text-muted">
+              Adicionar detalhes
+            </summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <FormField
+                label="Valor adicional"
+                htmlFor={`extra-${extra.type}-amount`}
+                hint="Opcional"
+              >
+                <Input
+                  id={`extra-${extra.type}-amount`}
+                  inputMode="decimal"
+                  placeholder="Ex.: 5,00"
+                  value={extra.amount}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onUpdate(extra.type, { amount: event.target.value })
+                  }
+                />
+              </FormField>
+              <FormField
+                label="Observação"
+                htmlFor={`extra-${extra.type}-note`}
+                hint="Opcional"
+              >
+                <Input
+                  id={`extra-${extra.type}-note`}
+                  maxLength={240}
+                  value={extra.note}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onUpdate(extra.type, { note: event.target.value })
+                  }
+                />
+              </FormField>
+            </div>
+          </details>
+        </div>
+      ))}
+
+      {enabledExtras.length > 0 && (
+        <p className="text-xs leading-5 text-muted">{DELIVERY_EXTRAS_NOTICE}</p>
+      )}
+    </div>
   );
 }

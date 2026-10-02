@@ -1,15 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { Icon } from "@/components/icons/icon";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { trackMetaCustomEventOnce } from "@/lib/analytics/meta-pixel";
 import {
   coordinatesMatch,
@@ -26,7 +22,7 @@ import {
   type LocationSource,
 } from "@/lib/maps/location";
 
-import { CompanyLocationMapLoader } from "./company-location-map-loader";
+import { AddressLocationPicker } from "./address-location-picker";
 
 type City = "PETROLINA_PE" | "JUAZEIRO_BA";
 
@@ -50,10 +46,6 @@ const cityCenters: Record<City, Coordinates> = {
   PETROLINA_PE: { latitude: -9.3891, longitude: -40.5031 },
   JUAZEIRO_BA: { latitude: -9.4162, longitude: -40.5033 },
 };
-
-function cityName(city: City) {
-  return city === "PETROLINA_PE" ? "Petrolina/PE" : "Juazeiro/BA";
-}
 
 export function CompanyLocationForm({
   initial,
@@ -113,7 +105,6 @@ export function CompanyLocationForm({
         : null,
     );
   const [mapRecenterKey, setMapRecenterKey] = useState(0);
-  const [tileError, setTileError] = useState(false);
   const suggestionCache = useRef(new Map<string, GeocodingResultPayload[]>());
   const programmaticSearchValue = useRef<string | null>(
     initial.address
@@ -451,8 +442,7 @@ export function CompanyLocationForm({
     }
   }
 
-  async function save(event: FormEvent) {
-    event.preventDefault();
+  async function save() {
     if (!validateAddress()) return;
     if (!locationResolved || !canonicalLocation) {
       setMessage(
@@ -528,288 +518,89 @@ export function CompanyLocationForm({
   }
 
   return (
-    <form onSubmit={save} className="space-y-6">
-      <Card className="p-5 sm:p-7">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-display text-xl font-extrabold text-ink">
-              Endereço de coleta
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-muted">
-              Informe onde o motoboy deverá retirar futuras entregas.
-            </p>
-          </div>
-          {form.isDefault && <Badge variant="success">Ponto padrão</Badge>}
-        </div>
-        <div className="relative mb-5">
-          <FormField
-            label="Buscar endereço"
-            htmlFor="companyAddressSearch"
-            hint="Digite rua, número ou estabelecimento."
-          >
-            <Input
-              id="companyAddressSearch"
-              value={addressSearch}
-              placeholder="Rua, número ou estabelecimento"
-              autoComplete="off"
-              aria-autocomplete="list"
-              aria-controls="company-location-suggestions"
-              disabled={status === "saving"}
-              onChange={(event) => {
-                programmaticSearchValue.current = null;
-                suggestionRequests.current.invalidate();
-                setAddressSearch(event.target.value);
-                setSuggestions([]);
-                setSuggestionStatus("idle");
-              }}
-            />
-          </FormField>
-          {suggestionStatus === "searching" && (
-            <p className="mt-2 text-xs text-muted" role="status">
-              Buscando endereços…
-            </p>
-          )}
-          {suggestionStatus === "error" && (
-            <p className="mt-2 text-xs text-amber-800" role="status">
-              Não foi possível consultar sugestões agora. Preencha os campos e
-              use “Localizar endereço”.
-            </p>
-          )}
-          {suggestions.length > 0 && (
-            <div
-              id="company-location-suggestions"
-              role="listbox"
-              className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-2xl border border-line bg-white p-2 shadow-soft"
-            >
-              {suggestions.map((suggestion) => (
-                <button
-                  key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.displayName ?? suggestion.formattedAddress}`}
-                  type="button"
-                  role="option"
-                  aria-selected="false"
-                  className="flex min-h-12 w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-brand-light/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-                  onClick={() => chooseSuggestion(suggestion)}
-                >
-                  <Icon
-                    name="map-pin"
-                    className="mt-0.5 size-5 shrink-0 text-brand"
-                  />
-                  <span className="leading-5 text-ink-soft">
-                    {suggestion.formattedAddress ?? suggestion.displayName}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <FormField label="Nome do local" htmlFor="label" required>
-            <Input
-              id="label"
-              value={form.label}
-              onChange={(event) => updateField("label", event.target.value)}
-            />
-          </FormField>
-          <FormField label="CEP" htmlFor="postalCode" hint="Opcional">
-            <Input
-              id="postalCode"
-              inputMode="numeric"
-              maxLength={9}
-              placeholder="56300-000"
-              value={form.postalCode}
-              onChange={(event) =>
-                updateField("postalCode", event.target.value)
-              }
-            />
-          </FormField>
-          <FormField label="Rua" htmlFor="address" required>
-            <Input
-              id="address"
-              autoComplete="street-address"
-              value={form.address}
-              onChange={(event) => updateField("address", event.target.value)}
-            />
-          </FormField>
-          <FormField label="Número" htmlFor="number" required>
-            <Input
-              id="number"
-              value={form.number}
-              onChange={(event) => updateField("number", event.target.value)}
-            />
-          </FormField>
-          <FormField label="Bairro" htmlFor="neighborhood" required>
-            <Input
-              id="neighborhood"
-              value={form.neighborhood}
-              onChange={(event) =>
-                updateField("neighborhood", event.target.value)
-              }
-            />
-          </FormField>
-          <FormField label="Cidade" htmlFor="city" required>
-            <Select
-              id="city"
-              value={form.city}
-              onChange={(event) => chooseCity(event.target.value as City)}
-            >
-              <option value="PETROLINA_PE">Petrolina / PE</option>
-              <option value="JUAZEIRO_BA">Juazeiro / BA</option>
-            </Select>
-          </FormField>
-          <FormField label="Estado" htmlFor="state">
-            <Input id="state" value={form.state} disabled />
-          </FormField>
-          <FormField label="Complemento" htmlFor="complement" hint="Opcional">
-            <Input
-              id="complement"
-              value={form.complement}
-              onChange={(event) =>
-                updateField("complement", event.target.value)
-              }
-            />
-          </FormField>
+    <div className="space-y-6">
+      <AddressLocationPicker
+        idPrefix="company-location"
+        eyebrow={form.isDefault ? "Ponto padrão" : "Localização da loja"}
+        title="Localização da sua empresa"
+        description="Defina onde os motoboys irão retirar os pedidos. Pesquise o endereço ou ajuste o PIN na entrada correta."
+        searchValue={addressSearch}
+        onSearchChange={(value) => {
+          programmaticSearchValue.current = null;
+          suggestionRequests.current.invalidate();
+          setAddressSearch(value);
+          setSuggestions([]);
+          setSuggestionStatus("idle");
+        }}
+        suggestions={suggestions}
+        suggestionStatus={suggestionStatus}
+        onSelectSuggestion={chooseSuggestion}
+        address={{
+          street: form.address,
+          number: form.number,
+          neighborhood: form.neighborhood,
+          postalCode: form.postalCode,
+          city: form.city,
+          state: form.state,
+          complement: form.complement,
+          reference: form.reference,
+        }}
+        onAddressChange={(field, value) => {
+          const target = field === "street" ? "address" : field;
+          updateField(target, value);
+        }}
+        onCityChange={chooseCity}
+        onLocate={() => void locateAddress()}
+        coordinates={coordinates}
+        onPinChange={(next) => void adjustPin(next)}
+        recenterKey={mapRecenterKey}
+        locationResolved={locationResolved}
+        confirmed={status === "saved"}
+        formattedAddress={approximateAddress}
+        message={message}
+        messageTone={
+          status === "saved"
+            ? "success"
+            : status === "geocoding-error" || status === "not-found"
+              ? "error"
+              : locationResolved
+                ? "success"
+                : "warning"
+        }
+        identifying={status === "searching" || status === "reverse-searching"}
+        disabled={status === "saving"}
+        primaryLabel={
+          onboarding ? "Confirmar localização" : "Salvar localização"
+        }
+        primaryDoneLabel="Localização salva"
+        primaryLoading={status === "saving"}
+        primaryDisabled={
+          status === "searching" ||
+          status === "reverse-searching" ||
+          !locationResolved
+        }
+        onPrimaryAction={() => void save()}
+        onRetry={
+          status === "geocoding-error"
+            ? () => void adjustPin(coordinates)
+            : undefined
+        }
+        extraControl={
           <div className="sm:col-span-2">
             <FormField
-              label="Ponto de referência"
-              htmlFor="reference"
-              hint="Opcional"
+              label="Nome do local"
+              htmlFor="company-location-label"
+              required
             >
               <Input
-                id="reference"
-                value={form.reference}
-                onChange={(event) =>
-                  updateField("reference", event.target.value)
-                }
+                id="company-location-label"
+                value={form.label}
+                onChange={(event) => updateField("label", event.target.value)}
               />
             </FormField>
           </div>
-        </div>
-        <Button
-          type="button"
-          className="mt-6 w-full sm:w-auto"
-          variant="outline"
-          onClick={locateAddress}
-          disabled={
-            status === "searching" ||
-            status === "reverse-searching" ||
-            status === "saving"
-          }
-        >
-          <Icon name="map" className="size-5" />
-          {status === "searching"
-            ? "Buscando endereço..."
-            : "Localizar endereço"}
-        </Button>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <div className="p-5 sm:p-7">
-          <p className="text-xs font-bold uppercase tracking-[.15em] text-brand">
-            Confirmação no mapa
-          </p>
-          <h2 className="mt-2 font-display text-xl font-extrabold text-ink">
-            Confirme a localização exata da sua empresa
-          </h2>
-          <p className="mt-2 text-sm font-semibold text-ink-soft">
-            {form.address || "Rua"}, {form.number || "número"} ·{" "}
-            {form.neighborhood || "bairro"} — {cityName(form.city)}
-          </p>
-          <div className="mt-4 flex gap-3 rounded-2xl bg-brand-light/60 p-4 text-sm leading-6 text-brand-dark">
-            <Icon name="map" className="mt-0.5 size-5 shrink-0" />
-            <p>
-              Ajuste o marcador exatamente na entrada do estabelecimento. Clique
-              no mapa ou arraste o PIN.
-            </p>
-          </div>
-          {approximateAddress && (
-            <p className="mt-4 text-xs leading-5 text-muted" aria-live="polite">
-              <strong className="text-ink-soft">Endereço aproximado:</strong>{" "}
-              {approximateAddress}
-            </p>
-          )}
-          {tileError && (
-            <p
-              className="mt-4 rounded-2xl bg-amber-50 p-3 text-sm text-amber-800"
-              role="status"
-            >
-              Alguns blocos do mapa não carregaram. Verifique sua conexão ou
-              tente novamente.
-            </p>
-          )}
-        </div>
-        <div className="relative h-[26rem] min-h-[22rem] border-y border-line bg-[#f3eeee] sm:h-[32rem]">
-          <CompanyLocationMapLoader
-            coordinates={coordinates}
-            onChange={adjustPin}
-            onTileError={() => setTileError(true)}
-            recenterKey={mapRecenterKey}
-          />
-          {(status === "searching" || status === "reverse-searching") && (
-            <div
-              className="pointer-events-none absolute inset-x-4 top-4 z-[500] rounded-2xl bg-white/95 p-4 text-center text-sm font-bold text-ink shadow-card backdrop-blur"
-              role="status"
-            >
-              {status === "reverse-searching"
-                ? "Identificando o ponto marcado…"
-                : "Buscando o endereço no mapa…"}
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-          <div aria-live="polite">
-            {message && (
-              <p
-                className={
-                  status === "saved"
-                    ? "text-sm font-bold text-brand"
-                    : status === "geocoding-error" || status === "not-found"
-                      ? "text-sm font-semibold text-red-700"
-                      : locationResolved
-                        ? "text-sm font-semibold text-brand-dark"
-                        : "text-sm font-semibold text-amber-800"
-                }
-                role="status"
-              >
-                {message}
-              </p>
-            )}
-            {!message && (
-              <p className="text-xs leading-5 text-muted">
-                As coordenadas são privadas e não aparecem publicamente.
-              </p>
-            )}
-            {status === "geocoding-error" && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="mt-3"
-                onClick={() => void adjustPin(coordinates)}
-              >
-                Tentar identificar novamente
-              </Button>
-            )}
-          </div>
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full shrink-0 sm:w-auto"
-            disabled={
-              status === "saving" ||
-              status === "searching" ||
-              status === "reverse-searching" ||
-              !locationResolved
-            }
-          >
-            <Icon name="check" className="size-5" />
-            {status === "saving"
-              ? "Salvando..."
-              : onboarding
-                ? "Confirmar localização"
-                : "Salvar localização"}
-          </Button>
-        </div>
-      </Card>
+        }
+      />
       {onboarding && status === "saved" && (
         <Card className="border-green-200 bg-green-50 p-6 sm:p-7">
           <p className="text-xs font-extrabold uppercase tracking-[.16em] text-green-700">
@@ -831,6 +622,6 @@ export function CompanyLocationForm({
           </Link>
         </Card>
       )}
-    </form>
+    </div>
   );
 }

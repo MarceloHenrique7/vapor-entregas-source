@@ -23,9 +23,9 @@ export default async function NewDeliveryPage({
   return (
     <div className="space-y-7">
       <DashboardHeader
-        eyebrow="Oportunidade de entrega"
-        title="Nova entrega"
-        description="Confirme a rota, o valor e as condições que o motoboy verá antes de aceitar."
+        eyebrow="Nova entrega"
+        title="Para onde vamos?"
+        description="Confirme o destino, o valor e as condições. A coleta já está preenchida."
       />
       {pickup ? (
         <NewDeliveryForm pickup={pickup} repeatDeliveryId={repetir} />
