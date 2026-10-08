@@ -368,7 +368,7 @@ export function CompanyLocationForm({
   }
 
   function validateAddress() {
-    if (!form.address.trim()) {
+    if (!form.address.trim() && !addressSearch.trim()) {
       setMessage(
         "Digite uma rua, escolha uma sugestão ou marque o ponto diretamente no mapa.",
       );
@@ -388,10 +388,16 @@ export function CompanyLocationForm({
     setStatus("searching");
     setMessage("");
     try {
+      const searchDigits = addressSearch.replace(/\D/g, "");
+      const searchIsPostalCode = /^\d{8}$/.test(searchDigits);
       const response = await fetch("/api/maps/geocode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          address: form.address.trim() || addressSearch.trim(),
+          postalCode: searchIsPostalCode ? searchDigits : form.postalCode,
+        }),
         signal: controller.signal,
       });
       const payload = (await response.json()) as {

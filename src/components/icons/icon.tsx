@@ -21,6 +21,7 @@ export type IconName =
   | "package"
   | "plus"
   | "route"
+  | "search"
   | "settings"
   | "shield"
   | "smartphone"
@@ -119,6 +120,12 @@ export function Icon({
         <circle cx="5" cy="18" r="2" />
         <circle cx="19" cy="6" r="2" />
         <path d="M7 18h3a2 2 0 0 0 2-2V8a2 2 0 0 1 2-2h3" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="m16 16 5 5" />
       </>
     ),
     settings: (

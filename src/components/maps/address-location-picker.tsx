@@ -102,12 +102,13 @@ export function AddressLocationPicker({
 }) {
   const [manuallyEditingAddress, setManuallyEditingAddress] = useState(false);
   const [tileError, setTileError] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const needsRequiredAddress =
     !address.street.trim() ||
     !address.number.trim() ||
     !address.neighborhood.trim();
   const editingAddress =
-    !locationResolved || needsRequiredAddress || manuallyEditingAddress;
+    manuallyEditingAddress || (locationResolved && needsRequiredAddress);
 
   const messageStyle = {
     neutral: "text-muted",
@@ -116,6 +117,18 @@ export function AddressLocationPicker({
     error: "text-red-700",
   }[messageTone];
   const summary = formattedAddress?.trim() || address.street.trim();
+  const safeActiveSuggestionIndex =
+    activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length
+      ? activeSuggestionIndex
+      : -1;
+
+  function selectSuggestionAt(index: number) {
+    const suggestion = suggestions[index];
+    if (!suggestion) return;
+    setManuallyEditingAddress(false);
+    setActiveSuggestionIndex(-1);
+    onSelectSuggestion(suggestion);
+  }
 
   return (
     <Card className="overflow-hidden">
@@ -125,36 +138,88 @@ export function AddressLocationPicker({
             {eyebrow}
           </p>
         )}
-        <h2 className="mt-2 font-display text-xl font-extrabold text-ink">
-          {title}
-        </h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[.12em] text-brand">
+              1 · Encontrar endereço
+            </p>
+            <h2 className="mt-2 font-display text-xl font-extrabold text-ink">
+              {title}
+            </h2>
+          </div>
+          <span className="rounded-full bg-brand-light px-3 py-1 text-xs font-bold text-brand-dark">
+            Busca rápida
+          </span>
+        </div>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-          {description}
+          {description} Depois, confirme o ponto exato no mapa.
         </p>
         <div className="relative mt-5">
           <FormField
-            label="Buscar endereço"
+            label="Digite rua, número, bairro ou CEP"
             htmlFor={`${idPrefix}-search`}
-            hint="Rua, número, CEP ou estabelecimento."
+            hint="Você também pode pesquisar pelo nome de um estabelecimento."
           >
             <Input
               id={`${idPrefix}-search`}
               value={searchValue}
-              placeholder="Digite para buscar"
+              placeholder="Rua, número, bairro ou CEP"
               autoComplete="off"
               aria-autocomplete="list"
+              aria-expanded={suggestions.length > 0}
               aria-controls={`${idPrefix}-suggestions`}
+              aria-activedescendant={
+                safeActiveSuggestionIndex >= 0
+                  ? `${idPrefix}-suggestion-${safeActiveSuggestionIndex}`
+                  : undefined
+              }
               disabled={disabled}
-              onChange={(event) => onSearchChange(event.target.value)}
+              onChange={(event) => {
+                setActiveSuggestionIndex(-1);
+                onSearchChange(event.target.value);
+              }}
               onKeyDown={(event) => {
+                if (event.key === "ArrowDown" && suggestions.length > 0) {
+                  event.preventDefault();
+                  setActiveSuggestionIndex((current) =>
+                    current >= suggestions.length - 1 ? 0 : current + 1,
+                  );
+                  return;
+                }
+                if (event.key === "ArrowUp" && suggestions.length > 0) {
+                  event.preventDefault();
+                  setActiveSuggestionIndex((current) =>
+                    current <= 0 ? suggestions.length - 1 : current - 1,
+                  );
+                  return;
+                }
+                if (event.key === "Escape") {
+                  setActiveSuggestionIndex(-1);
+                  return;
+                }
                 if (event.key !== "Enter") return;
                 event.preventDefault();
-                const firstSuggestion = suggestions[0];
-                if (!firstSuggestion) return;
-                setManuallyEditingAddress(false);
-                onSelectSuggestion(firstSuggestion);
+                if (suggestions.length === 0) {
+                  onLocate();
+                  return;
+                }
+                selectSuggestionAt(
+                  safeActiveSuggestionIndex >= 0
+                    ? safeActiveSuggestionIndex
+                    : 0,
+                );
               }}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 w-full"
+              onClick={onLocate}
+              disabled={disabled || identifying || !searchValue.trim()}
+            >
+              <Icon name="search" className="size-5" />
+              Buscar endereço
+            </Button>
           </FormField>
           {suggestionStatus === "searching" && (
             <p className="mt-2 text-xs text-muted" role="status">
@@ -170,52 +235,98 @@ export function AddressLocationPicker({
             <div
               id={`${idPrefix}-suggestions`}
               role="listbox"
-              className="absolute z-[600] mt-2 max-h-72 w-full overflow-y-auto rounded-2xl border border-line bg-white p-2 shadow-card"
+              className="absolute z-[600] mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border border-line bg-white p-2 shadow-[0_18px_45px_rgba(33,24,25,.16)]"
             >
-              {suggestions.map((suggestion) => (
-                <button
-                  key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.formattedAddress ?? suggestion.displayName}`}
-                  type="button"
-                  role="option"
-                  aria-selected="false"
-                  className="flex min-h-12 w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-brand-light/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-                  onClick={() => {
-                    setManuallyEditingAddress(false);
-                    onSelectSuggestion(suggestion);
-                  }}
-                >
-                  <Icon
-                    name="map-pin"
-                    className="mt-0.5 size-5 shrink-0 text-brand"
-                  />
-                  <span className="leading-5 text-ink-soft">
-                    {suggestion.formattedAddress ?? suggestion.displayName}
-                  </span>
-                </button>
-              ))}
+              {suggestions.map((suggestion, index) => {
+                const components = suggestion.components ?? {};
+                const primary = [components.street, components.number]
+                  .filter(Boolean)
+                  .join(", ");
+                const secondary = [
+                  components.neighborhood,
+                  components.city,
+                  components.state,
+                  components.postalCode,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+                const title =
+                  primary ||
+                  suggestion.formattedAddress ||
+                  suggestion.displayName ||
+                  "Local encontrado";
+                const isActive = index === safeActiveSuggestionIndex;
+
+                return (
+                  <button
+                    key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.formattedAddress ?? suggestion.displayName}`}
+                    id={`${idPrefix}-suggestion-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    className={`flex min-h-14 w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm transition hover:bg-brand-light/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${isActive ? "bg-brand-light/45" : ""}`}
+                    onMouseEnter={() => setActiveSuggestionIndex(index)}
+                    onClick={() => selectSuggestionAt(index)}
+                  >
+                    <Icon
+                      name="map-pin"
+                      className="mt-0.5 size-5 shrink-0 text-brand"
+                    />
+                    <span className="min-w-0 leading-5">
+                      <span className="block truncate font-bold text-ink">
+                        {title}
+                      </span>
+                      <span className="block truncate text-xs text-muted">
+                        {secondary ||
+                          suggestion.formattedAddress ||
+                          suggestion.displayName}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      <div className="relative h-[20rem] min-h-[18rem] border-y border-line bg-[#f3eeee] sm:h-[27rem]">
-        <CompanyLocationMapLoader
-          coordinates={coordinates}
-          onChange={(next) => {
-            setManuallyEditingAddress(false);
-            onPinChange(next);
-          }}
-          onTileError={() => setTileError(true)}
-          recenterKey={recenterKey}
-        />
-        {identifying && (
-          <div
-            className="pointer-events-none absolute inset-x-4 top-4 z-[500] rounded-2xl bg-white/95 p-3 text-center text-sm font-bold text-ink shadow-card backdrop-blur"
-            role="status"
-          >
-            Identificando endereço…
+      <div className="border-y border-line bg-[#f3eeee]">
+        <div className="border-b border-line bg-white px-5 py-4 sm:px-7">
+          <p className="text-xs font-extrabold uppercase tracking-[.12em] text-brand">
+            2 · Confirmar PIN
+          </p>
+          <p className="mt-1 text-sm font-semibold text-ink">
+            Confirme a localização exata da entrada
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Toque no mapa ou arraste o PIN. Se a busca falhar, você pode marcar
+            o ponto manualmente.
+          </p>
+        </div>
+        <div className="relative h-[23rem] min-h-[21rem] sm:h-[30rem]">
+          <CompanyLocationMapLoader
+            coordinates={coordinates}
+            onChange={(next) => {
+              setManuallyEditingAddress(false);
+              onPinChange(next);
+            }}
+            onTileError={() => setTileError(true)}
+            recenterKey={recenterKey}
+          />
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[500] flex justify-center">
+            <p className="rounded-full bg-white/95 px-4 py-2 text-center text-xs font-bold text-ink shadow-card backdrop-blur">
+              arraste o PIN até a entrada do local
+            </p>
           </div>
-        )}
+          {identifying && (
+            <div
+              className="pointer-events-none absolute inset-x-4 top-4 z-[500] rounded-2xl bg-white/95 p-3 text-center text-sm font-bold text-ink shadow-card backdrop-blur"
+              role="status"
+            >
+              Identificando endereço…
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-5 p-5 sm:p-7">
@@ -243,27 +354,34 @@ export function AddressLocationPicker({
                 </p>
               )}
             </div>
-            {locationResolved && !needsRequiredAddress && (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setManuallyEditingAddress((current) => !current)}
-                disabled={disabled}
-                aria-expanded={editingAddress}
-                aria-controls={`${idPrefix}-structured-address`}
-              >
-                {editingAddress ? "Ocultar campos" : "Editar endereço"}
-              </Button>
-            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setManuallyEditingAddress((current) => !current)}
+              disabled={disabled}
+              aria-expanded={editingAddress}
+              aria-controls={`${idPrefix}-structured-address`}
+            >
+              {editingAddress ? "Ocultar detalhes" : "Editar detalhes"}
+            </Button>
           </div>
         </section>
 
-        {(editingAddress || !locationResolved) && (
+        {editingAddress && (
           <div
             id={`${idPrefix}-structured-address`}
             className="grid gap-4 rounded-2xl bg-canvas p-4 sm:grid-cols-2"
           >
+            <div className="sm:col-span-2">
+              <p className="text-xs font-extrabold uppercase tracking-[.12em] text-brand">
+                3 · Detalhes do endereço
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                Confira os dados preenchidos automaticamente ou complete o que
+                estiver faltando.
+              </p>
+            </div>
             {extraControl}
             <AddressFields
               idPrefix={idPrefix}
@@ -287,41 +405,40 @@ export function AddressLocationPicker({
                 Localizar no mapa
               </Button>
             </div>
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+              <FormField
+                label="Complemento"
+                htmlFor={`${idPrefix}-complement`}
+                hint="Opcional"
+              >
+                <Input
+                  id={`${idPrefix}-complement`}
+                  placeholder="Apto., bloco, sala ou portão"
+                  value={address.complement}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onAddressChange("complement", event.target.value)
+                  }
+                />
+              </FormField>
+              <FormField
+                label="Referência"
+                htmlFor={`${idPrefix}-reference`}
+                hint="Opcional"
+              >
+                <Input
+                  id={`${idPrefix}-reference`}
+                  placeholder="Ex.: ao lado da farmácia"
+                  value={address.reference}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onAddressChange("reference", event.target.value)
+                  }
+                />
+              </FormField>
+            </div>
           </div>
         )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            label="Complemento"
-            htmlFor={`${idPrefix}-complement`}
-            hint="Opcional"
-          >
-            <Input
-              id={`${idPrefix}-complement`}
-              placeholder="Apto., bloco, sala ou portão"
-              value={address.complement}
-              disabled={disabled}
-              onChange={(event) =>
-                onAddressChange("complement", event.target.value)
-              }
-            />
-          </FormField>
-          <FormField
-            label="Referência"
-            htmlFor={`${idPrefix}-reference`}
-            hint="Opcional"
-          >
-            <Input
-              id={`${idPrefix}-reference`}
-              placeholder="Ex.: ao lado da farmácia"
-              value={address.reference}
-              disabled={disabled}
-              onChange={(event) =>
-                onAddressChange("reference", event.target.value)
-              }
-            />
-          </FormField>
-        </div>
 
         {tileError && (
           <p className="text-sm font-semibold text-amber-800" role="status">

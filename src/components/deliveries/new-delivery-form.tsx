@@ -717,7 +717,7 @@ export function NewDeliveryForm({
   }
 
   function hasRequiredAddress() {
-    if (!form.destinationAddress.trim()) {
+    if (!form.destinationAddress.trim() && !addressSearch.trim()) {
       setMessage(
         "Digite uma rua, escolha uma sugestão ou marque o destino no mapa.",
       );
@@ -741,16 +741,20 @@ export function NewDeliveryForm({
     setQuote(null);
     setQuoteError("");
     try {
+      const searchDigits = addressSearch.replace(/\D/g, "");
+      const searchIsPostalCode = /^\d{8}$/.test(searchDigits);
       const response = await fetch("/api/maps/geocode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          address: form.destinationAddress,
+          address: form.destinationAddress.trim() || addressSearch.trim(),
           number: form.destinationNumber,
           neighborhood: form.destinationNeighborhood,
           city: form.destinationCity,
           state: form.destinationState,
-          postalCode: form.destinationPostalCode,
+          postalCode: searchIsPostalCode
+            ? searchDigits
+            : form.destinationPostalCode,
         }),
         signal: controller.signal,
       });

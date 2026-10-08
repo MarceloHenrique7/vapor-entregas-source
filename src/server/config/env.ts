@@ -2,6 +2,31 @@ import { z } from "zod";
 
 const databaseEnvSchema = z.object({
   DATABASE_URL: z.string().url().startsWith("mysql://"),
+  DATABASE_POOL_CONNECTION_LIMIT: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .default(2),
+  DATABASE_POOL_MINIMUM_IDLE: z.coerce.number().int().min(0).max(20).default(0),
+  DATABASE_POOL_ACQUIRE_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(60_000)
+    .default(15_000),
+  DATABASE_CONNECT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(60_000)
+    .default(10_000),
+  DATABASE_POOL_IDLE_TIMEOUT_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(60)
+    .max(3_600)
+    .default(600),
 });
 
 const authEnvSchema = z.object({
@@ -155,7 +180,17 @@ const prelaunchEnvSchema = z.object({
 });
 
 export function getDatabaseEnv() {
-  return databaseEnvSchema.parse(process.env);
+  const value = databaseEnvSchema.parse(process.env);
+  return {
+    DATABASE_URL: value.DATABASE_URL,
+    pool: {
+      connectionLimit: value.DATABASE_POOL_CONNECTION_LIMIT,
+      minimumIdle: value.DATABASE_POOL_MINIMUM_IDLE,
+      acquireTimeout: value.DATABASE_POOL_ACQUIRE_TIMEOUT_MS,
+      connectTimeout: value.DATABASE_CONNECT_TIMEOUT_MS,
+      idleTimeout: value.DATABASE_POOL_IDLE_TIMEOUT_SECONDS,
+    },
+  };
 }
 
 export function getAuthEnv() {

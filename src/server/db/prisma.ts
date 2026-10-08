@@ -3,6 +3,8 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@/generated/prisma/client";
 import { getDatabaseEnv } from "@/server/config/env";
 
+import { withDatabasePoolOptions } from "./pool-config";
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
@@ -12,8 +14,10 @@ export function getPrisma(): PrismaClient {
     return globalForPrisma.prisma;
   }
 
-  const { DATABASE_URL } = getDatabaseEnv();
-  const adapter = new PrismaMariaDb(DATABASE_URL);
+  const { DATABASE_URL, pool } = getDatabaseEnv();
+  const adapter = new PrismaMariaDb(
+    withDatabasePoolOptions(DATABASE_URL, pool),
+  );
   const prisma = new PrismaClient({ adapter });
 
   // O adapter gerencia um pool de conexões. Reutilizar o client é obrigatório

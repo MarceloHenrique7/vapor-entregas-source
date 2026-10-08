@@ -3,7 +3,10 @@ import "server-only";
 import { getMapsEnv } from "@/server/config/env";
 
 import { GeocodingUnavailableError } from "./errors";
-import { createNominatimProvider } from "./nominatim-provider";
+import {
+  createNominatimProvider,
+  createViaCepPostalCodeLookup,
+} from "./nominatim-provider";
 import type { GeocodingProvider } from "./types";
 
 let providerOverride: GeocodingProvider | undefined;
@@ -24,5 +27,6 @@ export function getGeocodingProvider(): GeocodingProvider {
     baseUrl: env.GEOCODING_BASE_URL,
     userAgent: env.GEOCODING_USER_AGENT,
     cacheTtlSeconds: env.GEOCODING_CACHE_TTL_SECONDS,
+    postalCodeLookup: createViaCepPostalCodeLookup(),
   });
 }

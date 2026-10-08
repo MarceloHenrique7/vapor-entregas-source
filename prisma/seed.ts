@@ -3,6 +3,7 @@ import "dotenv/config";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 import { PrismaClient } from "../src/generated/prisma/client";
+import { withDatabasePoolOptions } from "../src/server/db/pool-config";
 import { hashPassword } from "../src/server/auth/password";
 import { adminSeedEnvSchema } from "../src/server/auth/schemas";
 
@@ -14,7 +15,7 @@ async function main() {
   }
 
   const admin = adminSeedEnvSchema.parse(process.env);
-  const adapter = new PrismaMariaDb(databaseUrl);
+  const adapter = new PrismaMariaDb(withDatabasePoolOptions(databaseUrl));
   const prisma = new PrismaClient({ adapter });
 
   try {

@@ -22,11 +22,26 @@ describe("experiência unificada de endereço e mapa", () => {
       "src/components/maps/address-location-picker.tsx",
     );
 
-    expect(picker).toContain("Editar endereço");
+    expect(picker).toContain("Editar detalhes");
     expect(picker).toContain("Local identificado");
     expect(picker).toContain("<CompanyLocationMapLoader");
     expect(picker).toContain("Complemento");
     expect(picker).toContain("Referência");
+    expect(picker).toContain("Encontrar endereço");
+    expect(picker).toContain("Confirmar PIN");
+    expect(picker).toContain("Editar detalhes");
+    expect(picker).toContain("ArrowDown");
+    expect(picker).toContain("arraste o PIN");
+  });
+
+  it("permite confirmar uma busca diretamente pelo teclado", async () => {
+    const picker = await source(
+      "src/components/maps/address-location-picker.tsx",
+    );
+
+    expect(picker).toContain('placeholder="Rua, número, bairro ou CEP"');
+    expect(picker).toContain("if (suggestions.length === 0)");
+    expect(picker).toContain("onLocate();");
   });
 
   it("troca a grade extensa de adicionais por condições compactas", async () => {
