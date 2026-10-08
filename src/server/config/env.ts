@@ -45,7 +45,9 @@ const sensitiveDataEnvSchema = z.object({
 });
 
 const mapsEnvSchema = z.object({
-  GEOCODING_PROVIDER: z.enum(["nominatim", "disabled"]).default("nominatim"),
+  GEOCODING_PROVIDER: z
+    .enum(["tomtom", "nominatim", "disabled"])
+    .default("nominatim"),
   GEOCODING_BASE_URL: z
     .string()
     .url()
@@ -60,6 +62,12 @@ const mapsEnvSchema = z.object({
     .min(60)
     .max(604800)
     .default(86400),
+  TOMTOM_API_KEY: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().trim().min(10).optional(),
+  ),
+  TOMTOM_BASE_URL: z.string().url().default("https://api.tomtom.com"),
 });
 
 const presenceEnvSchema = z.object({
