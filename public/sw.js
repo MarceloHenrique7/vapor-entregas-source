@@ -1,4 +1,4 @@
-const CACHE_NAME = "vapor-entregas-static-v4";
+const CACHE_NAME = "vapor-entregas-static-v5";
 const PUBLIC_SHELL = [
   "/",
   "/form",
@@ -118,6 +118,12 @@ self.addEventListener("push", (event) => {
       body,
       icon: "/icons/vapor-entregas-192.png",
       badge: "/icons/vapor-entregas-192.png",
+      tag: String(payload.tag || payload.type || "vapor-entregas").slice(
+        0,
+        160,
+      ),
+      renotify: true,
+      vibrate: [180, 80, 180],
       data: { path },
     }),
   );
@@ -125,6 +131,21 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const path = event.notification.data?.path || "/";
-  event.waitUntil(self.clients.openWindow(path));
+  const rawPath = event.notification.data?.path;
+  const path =
+    typeof rawPath === "string" && rawPath.startsWith("/") ? rawPath : "/";
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        const targetUrl = new URL(path, self.location.origin).href;
+        const existing = clients.find(
+          (client) => new URL(client.url).origin === self.location.origin,
+        );
+        if (existing) {
+          return existing.navigate(targetUrl).then(() => existing.focus());
+        }
+        return self.clients.openWindow(targetUrl);
+      }),
+  );
 });

@@ -10,6 +10,7 @@ import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/cn";
+import { unsubscribeCurrentBrowser } from "@/lib/push/client";
 import type { NavigationItem } from "./navigation";
 
 export function DashboardShell({
@@ -41,6 +42,7 @@ export function DashboardShell({
     try {
       window.dispatchEvent(new Event("vapor-entregas:logout"));
       window.dispatchEvent(new Event("entregavale:logout"));
+      await unsubscribeCurrentBrowser().catch(() => undefined);
       await fetch("/api/auth/logout", { method: "POST" });
       setMobileMenuOpen(false);
       router.replace("/entrar");

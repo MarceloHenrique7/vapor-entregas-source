@@ -169,6 +169,7 @@ function toPublicDelivery(
   delete publicDelivery.pickupLongitude;
   delete publicDelivery.destinationLatitude;
   delete publicDelivery.destinationLongitude;
+  if (!includeNavigation) delete publicDelivery.destinationPhone;
   return {
     ...(publicDelivery as unknown as DeliveryView),
     ...(includeNavigation

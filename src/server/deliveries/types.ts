@@ -104,6 +104,7 @@ export interface DeliveryView {
   destinationNeighborhood: string;
   destinationComplement: string | null;
   destinationReference: string | null;
+  destinationPhone?: string | null;
   destinationCity: "PETROLINA_PE" | "JUAZEIRO_BA";
   destinationState: string;
   distanceEstimateKm: number;

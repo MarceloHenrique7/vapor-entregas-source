@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { useNotificationEvents } from "./use-notification-events";
+import { PushNotificationSettings } from "./push-notification-settings";
 
 interface Item {
   id: string;
@@ -85,6 +86,7 @@ export function NotificationCenter() {
         title="Notificações"
         description="Atualizações importantes sobre oportunidades, entregas e sua conta."
       />
+      <PushNotificationSettings />
       <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-bold text-ink">{unread} não lida(s)</p>

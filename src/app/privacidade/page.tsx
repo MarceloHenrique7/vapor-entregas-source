@@ -38,7 +38,7 @@ export default function PrivacyPage() {
         {
           title: "5. Dados operacionais e de reputação",
           content:
-            "São tratados dados de entregas, coleta e destino, valor e pagamento informados, status e horários, avaliações, favoritos, denúncias e moderação. Também existem registros mínimos de sessão, tentativas de autenticação, aceites jurídicos e auditoria administrativa necessários à segurança e ao funcionamento.",
+            "São tratados dados de entregas, coleta e destino, telefone opcional do cliente informado pela empresa, valor e pagamento informados, status e horários, avaliações, favoritos, denúncias e moderação. O telefone do cliente é protegido no armazenamento e só fica disponível à empresa responsável e ao motoboy vinculado depois do aceite. Também existem registros mínimos de sessão, tentativas de autenticação, aceites jurídicos, inscrições de notificação do navegador e auditoria administrativa necessários à segurança e ao funcionamento.",
         },
         {
           title: "6. Finalidades",

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   deliveryFindUnique: vi.fn(),
   userFindMany: vi.fn(),
   transaction: vi.fn(),
+  sendWebPushToUsers: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -27,6 +28,9 @@ vi.mock("@/server/db/prisma", () => ({
     $transaction: mocks.transaction,
   }),
 }));
+vi.mock("./push-service", () => ({
+  sendWebPushToUsers: mocks.sendWebPushToUsers,
+}));
 
 import {
   listNotifications,
@@ -44,6 +48,7 @@ describe("central de notificações", () => {
     mocks.transaction.mockImplementation((operations: Promise<unknown>[]) =>
       Promise.all(operations),
     );
+    mocks.sendWebPushToUsers.mockResolvedValue({ sent: 0, removed: 0 });
   });
 
   it("lista somente notificações do usuário com paginação e contagem", async () => {
@@ -109,6 +114,14 @@ describe("central de notificações", () => {
     await notifyNewOpportunity("delivery-1");
 
     expect(mocks.createMany).toHaveBeenCalledTimes(2);
+    expect(mocks.sendWebPushToUsers).toHaveBeenCalledTimes(1);
+    expect(mocks.sendWebPushToUsers).toHaveBeenCalledWith(
+      [userId],
+      expect.objectContaining({
+        type: "NEW_OPPORTUNITY",
+        path: "/app/motoboy/oportunidades",
+      }),
+    );
     expect(mocks.createMany).toHaveBeenLastCalledWith({
       data: [
         expect.objectContaining({

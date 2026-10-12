@@ -73,6 +73,7 @@ const delivery: DeliveryRecord = {
   destinationNeighborhood: input.destinationNeighborhood,
   destinationComplement: null,
   destinationReference: null,
+  destinationPhone: "+5587999991234",
   destinationCity: input.destinationCity,
   destinationState: input.destinationState,
   distanceEstimateKm: 2.5,
@@ -234,7 +235,37 @@ describe("entregas e oportunidades", () => {
     expect(result[0]).not.toHaveProperty("destinationAddress");
     expect(result[0]).not.toHaveProperty("destinationNumber");
     expect(result[0]).not.toHaveProperty("destinationReference");
+    expect(result[0]).not.toHaveProperty("destinationPhone");
     expect(result[0]).not.toHaveProperty("notes");
+  });
+
+  it("normaliza o telefone opcional e só o libera após o aceite", async () => {
+    const repo = repository();
+    const created = await createDelivery(
+      { userId: companyUserId, role: "COMPANY" },
+      { ...input, destinationPhone: "(87) 99999-1234" },
+      repo,
+      now,
+      60,
+    );
+    expect(repo.createDelivery).toHaveBeenCalledWith(
+      companyUserId,
+      pickup,
+      expect.objectContaining({ destinationPhone: "+5587999991234" }),
+      expect.any(Object),
+      expect.any(Date),
+    );
+    expect(created).not.toHaveProperty("destinationPhone");
+
+    const accepted = await acceptDelivery(
+      { userId: motoboyUserId, role: "MOTOBOY" },
+      delivery.id,
+      repo,
+      now,
+      10,
+      20,
+    );
+    expect(accepted.destinationPhone).toBe("+5587999991234");
   });
 
   it("não entrega oportunidades ao motoboy offline", async () => {

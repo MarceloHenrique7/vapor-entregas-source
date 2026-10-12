@@ -553,16 +553,17 @@ em denúncia. É possível marcar uma ou todas como lidas, e o badge consulta so
 a contagem do titular. SSE atualiza corridas rapidamente; polling de 30 segundos é
 ativado apenas quando SSE falha.
 
-O service worker já entende eventos Web Push, mas o MVP não cadastra subscriptions
-nem envia push por VAPID. Assim, não há Firebase, serviço pago ou variável obrigatória
-de push. A central interna continua plenamente funcional. Uma futura ativação de
-push exige implementar opt-in, armazenamento de subscription, VAPID e política de
-revogação antes de criar variáveis de produção.
+O Web Push é opcional e usa o padrão aberto VAPID, sem Firebase ou serviço pago
+obrigatório. A permissão só é solicitada quando o usuário toca em “Ativar
+notificações” na central. Cada inscrição fica vinculada à sessão autenticada,
+pode ser revogada no mesmo dispositivo e endpoints expirados são removidos. Sem as
+variáveis VAPID, a central interna continua plenamente funcional. No iOS, Web Push
+exige iOS 16.4+ e o app instalado na tela inicial.
 
 ## Limites atuais do MVP
 
-Pagamento, carteira, CNH, upload de documentos, rastreamento GPS permanente e push
-remoto permanecem deliberadamente fora do escopo. O broker SSE é local ao processo:
+Pagamento, carteira, CNH, upload de documentos e rastreamento GPS permanente
+permanecem deliberadamente fora do escopo. O broker SSE é local ao processo:
 use uma única instância Node no MVP ou adote um broker compartilhado antes de escalar
 horizontalmente. Os textos jurídicos e a identidade visual provisória precisam de
 aprovação profissional antes do lançamento.

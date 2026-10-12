@@ -3,6 +3,11 @@ import "server-only";
 import { calculateStraightLineDistance } from "@/lib/maps/geo";
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/server/db/prisma";
+import { getSensitiveDataEnv } from "@/server/config/env";
+import {
+  decryptPrivateField,
+  encryptPrivateField,
+} from "@/server/security/private-fields";
 
 import type { DeliveryRepository } from "./delivery-service";
 import type {
@@ -103,6 +108,11 @@ const deliverySelect = {
   },
 } as const;
 
+const deliverySelectWithPrivateContact = {
+  ...deliverySelect,
+  destinationPhoneEncrypted: true,
+} as const;
+
 function toRecord(
   delivery: {
     id: string;
@@ -121,6 +131,7 @@ function toRecord(
     destinationNeighborhood: string;
     destinationComplement: string | null;
     destinationReference: string | null;
+    destinationPhoneEncrypted?: string | null;
     destinationCity: "PETROLINA_PE" | "JUAZEIRO_BA";
     destinationState: string;
     destinationLatitude: { toNumber(): number };
@@ -191,10 +202,23 @@ function toRecord(
   },
   companyRating?: { average: number | null; count: number },
 ): DeliveryRecord {
-  const { company, motoboy, statusHistory, extras, paymentEvents, ...record } =
-    delivery;
+  const {
+    company,
+    motoboy,
+    statusHistory,
+    extras,
+    paymentEvents,
+    destinationPhoneEncrypted,
+    ...record
+  } = delivery;
   return {
     ...record,
+    destinationPhone: destinationPhoneEncrypted
+      ? decryptPrivateField(
+          destinationPhoneEncrypted,
+          getSensitiveDataEnv().FIELD_ENCRYPTION_KEY,
+        )
+      : null,
     companyName: company.fantasyName,
     motoboyName: motoboy?.user.name ?? null,
     pickupLatitude: delivery.pickupLatitude.toNumber(),
@@ -318,7 +342,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
   },
 
   async createDelivery(actorUserId, pickup, input, pricing, expiresAt) {
-    const { extras = [], ...deliveryInput } = input;
+    const { extras = [], destinationPhone, ...deliveryInput } = input;
     const delivery = await getPrisma().$transaction(async (transaction) => {
       const created = await transaction.delivery.create({
         data: {
@@ -333,6 +357,12 @@ export const prismaDeliveryRepository: DeliveryRepository = {
           pickupLatitude: pickup.latitude,
           pickupLongitude: pickup.longitude,
           ...deliveryInput,
+          destinationPhoneEncrypted: destinationPhone
+            ? encryptPrivateField(
+                destinationPhone,
+                getSensitiveDataEnv().FIELD_ENCRYPTION_KEY,
+              )
+            : null,
           distanceEstimateKm: pricing.distanceEstimateKm,
           distanceMethod: pricing.distanceMethod,
           routeDurationSeconds: pricing.routeDurationSeconds,
@@ -588,7 +618,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
         });
         const delivery = await transaction.delivery.findUniqueOrThrow({
           where: { id: deliveryId },
-          select: deliverySelect,
+          select: deliverySelectWithPrivateContact,
         });
         return { kind: "accepted", delivery: toRecord(delivery) } as const;
       });
@@ -623,7 +653,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
         },
       },
       orderBy: { acceptedAt: "desc" },
-      select: deliverySelect,
+      select: deliverySelectWithPrivateContact,
     });
     return delivery ? toRecord(delivery) : null;
   },
@@ -642,7 +672,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
     if (!profile) return "forbidden";
     const delivery = await getPrisma().delivery.findUnique({
       where: { id: deliveryId },
-      select: deliverySelect,
+      select: deliverySelectWithPrivateContact,
     });
     if (!delivery) return null;
     const ownsDelivery =
@@ -705,7 +735,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
       });
       const delivery = await transaction.delivery.findUniqueOrThrow({
         where: { id: deliveryId },
-        select: deliverySelect,
+        select: deliverySelectWithPrivateContact,
       });
       return { kind: "updated", delivery: toRecord(delivery) } as const;
     });
@@ -763,7 +793,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
       });
       const delivery = await transaction.delivery.findUniqueOrThrow({
         where: { id: deliveryId },
-        select: deliverySelect,
+        select: deliverySelectWithPrivateContact,
       });
       return { kind: "updated", delivery: toRecord(delivery) } as const;
     });
@@ -823,7 +853,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
       if (transition.kind === "noop") {
         const current = await transaction.delivery.findUniqueOrThrow({
           where: { id: deliveryId },
-          select: deliverySelect,
+          select: deliverySelectWithPrivateContact,
         });
         return {
           kind: "updated",
@@ -862,7 +892,7 @@ export const prismaDeliveryRepository: DeliveryRepository = {
       });
       const delivery = await transaction.delivery.findUniqueOrThrow({
         where: { id: deliveryId },
-        select: deliverySelect,
+        select: deliverySelectWithPrivateContact,
       });
       return {
         kind: "updated",

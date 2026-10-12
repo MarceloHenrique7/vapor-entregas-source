@@ -37,6 +37,7 @@ import {
   type CanonicalLocation,
   type LocationSource,
 } from "@/lib/maps/location";
+import { formatBrazilPhoneInput } from "@/lib/validators/phone";
 
 type City = "PETROLINA_PE" | "JUAZEIRO_BA";
 type PaymentMethod = keyof typeof PAYMENT_METHOD_LABELS;
@@ -128,6 +129,7 @@ export function NewDeliveryForm({
     destinationNeighborhood: "",
     destinationComplement: "",
     destinationReference: "",
+    destinationPhone: "",
     destinationCity: pickup.city,
     destinationState: pickup.city === "PETROLINA_PE" ? "PE" : "BA",
     destinationPostalCode: "",
@@ -418,6 +420,7 @@ export function NewDeliveryForm({
           destinationNeighborhood: draft.destinationNeighborhood,
           destinationComplement: draft.destinationComplement ?? "",
           destinationReference: draft.destinationReference ?? "",
+          destinationPhone: "",
           destinationCity: draft.destinationCity,
           destinationState: draft.destinationState,
           destinationPostalCode: draft.destinationPostalCode ?? "",
@@ -1162,6 +1165,27 @@ export function NewDeliveryForm({
           </p>
           <div className="mt-5 space-y-5">
             <FormField
+              label="Telefone do cliente"
+              htmlFor="destinationPhone"
+              hint="Opcional · visível somente para sua empresa e para o motoboy após o aceite."
+            >
+              <Input
+                id="destinationPhone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={16}
+                placeholder="(87) 99999-9999"
+                value={form.destinationPhone}
+                onChange={(event) =>
+                  update(
+                    "destinationPhone",
+                    formatBrazilPhoneInput(event.target.value),
+                  )
+                }
+              />
+            </FormField>
+            <FormField
               label="Valor oferecido"
               htmlFor="offeredPrice"
               required
@@ -1281,6 +1305,17 @@ export function NewDeliveryForm({
                 <dd className="mt-1 text-xs text-muted">
                   {form.destinationComplement}
                 </dd>
+              )}
+            </div>
+            <div>
+              <dt className="font-bold text-muted">Contato do cliente</dt>
+              <dd className="mt-1 text-ink">
+                {form.destinationPhone || "Não informado"}
+              </dd>
+              {form.destinationPhone && (
+                <p className="mt-1 text-xs text-muted">
+                  Liberado ao motoboy somente após o aceite.
+                </p>
               )}
             </div>
             <div>

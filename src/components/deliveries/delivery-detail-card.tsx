@@ -332,6 +332,14 @@ export function DeliveryDetailCard({
                   {delivery.destinationNeighborhood} ·{" "}
                   {delivery.destinationState}
                 </p>
+                {delivery.destinationPhone && (
+                  <a
+                    href={`tel:${delivery.destinationPhone}`}
+                    className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-line px-4 text-sm font-bold text-brand transition hover:border-brand/40 hover:bg-brand-light/40"
+                  >
+                    Ligar para o cliente · {delivery.destinationPhone}
+                  </a>
+                )}
                 <NavigationButtons links={delivery.destinationNavigation} />
               </div>
             </section>

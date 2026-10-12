@@ -187,6 +187,17 @@ const prelaunchEnvSchema = z.object({
     }),
 });
 
+const optionalPushSecret = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().trim().optional(),
+);
+const webPushEnvSchema = z.object({
+  WEB_PUSH_VAPID_PUBLIC_KEY: optionalPushSecret,
+  WEB_PUSH_VAPID_PRIVATE_KEY: optionalPushSecret,
+  WEB_PUSH_VAPID_SUBJECT: optionalPushSecret,
+});
+
 export function getDatabaseEnv() {
   const value = databaseEnvSchema.parse(process.env);
   return {
@@ -256,5 +267,30 @@ export function getPrelaunchEnv() {
   return {
     enabled: value.PRELAUNCH_MODE,
     testUserIds: value.PRELAUNCH_TEST_USER_IDS,
+  };
+}
+
+export function getWebPushEnv() {
+  const value = webPushEnvSchema.parse(process.env);
+  const entries = [
+    value.WEB_PUSH_VAPID_PUBLIC_KEY,
+    value.WEB_PUSH_VAPID_PRIVATE_KEY,
+    value.WEB_PUSH_VAPID_SUBJECT,
+  ];
+  if (entries.every((item) => !item)) {
+    return { enabled: false as const };
+  }
+  if (entries.some((item) => !item)) {
+    throw new Error("A configuração VAPID está incompleta.");
+  }
+  const subject = value.WEB_PUSH_VAPID_SUBJECT!;
+  if (!subject.startsWith("mailto:") && !subject.startsWith("https://")) {
+    throw new Error("WEB_PUSH_VAPID_SUBJECT deve usar mailto: ou https://.");
+  }
+  return {
+    enabled: true as const,
+    publicKey: value.WEB_PUSH_VAPID_PUBLIC_KEY!,
+    privateKey: value.WEB_PUSH_VAPID_PRIVATE_KEY!,
+    subject,
   };
 }

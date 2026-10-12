@@ -47,11 +47,23 @@ describe("PWA segura", () => {
     expect(worker).toContain('pathname.startsWith("/api/")');
     expect(worker).toContain('pathname.startsWith("/app/")');
     expect(worker).toContain('pathname.startsWith("/admin")');
-    expect(worker).toContain('"vapor-entregas-static-v4"');
+    expect(worker).toContain('"vapor-entregas-static-v5"');
     expect(worker).toMatch(/private\|no-store/);
     expect(worker).not.toMatch(
       /passwordHash|cpfEncrypted|rgEncrypted|tokenHash/i,
     );
+  });
+
+  it("abre notificações push em uma janela já existente sem cachear APIs", async () => {
+    const worker = await readFile(
+      join(process.cwd(), "public", "sw.js"),
+      "utf8",
+    );
+    expect(worker).toContain('self.addEventListener("push"');
+    expect(worker).toContain('self.addEventListener("notificationclick"');
+    expect(worker).toMatch(/self\.clients\s*\.matchAll/);
+    expect(worker).toContain("existing.navigate(targetUrl)");
+    expect(worker).not.toMatch(/cache\.put\([^\n]*\/api\//);
   });
 
   it("registra o service worker mesmo quando o load já aconteceu", async () => {

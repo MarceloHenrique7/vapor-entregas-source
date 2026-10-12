@@ -22,6 +22,12 @@ Use valores reais e protegidos para `DATABASE_URL`, `AUTH_RATE_LIMIT_SECRET`,
 `LEGAL_CONTACT_EMAIL` e um contato real em `GEOCODING_USER_AGENT` antes da produção.
 Defina `NODE_ENV=production` e ajuste `NEXT_PUBLIC_APP_URL` para o domínio HTTPS.
 
+Para avisos em segundo plano, gere uma única vez um par VAPID com
+`npx web-push generate-vapid-keys` e configure `WEB_PUSH_VAPID_PUBLIC_KEY`,
+`WEB_PUSH_VAPID_PRIVATE_KEY` e `WEB_PUSH_VAPID_SUBJECT`. O subject deve ser um
+`mailto:` real ou uma URL HTTPS. Preserve o mesmo par após inscrições já existirem;
+a chave privada nunca deve usar prefixo `NEXT_PUBLIC_`.
+
 Para o rastreamento público por entrega, mantenha `FIELD_ENCRYPTION_KEY` estável e
 configure `TRACKING_LINK_TTL_HOURS`, `TRACKING_TERMINAL_TTL_HOURS`,
 `TRACKING_LOCATION_MIN_INTERVAL_SECONDS` e `TRACKING_LOCATION_STALE_SECONDS`.
@@ -110,8 +116,10 @@ o tópico de pagamentos (`payment`) habilitado. Tópicos de preapproval são
 necessários somente enquanto houver contratos recorrentes legados.
 
 O polling de contingência mantém as telas atualizadas se SSE cair. A central de
-notificações permanece no MySQL. Web Push remoto não está habilitado e não
-exige variável adicional.
+notificações permanece no MySQL e funciona mesmo sem Web Push. Com VAPID
+configurado, o usuário pode ativar avisos no próprio dispositivo; o proxy deve
+servir `sw.js` sem reescritas e permitir conexões HTTPS externas aos serviços push
+dos navegadores.
 
 ## HTTPS e headers
 
@@ -127,6 +135,8 @@ uma configuração inválida.
 3. autentique uma empresa e um motoboy em navegadores separados;
 4. teste localização, publicação, aceite, etapas, conclusão e avaliação;
 5. confira `/app/*/notificacoes` e o badge de não lidas;
+   ative os avisos por clique, deixe o app em segundo plano e gere uma oportunidade
+   ou mudança de status para validar o Web Push;
 6. acesse `/admin` somente com a conta administrativa;
 7. revise logs por correlation ID sem publicar dados pessoais;
 8. confirme que APIs privadas enviam `Cache-Control: private, no-store`.

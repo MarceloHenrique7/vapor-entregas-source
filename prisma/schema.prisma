@@ -213,6 +213,7 @@ model User {
   adminActionsCreated       AdminAction[]          @relation("AdminActionsCreated")
   adminActionsTarget        AdminAction[]          @relation("AdminActionsTarget")
   notifications             Notification[]
+  pushSubscriptions         PushSubscription[]
   deliveryExtrasInformed    DeliveryExtra[]        @relation("DeliveryExtrasInformed")
   deliveryExtraActions      DeliveryExtraHistory[] @relation("DeliveryExtraActions")
   deliveryPaymentEvents     DeliveryPaymentEvent[] @relation("DeliveryPaymentActors")
@@ -454,60 +455,61 @@ model CompanyLocation {
 }
 
 model Delivery {
-  id                      String                    @id @default(uuid()) @db.Char(36)
-  companyId               String                    @db.Char(36)
-  motoboyId               String?                   @db.Char(36)
-  activeMotoboyKey        String?                   @unique(map: "deliveries_one_active_per_motoboy_idx") @db.Char(36)
-  pickupLocationId        String                    @db.Char(36)
-  pickupLabel             String                    @db.VarChar(80)
-  pickupAddress           String                    @db.VarChar(180)
-  pickupNumber            String                    @db.VarChar(20)
-  pickupNeighborhood      String                    @db.VarChar(100)
-  pickupCity              SupportedCity
-  pickupState             String                    @db.Char(2)
-  pickupLatitude          Decimal                   @db.Decimal(9, 6)
-  pickupLongitude         Decimal                   @db.Decimal(9, 6)
-  destinationAddress      String                    @db.VarChar(180)
-  destinationNumber       String                    @db.VarChar(20)
-  destinationNeighborhood String                    @db.VarChar(100)
-  destinationComplement   String?                   @db.VarChar(120)
-  destinationReference    String?                   @db.VarChar(180)
-  destinationCity         SupportedCity
-  destinationState        String                    @db.Char(2)
-  destinationPostalCode   String?                   @db.VarChar(9)
-  destinationLatitude     Decimal                   @db.Decimal(9, 6)
-  destinationLongitude    Decimal                   @db.Decimal(9, 6)
-  distanceEstimateKm      Decimal                   @db.Decimal(8, 2)
-  distanceMethod          DistanceCalculationMethod @default(STRAIGHT_LINE)
-  routeDurationSeconds    Int?
-  routeCalculatedAt       DateTime?                 @db.DateTime(3)
-  suggestedPrice          Decimal?                  @db.Decimal(10, 2)
-  pricingRuleId           String?                   @db.Char(36)
-  offeredPrice            Decimal                   @db.Decimal(10, 2)
-  paymentMethod           DeliveryPaymentMethod
-  paymentStatus           DeliveryPaymentStatus     @default(UNTRACKED)
-  paymentReportedAt       DateTime?                 @db.DateTime(3)
-  paymentConfirmedAt      DateTime?                 @db.DateTime(3)
-  paymentStatusUpdatedAt  DateTime?                 @db.DateTime(3)
-  notes                   String?                   @db.VarChar(500)
-  status                  DeliveryStatus            @default(SEARCHING_MOTOBOY)
-  acceptedAt              DateTime?                 @db.DateTime(3)
-  pickedUpAt              DateTime?                 @db.DateTime(3)
-  completedAt             DateTime?                 @db.DateTime(3)
-  cancelledAt             DateTime?                 @db.DateTime(3)
-  expiresAt               DateTime                  @db.DateTime(3)
-  createdAt               DateTime                  @default(now()) @db.DateTime(3)
-  updatedAt               DateTime                  @updatedAt @db.DateTime(3)
-  company                 CompanyProfile            @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  motoboy                 MotoboyProfile?           @relation(fields: [motoboyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  pickupLocation          CompanyLocation           @relation(fields: [pickupLocationId], references: [id], onDelete: Restrict)
-  statusHistory           DeliveryStatusHistory[]
-  ratings                 Rating[]
-  reports                 Report[]
-  extras                  DeliveryExtra[]
-  paymentEvents           DeliveryPaymentEvent[]
-  pricingRule             PricingRule?              @relation(fields: [pricingRuleId], references: [id], onDelete: SetNull)
-  tracking                DeliveryTracking?
+  id                        String                    @id @default(uuid()) @db.Char(36)
+  companyId                 String                    @db.Char(36)
+  motoboyId                 String?                   @db.Char(36)
+  activeMotoboyKey          String?                   @unique(map: "deliveries_one_active_per_motoboy_idx") @db.Char(36)
+  pickupLocationId          String                    @db.Char(36)
+  pickupLabel               String                    @db.VarChar(80)
+  pickupAddress             String                    @db.VarChar(180)
+  pickupNumber              String                    @db.VarChar(20)
+  pickupNeighborhood        String                    @db.VarChar(100)
+  pickupCity                SupportedCity
+  pickupState               String                    @db.Char(2)
+  pickupLatitude            Decimal                   @db.Decimal(9, 6)
+  pickupLongitude           Decimal                   @db.Decimal(9, 6)
+  destinationAddress        String                    @db.VarChar(180)
+  destinationNumber         String                    @db.VarChar(20)
+  destinationNeighborhood   String                    @db.VarChar(100)
+  destinationComplement     String?                   @db.VarChar(120)
+  destinationReference      String?                   @db.VarChar(180)
+  destinationPhoneEncrypted String?                   @db.Text
+  destinationCity           SupportedCity
+  destinationState          String                    @db.Char(2)
+  destinationPostalCode     String?                   @db.VarChar(9)
+  destinationLatitude       Decimal                   @db.Decimal(9, 6)
+  destinationLongitude      Decimal                   @db.Decimal(9, 6)
+  distanceEstimateKm        Decimal                   @db.Decimal(8, 2)
+  distanceMethod            DistanceCalculationMethod @default(STRAIGHT_LINE)
+  routeDurationSeconds      Int?
+  routeCalculatedAt         DateTime?                 @db.DateTime(3)
+  suggestedPrice            Decimal?                  @db.Decimal(10, 2)
+  pricingRuleId             String?                   @db.Char(36)
+  offeredPrice              Decimal                   @db.Decimal(10, 2)
+  paymentMethod             DeliveryPaymentMethod
+  paymentStatus             DeliveryPaymentStatus     @default(UNTRACKED)
+  paymentReportedAt         DateTime?                 @db.DateTime(3)
+  paymentConfirmedAt        DateTime?                 @db.DateTime(3)
+  paymentStatusUpdatedAt    DateTime?                 @db.DateTime(3)
+  notes                     String?                   @db.VarChar(500)
+  status                    DeliveryStatus            @default(SEARCHING_MOTOBOY)
+  acceptedAt                DateTime?                 @db.DateTime(3)
+  pickedUpAt                DateTime?                 @db.DateTime(3)
+  completedAt               DateTime?                 @db.DateTime(3)
+  cancelledAt               DateTime?                 @db.DateTime(3)
+  expiresAt                 DateTime                  @db.DateTime(3)
+  createdAt                 DateTime                  @default(now()) @db.DateTime(3)
+  updatedAt                 DateTime                  @updatedAt @db.DateTime(3)
+  company                   CompanyProfile            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  motoboy                   MotoboyProfile?           @relation(fields: [motoboyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  pickupLocation            CompanyLocation           @relation(fields: [pickupLocationId], references: [id], onDelete: Restrict)
+  statusHistory             DeliveryStatusHistory[]
+  ratings                   Rating[]
+  reports                   Report[]
+  extras                    DeliveryExtra[]
+  paymentEvents             DeliveryPaymentEvent[]
+  pricingRule               PricingRule?              @relation(fields: [pricingRuleId], references: [id], onDelete: SetNull)
+  tracking                  DeliveryTracking?
 
   @@index([companyId, createdAt])
   @@index([companyId, status, createdAt])
@@ -770,6 +772,22 @@ model Notification {
   @@index([userId, readAt, createdAt])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+model PushSubscription {
+  id             String    @id @default(uuid()) @db.Char(36)
+  userId         String    @db.Char(36)
+  endpoint       String    @unique @db.VarChar(512)
+  p256dh         String    @db.VarChar(255)
+  auth           String    @db.VarChar(255)
+  expirationTime DateTime? @db.DateTime(3)
+  userAgent      String?   @db.VarChar(255)
+  createdAt      DateTime  @default(now()) @db.DateTime(3)
+  updatedAt      DateTime  @updatedAt @db.DateTime(3)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("push_subscriptions")
 }
 
 model Session {

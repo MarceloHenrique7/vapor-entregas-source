@@ -5,6 +5,7 @@ import {
   DELIVERY_PAYMENT_STATUSES,
   DELIVERY_STATUSES,
 } from "./types";
+import { normalizeBrazilPhone } from "@/lib/validators/phone";
 
 const optionalText = (maximum: number) =>
   z
@@ -23,6 +24,24 @@ const postalCode = z
     "Informe um CEP válido.",
   )
   .transform((value) => value || undefined)
+  .optional();
+
+const optionalPhone = z
+  .string()
+  .trim()
+  .max(24)
+  .transform((value, context) => {
+    if (!value) return undefined;
+    const normalized = normalizeBrazilPhone(value);
+    if (!normalized) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe um telefone brasileiro válido.",
+      });
+      return z.NEVER;
+    }
+    return normalized;
+  })
   .optional();
 
 const coordinates = z.object({
@@ -65,6 +84,7 @@ export const createDeliverySchema = z
     destinationNeighborhood: z.string().trim().min(2).max(100),
     destinationComplement: optionalText(120),
     destinationReference: optionalText(180),
+    destinationPhone: optionalPhone,
     destinationCity: z.enum(["PETROLINA_PE", "JUAZEIRO_BA"]),
     destinationState: z.enum(["PE", "BA"]),
     destinationPostalCode: postalCode,

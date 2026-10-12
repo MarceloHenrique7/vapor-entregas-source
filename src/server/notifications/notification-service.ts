@@ -5,22 +5,11 @@ import { getPrisma } from "@/server/db/prisma";
 import { logServerError } from "@/server/observability/logger";
 
 import { publishNotificationChange } from "./notification-events";
+import { sendWebPushToUsers } from "./push-service";
 import { notificationIdSchema, notificationListSchema } from "./schemas";
+import type { NotificationType } from "./types";
 
-export type NotificationType =
-  | "NEW_OPPORTUNITY"
-  | "DELIVERY_ACCEPTED"
-  | "DELIVERY_STATUS_CHANGED"
-  | "DELIVERY_CANCELLED"
-  | "DELIVERY_COMPLETED"
-  | "DELIVERY_PAYMENT_REPORTED"
-  | "DELIVERY_PAYMENT_CONFIRMED"
-  | "DELIVERY_PAYMENT_DISPUTED"
-  | "REPORT_UPDATED"
-  | "PLAN_PAYMENT_APPROVED"
-  | "PLAN_EXPIRING"
-  | "PLAN_EXPIRED"
-  | "ADMIN_NOTICE";
+export type { NotificationType } from "./types";
 
 function rolePath(role: "COMPANY" | "MOTOBOY" | "ADMIN", section: string) {
   const base =
@@ -110,7 +99,16 @@ async function createForUsers(
     data: uniqueUserIds.map((userId) => ({ userId, ...input })),
     skipDuplicates: true,
   });
-  if (result.count > 0) publishNotificationChange(uniqueUserIds);
+  if (result.count > 0) {
+    publishNotificationChange(uniqueUserIds);
+    await sendWebPushToUsers(uniqueUserIds, {
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      path: input.metadata?.targetUrl ?? "/",
+      tag: input.eventKey,
+    });
+  }
 }
 
 export async function notifyNewOpportunity(deliveryId: string) {
@@ -198,7 +196,13 @@ export async function notifyDeliveryEvent(
   if (delivery.motoboy?.userId) {
     await createForUsers([delivery.motoboy.userId], {
       ...copy,
-      metadata: { deliveryId, targetUrl: "/app/motoboy/corrida" },
+      metadata: {
+        deliveryId,
+        targetUrl:
+          event === "completed"
+            ? "/app/motoboy/ganhos"
+            : "/app/motoboy/corrida",
+      },
       eventKey,
     });
   }
@@ -254,7 +258,7 @@ export async function notifyDeliveryPaymentEvent(
     ...copy,
     metadata: {
       deliveryId,
-      targetUrl: "/app/motoboy/historico",
+      targetUrl: "/app/motoboy/ganhos",
     },
     eventKey,
   });
