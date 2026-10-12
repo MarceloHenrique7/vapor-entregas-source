@@ -13,7 +13,7 @@ export default function CompanyDeliveriesPage() {
       <DashboardHeader
         eyebrow="Área da empresa"
         title="Entregas"
-        description="Acompanhe oportunidades, motoboy responsável e cada etapa operacional em tempo real."
+        description="Veja o status e acompanhe cada entrega."
         action={
           <Link href="/app/empresa/entregas/nova" className={buttonStyles()}>
             Nova entrega

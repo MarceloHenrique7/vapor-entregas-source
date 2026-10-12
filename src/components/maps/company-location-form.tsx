@@ -23,7 +23,10 @@ import {
   type LocationSource,
 } from "@/lib/maps/location";
 
-import { AddressLocationPicker } from "./address-location-picker";
+import {
+  AddressLocationPicker,
+  type LocationInputMode,
+} from "./address-location-picker";
 
 type City = "PETROLINA_PE" | "JUAZEIRO_BA";
 
@@ -62,6 +65,13 @@ export function CompanyLocationForm({
     initial.latitude !== null && initial.longitude !== null
       ? { latitude: initial.latitude, longitude: initial.longitude }
       : cityCenters[initial.city],
+  );
+  const [inputMode, setInputMode] = useState<LocationInputMode>("search");
+  const [manualLatitude, setManualLatitude] = useState(
+    initial.latitude?.toString() ?? "",
+  );
+  const [manualLongitude, setManualLongitude] = useState(
+    initial.longitude?.toString() ?? "",
   );
   const [status, setStatus] = useState<
     | "idle"
@@ -117,6 +127,68 @@ export function CompanyLocationForm({
   const reverseRequests = useRef(createLatestRequestGate());
   const geocodeController = useRef<AbortController | null>(null);
   const reverseController = useRef<AbortController | null>(null);
+
+  function handleManualCoordinateChange(
+    field: "latitude" | "longitude",
+    value: string,
+  ) {
+    const pastedPair =
+      field === "latitude"
+        ? value
+            .trim()
+            .split(/[,;\s]+/)
+            .filter(Boolean)
+        : [];
+    const nextLatitude =
+      pastedPair.length >= 2
+        ? pastedPair[0]
+        : field === "latitude"
+          ? value
+          : manualLatitude;
+    const nextLongitude =
+      pastedPair.length >= 2
+        ? pastedPair[1]
+        : field === "longitude"
+          ? value
+          : manualLongitude;
+    setManualLatitude(nextLatitude);
+    setManualLongitude(nextLongitude);
+
+    const latitude = Number(nextLatitude.replace(",", "."));
+    const longitude = Number(nextLongitude.replace(",", "."));
+    const normalized = normalizeCoordinates({ latitude, longitude });
+    if (!normalized) {
+      setLocationResolved(false);
+      setCanonicalLocation(null);
+      setMessage(
+        "Informe latitude e longitude vÃ¡lidas para confirmar o ponto.",
+      );
+      return;
+    }
+    const fallback = createPinnedLocationFallback(normalized, form.city);
+    if (!fallback) return;
+    const formattedAddress = `${form.address || "EndereÃ§o informado"}, ${form.number || "s/n"} - ${form.neighborhood || "Bairro nÃ£o informado"}`;
+    setCoordinates(normalized);
+    setCanonicalLocation({
+      ...fallback.location,
+      formattedAddress,
+      components: {
+        ...fallback.location.components,
+        street: form.address || undefined,
+        number: form.number || undefined,
+        neighborhood: form.neighborhood || undefined,
+        postalCode: form.postalCode || undefined,
+      },
+    });
+    setApproximateAddress(formattedAddress);
+    setLocationResolved(
+      Boolean(
+        form.address.trim() && form.number.trim() && form.neighborhood.trim(),
+      ),
+    );
+    setStatus("idle");
+    setMessage("Coordenadas recebidas. Confira os campos e salve o endereço.");
+  }
 
   useEffect(
     () => () => {
@@ -315,6 +387,8 @@ export function CompanyLocationForm({
       latitude: location.latitude,
       longitude: location.longitude,
     });
+    setManualLatitude(location.latitude.toFixed(6));
+    setManualLongitude(location.longitude.toFixed(6));
     programmaticSearchValue.current = location.formattedAddress;
     setAddressSearch(location.formattedAddress);
     setApproximateAddress(location.formattedAddress);
@@ -347,6 +421,8 @@ export function CompanyLocationForm({
       postalCode: fallback.address.postalCode,
     }));
     setCanonicalLocation(fallback.location);
+    setManualLatitude(next.latitude.toFixed(6));
+    setManualLongitude(next.longitude.toFixed(6));
     setLocationResolved(true);
     setApproximateAddress(fallback.location.formattedAddress);
     programmaticSearchValue.current = fallback.location.formattedAddress;
@@ -636,7 +712,13 @@ export function CompanyLocationForm({
         primaryDisabled={
           status === "searching" ||
           status === "reverse-searching" ||
-          !locationResolved
+          !locationResolved ||
+          (inputMode === "manual" &&
+            (!form.address.trim() ||
+              !form.number.trim() ||
+              !form.neighborhood.trim() ||
+              !manualLatitude.trim() ||
+              !manualLongitude.trim()))
         }
         onPrimaryAction={() => void save()}
         onRetry={
@@ -644,6 +726,20 @@ export function CompanyLocationForm({
             ? () => void adjustPin(coordinates)
             : undefined
         }
+        inputMode={inputMode}
+        onInputModeChange={(mode) => {
+          setInputMode(mode);
+          if (mode === "manual") {
+            setSuggestions([]);
+            setSuggestionStatus("idle");
+            setMessage(
+              "Preencha o endereço e, se possível, cole as coordenadas do Google Maps.",
+            );
+          }
+        }}
+        manualLatitude={manualLatitude}
+        manualLongitude={manualLongitude}
+        onManualCoordinateChange={handleManualCoordinateChange}
         extraControl={
           <div className="sm:col-span-2">
             <FormField

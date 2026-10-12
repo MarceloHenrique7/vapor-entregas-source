@@ -15,9 +15,9 @@ export default async function CompanyDeliveryDetailsPage({
   return (
     <div className="space-y-7">
       <DashboardHeader
-        eyebrow="Acompanhamento"
-        title="Detalhes da entrega"
-        description="Veja o status, acompanhe o motoboy e resolva o que precisar nesta entrega."
+        eyebrow="Entrega"
+        title="Acompanhamento"
+        description="Status, rota e próximas ações em um só lugar."
       />
       <DeliveryDetailCard
         endpoint={`/api/deliveries/${id}`}

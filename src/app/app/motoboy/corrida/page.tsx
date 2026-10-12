@@ -9,9 +9,9 @@ export default function CurrentDeliveryPage() {
   return (
     <div className="space-y-7">
       <DashboardHeader
-        eyebrow="Corrida vinculada"
+        eyebrow="Em andamento"
         title="Corrida atual"
-        description="Atualize cada etapa na ordem correta e abra coleta ou destino no aplicativo de navegação de sua preferência."
+        description="Siga a próxima etapa e abra a rota quando precisar."
       />
       <CurrentDeliveryCard />
     </div>

@@ -32,6 +32,9 @@ describe("experiência unificada de endereço e mapa", () => {
     expect(picker).toContain("Editar detalhes");
     expect(picker).toContain("ArrowDown");
     expect(picker).toContain("arraste o PIN");
+    expect(picker).toContain("Preencher manualmente");
+    expect(picker).toContain("Latitude (Google Maps)");
+    expect(picker).toContain("onManualCoordinateChange");
   });
 
   it("permite confirmar uma busca diretamente pelo teclado", async () => {

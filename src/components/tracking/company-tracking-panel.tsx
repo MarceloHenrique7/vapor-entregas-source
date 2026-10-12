@@ -134,15 +134,11 @@ export function CompanyTrackingPanel({ deliveryId }: { deliveryId: string }) {
     <Card className="p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">
-            Tracking gratuito
-          </p>
-          <h3 className="mt-2 font-display text-xl font-extrabold">
-            Acompanhar e compartilhar
+          <h3 className="font-display text-xl font-extrabold">
+            Link para o cliente
           </h3>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-            Gere um link sem login para o cliente. A posição aparece somente
-            quando o motoboy iniciar o trajeto até o destino.
+          <p className="mt-1 max-w-2xl text-sm text-muted">
+            Compartilhe o acompanhamento sem exigir login.
           </p>
         </div>
         {tracking && <Badge>{stateLabels[tracking.state]}</Badge>}
@@ -167,17 +163,14 @@ export function CompanyTrackingPanel({ deliveryId }: { deliveryId: string }) {
 
       {tracking?.state === "ACTIVE" && tracking.url ? (
         <div className="mt-5 space-y-4">
-          <div className="rounded-2xl bg-canvas p-4 text-sm">
-            <p className="font-bold text-ink">Status do GPS</p>
-            <p className="mt-1 text-muted">
-              {tracking.lastLocationAt
-                ? tracking.locationStale
-                  ? "Última posição desatualizada. O motoboy pode estar sem sinal ou com a Vapor fechada."
-                  : "Localização recente recebida."
-                : "Rastreamento aguardando localização do entregador."}
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="text-sm text-muted">
+            {tracking.lastLocationAt
+              ? tracking.locationStale
+                ? "Última posição desatualizada."
+                : "Localização recente recebida."
+              : "Rastreamento aguardando localização do entregador."}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
             <a
               href={tracking.url}
               target="_blank"
@@ -186,14 +179,6 @@ export function CompanyTrackingPanel({ deliveryId }: { deliveryId: string }) {
             >
               <Icon name="map" className="size-4" /> Acompanhar entrega
             </a>
-            <Button variant="outline" onClick={copyLink}>
-              Copiar link
-            </Button>
-            {shareSupported && (
-              <Button variant="outline" onClick={shareLink}>
-                Compartilhar
-              </Button>
-            )}
             <a
               href={`https://wa.me/?text=${encodeURIComponent(shareMessage)}`}
               target="_blank"
@@ -202,14 +187,30 @@ export function CompanyTrackingPanel({ deliveryId }: { deliveryId: string }) {
             >
               Enviar no WhatsApp
             </a>
-            <Button variant="ghost" disabled={busy} onClick={revoke}>
-              Revogar link
-            </Button>
           </div>
-          <p className="text-xs text-muted">
-            O link expira automaticamente e não revela telefone, e-mail,
-            pagamento ou identificadores internos.
-          </p>
+          <details className="border-t border-line pt-3">
+            <summary className="cursor-pointer text-sm font-bold text-ink-soft">
+              Mais opções
+            </summary>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={copyLink}>
+                Copiar link
+              </Button>
+              {shareSupported && (
+                <Button size="sm" variant="outline" onClick={shareLink}>
+                  Compartilhar
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={revoke}
+              >
+                Revogar link
+              </Button>
+            </div>
+          </details>
         </div>
       ) : (
         <div className="mt-5">
@@ -223,7 +224,7 @@ export function CompanyTrackingPanel({ deliveryId }: { deliveryId: string }) {
               ? "Ativando..."
               : tracking?.state === "REVOKED" || tracking?.state === "EXPIRED"
                 ? "Gerar novo link"
-                : "Ativar acompanhamento"}
+                : "Criar link"}
           </Button>
           {tracking && !tracking.canCreate && (
             <p className="mt-3 text-xs text-muted">

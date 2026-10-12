@@ -277,165 +277,153 @@ export function DeliveryDetailCard({
       : motoboyCancellable.includes(delivery.status);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,.75fr)]">
-      <div className="space-y-6">
-        <Card className="overflow-hidden">
-          <div className="flex flex-col gap-4 bg-brand p-5 text-white sm:flex-row sm:items-start sm:justify-between sm:p-7">
-            <div>
-              <Badge className="bg-white/15 text-white">
-                {DELIVERY_STATUS_LABELS[delivery.status]}
-              </Badge>
-              <h2 className="mt-4 font-display text-2xl font-extrabold">
-                {delivery.companyName}
-              </h2>
-              {delivery.motoboyName && (
-                <p className="mt-2 text-sm text-white/80">
-                  Motoboy:{" "}
-                  <strong className="text-white">{delivery.motoboyName}</strong>
-                </p>
-              )}
-            </div>
-            <div className="sm:text-right">
-              <p className="font-display text-3xl font-extrabold">
-                {currency.format(delivery.offeredPrice)}
+    <div className="mx-auto max-w-5xl space-y-5">
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-4 border-b border-line p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="min-w-0">
+            <Badge variant="info">
+              {DELIVERY_STATUS_LABELS[delivery.status]}
+            </Badge>
+            <h2 className="mt-3 truncate font-display text-xl font-extrabold">
+              {delivery.companyName}
+            </h2>
+            {delivery.motoboyName && (
+              <p className="mt-1 text-sm text-muted">
+                Motoboy: <strong>{delivery.motoboyName}</strong>
               </p>
-              <p className="mt-1 text-xs font-semibold text-white/75">
-                valor da corrida
-              </p>
-            </div>
+            )}
           </div>
-          <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-7">
-            <section className="rounded-2xl bg-canvas p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                Coleta
-              </p>
-              <p className="mt-2 font-bold">
-                {delivery.pickupAddress}, {delivery.pickupNumber}
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                {delivery.pickupNeighborhood} · {delivery.pickupState}
-              </p>
-              <NavigationButtons links={delivery.pickupNavigation} />
-            </section>
-            <section className="rounded-2xl bg-canvas p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                Destino
-              </p>
-              <p className="mt-2 font-bold">
-                {delivery.destinationAddress}, {delivery.destinationNumber}
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                {delivery.destinationNeighborhood} · {delivery.destinationState}
-              </p>
-              <NavigationButtons links={delivery.destinationNavigation} />
-            </section>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                Distância estimada
-              </p>
-              <p className="mt-2 font-bold">
-                {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km
-                {delivery.routeDurationSeconds
-                  ? ` · ~${Math.max(1, Math.ceil(delivery.routeDurationSeconds / 60))} min`
-                  : " em linha reta"}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                {delivery.distanceMethod === "GOOGLE_ROUTES"
-                  ? "Estimativa pela rota viária calculada."
-                  : "Estimativa geográfica, não distância viária."}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                Forma de pagamento
-              </p>
-              <p className="mt-2 font-bold text-ink">
-                {PAYMENT_METHOD_LABELS[delivery.paymentMethod]}
-              </p>
-            </div>
-            {delivery.notes && (
-              <div className="sm:col-span-2">
+          <div className="sm:text-right">
+            <p className="font-display text-2xl font-extrabold text-brand">
+              {currency.format(delivery.offeredPrice)}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {PAYMENT_METHOD_LABELS[delivery.paymentMethod]}
+            </p>
+          </div>
+        </div>
+        <div className="p-5 sm:p-6">
+          <div className="relative space-y-5 before:absolute before:bottom-6 before:left-[.7rem] before:top-6 before:w-px before:bg-line">
+            <section className="relative flex gap-4">
+              <span className="mt-1 size-6 shrink-0 rounded-full border-[6px] border-brand bg-white" />
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                  Observações
+                  Coleta
                 </p>
-                <p className="mt-2 text-sm leading-6">{delivery.notes}</p>
+                <p className="mt-1 font-bold">
+                  {delivery.pickupAddress}, {delivery.pickupNumber}
+                </p>
+                <p className="text-sm text-muted">
+                  {delivery.pickupNeighborhood} · {delivery.pickupState}
+                </p>
+                <NavigationButtons links={delivery.pickupNavigation} />
               </div>
+            </section>
+            <section className="relative flex gap-4">
+              <span className="mt-1 size-6 shrink-0 rounded-full border-[6px] border-ink bg-white" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                  Destino
+                </p>
+                <p className="mt-1 font-bold">
+                  {delivery.destinationAddress}, {delivery.destinationNumber}
+                </p>
+                <p className="text-sm text-muted">
+                  {delivery.destinationNeighborhood} ·{" "}
+                  {delivery.destinationState}
+                </p>
+                <NavigationButtons links={delivery.destinationNavigation} />
+              </div>
+            </section>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-4 text-sm text-muted">
+            <span className="font-semibold text-ink">
+              {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km
+              {delivery.routeDurationSeconds
+                ? ` · ~${Math.max(1, Math.ceil(delivery.routeDurationSeconds / 60))} min`
+                : " em linha reta"}
+            </span>
+            {delivery.notes && <span>Obs.: {delivery.notes}</span>}
+          </div>
+        </div>
+      </Card>
+
+      {(action || canCancel || error) && (
+        <Card className="p-5 sm:p-6">
+          {error && (
+            <p
+              className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700"
+              role="alert"
+            >
+              {error}
+            </p>
+          )}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {action && (
+              <Button
+                className="min-h-14 flex-1"
+                disabled={busy}
+                onClick={() => mutate("status", { status: action.status })}
+              >
+                <Icon name="arrow-right" className="size-5" />
+                {busy ? "Atualizando..." : action.label}
+              </Button>
+            )}
+            {canCancel && (
+              <Button
+                variant="danger"
+                className="min-h-14"
+                disabled={busy}
+                onClick={() => setCancelOpen(true)}
+              >
+                Cancelar entrega
+              </Button>
             )}
           </div>
-          <p className="border-t border-line p-5 text-xs leading-5 text-muted sm:px-7">
-            {DIRECT_PAYMENT_NOTICE}
-          </p>
         </Card>
+      )}
 
-        {(action || canCancel || error) && (
-          <Card className="p-5 sm:p-6">
-            {error && (
-              <p
-                className="mb-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-700"
-                role="alert"
-              >
-                {error}
-              </p>
-            )}
-            <div className="flex flex-col gap-3 sm:flex-row">
-              {action && (
-                <Button
-                  className="min-h-14 flex-1"
-                  disabled={busy}
-                  onClick={() => mutate("status", { status: action.status })}
-                >
-                  <Icon name="arrow-right" className="size-5" />
-                  {busy ? "Atualizando..." : action.label}
-                </Button>
-              )}
-              {canCancel && (
-                <Button
-                  variant="danger"
-                  className="min-h-14"
-                  disabled={busy}
-                  onClick={() => setCancelOpen(true)}
-                >
-                  Cancelar entrega
-                </Button>
-              )}
-            </div>
-          </Card>
-        )}
-
-        {actorRole === "COMPANY" ? (
-          <CompanyTrackingPanel deliveryId={delivery.id} />
-        ) : (
-          <MotoboyDeliveryTracker
-            deliveryId={delivery.id}
-            status={delivery.status}
-          />
-        )}
-
-        <Card className="p-5 sm:p-6">
-          <DeliveryPaymentPanel
-            delivery={delivery}
-            actorRole={actorRole}
-            onUpdated={setDelivery}
-          />
-        </Card>
-
-        <DeliveryExtrasPanel
+      {actorRole === "COMPANY" ? (
+        <CompanyTrackingPanel deliveryId={delivery.id} />
+      ) : (
+        <MotoboyDeliveryTracker
           deliveryId={delivery.id}
-          deliveryStatus={delivery.status}
-          extras={delivery.extras}
-          actorRole={actorRole}
-          onChanged={load}
+          status={delivery.status}
         />
-      </div>
+      )}
 
-      <Card className="h-fit p-5 sm:p-6">
+      <Card className="p-5 sm:p-6">
         <details>
-          <summary className="cursor-pointer list-none font-display text-xl font-extrabold">
-            Mais detalhes e histórico
+          <summary className="cursor-pointer list-none font-display text-lg font-extrabold">
+            Pagamento e adicionais
           </summary>
-          <p className="mt-2 text-sm text-muted">
-            Horários e mudanças registrados pelo servidor.
-          </p>
+          <p className="mt-2 text-sm text-muted">{DIRECT_PAYMENT_NOTICE}</p>
+          <div className="mt-5">
+            <DeliveryPaymentPanel
+              compact
+              delivery={delivery}
+              actorRole={actorRole}
+              onUpdated={setDelivery}
+            />
+          </div>
+          <div className="mt-4">
+            <DeliveryExtrasPanel
+              embedded
+              deliveryId={delivery.id}
+              deliveryStatus={delivery.status}
+              extras={delivery.extras}
+              actorRole={actorRole}
+              onChanged={load}
+            />
+          </div>
+        </details>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <details>
+          <summary className="cursor-pointer list-none font-display text-lg font-extrabold">
+            Histórico da entrega
+          </summary>
           <div className="mt-6">
             <Timeline
               history={delivery.history ?? []}

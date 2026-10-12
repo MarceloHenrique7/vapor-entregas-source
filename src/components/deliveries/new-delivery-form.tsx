@@ -3,7 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
-import { AddressLocationPicker } from "@/components/maps/address-location-picker";
+import {
+  AddressLocationPicker,
+  type LocationInputMode,
+} from "@/components/maps/address-location-picker";
 import { Icon } from "@/components/icons/icon";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -135,6 +138,9 @@ export function NewDeliveryForm({
   const [coordinates, setCoordinates] = useState<Coordinates>(
     cityCenters[pickup.city],
   );
+  const [inputMode, setInputMode] = useState<LocationInputMode>("search");
+  const [manualLatitude, setManualLatitude] = useState("");
+  const [manualLongitude, setManualLongitude] = useState("");
   const [pinConfirmed, setPinConfirmed] = useState(false);
   const [locationResolved, setLocationResolved] = useState(false);
   const [selectedLocation, setSelectedLocation] =
@@ -188,6 +194,80 @@ export function NewDeliveryForm({
     },
     [],
   );
+
+  function handleManualCoordinateChange(
+    field: "latitude" | "longitude",
+    value: string,
+  ) {
+    const pastedPair =
+      field === "latitude"
+        ? value
+            .trim()
+            .split(/[,;\s]+/)
+            .filter(Boolean)
+        : [];
+    const nextLatitude =
+      pastedPair.length >= 2
+        ? pastedPair[0]
+        : field === "latitude"
+          ? value
+          : manualLatitude;
+    const nextLongitude =
+      pastedPair.length >= 2
+        ? pastedPair[1]
+        : field === "longitude"
+          ? value
+          : manualLongitude;
+    setManualLatitude(nextLatitude);
+    setManualLongitude(nextLongitude);
+
+    const latitude = Number(nextLatitude.replace(",", "."));
+    const longitude = Number(nextLongitude.replace(",", "."));
+    const normalized = normalizeCoordinates({ latitude, longitude });
+    if (!normalized) {
+      setLocationResolved(false);
+      setSelectedLocation(null);
+      setLocationMessage(
+        "Informe latitude e longitude vÃ¡lidas para confirmar o destino.",
+      );
+      return;
+    }
+    const fallback = createPinnedLocationFallback(
+      normalized,
+      form.destinationCity,
+    );
+    if (!fallback) return;
+    const formattedAddress = `${form.destinationAddress || "EndereÃ§o informado"}, ${form.destinationNumber || "s/n"} - ${form.destinationNeighborhood || "Bairro nÃ£o informado"}`;
+    const manualLocation: CanonicalLocation = {
+      ...fallback.location,
+      formattedAddress,
+      components: {
+        ...fallback.location.components,
+        street: form.destinationAddress || undefined,
+        number: form.destinationNumber || undefined,
+        neighborhood: form.destinationNeighborhood || undefined,
+        postalCode: form.destinationPostalCode || undefined,
+      },
+    };
+    setCoordinates(normalized);
+    setSelectedLocation(manualLocation);
+    setConfirmedLocation(null);
+    setLocationResolved(
+      Boolean(
+        form.destinationAddress.trim() &&
+        form.destinationNumber.trim() &&
+        form.destinationNeighborhood.trim(),
+      ),
+    );
+    setPinConfirmed(false);
+    setApproximateAddress(formattedAddress);
+    setLocationMessage(
+      "Coordenadas recebidas. Confira os campos e confirme o destino.",
+    );
+    quoteRequests.current.invalidate();
+    setQuote(null);
+    setQuoteError("");
+  }
 
   useEffect(() => {
     if (programmaticSearchValue.current === addressSearch) {
@@ -562,6 +642,8 @@ export function NewDeliveryForm({
       latitude: location.latitude,
       longitude: location.longitude,
     });
+    setManualLatitude(location.latitude.toFixed(6));
+    setManualLongitude(location.longitude.toFixed(6));
     programmaticSearchValue.current = location.formattedAddress;
     setAddressSearch(location.formattedAddress);
     setApproximateAddress(location.formattedAddress);
@@ -595,6 +677,8 @@ export function NewDeliveryForm({
       destinationPostalCode: fallback.address.postalCode,
     }));
     setSelectedLocation(fallback.location);
+    setManualLatitude(next.latitude.toFixed(6));
+    setManualLongitude(next.longitude.toFixed(6));
     setConfirmedLocation(null);
     setLocationResolved(true);
     setPinConfirmed(false);
@@ -1040,7 +1124,13 @@ export function NewDeliveryForm({
           primaryDisabled={
             status !== "idle" ||
             suggestionStatus === "searching" ||
-            !locationResolved
+            !locationResolved ||
+            (inputMode === "manual" &&
+              (!form.destinationAddress.trim() ||
+                !form.destinationNumber.trim() ||
+                !form.destinationNeighborhood.trim() ||
+                !manualLatitude.trim() ||
+                !manualLongitude.trim()))
           }
           onPrimaryAction={() => void saveDestination()}
           onRetry={
@@ -1048,6 +1138,20 @@ export function NewDeliveryForm({
               ? () => void handlePinChange(coordinates)
               : undefined
           }
+          inputMode={inputMode}
+          onInputModeChange={(mode) => {
+            setInputMode(mode);
+            if (mode === "manual") {
+              setSuggestions([]);
+              setSuggestionStatus("idle");
+              setLocationMessage(
+                "Preencha o endereço e, se possível, cole as coordenadas do Google Maps.",
+              );
+            }
+          }}
+          manualLatitude={manualLatitude}
+          manualLongitude={manualLongitude}
+          onManualCoordinateChange={handleManualCoordinateChange}
         />
       </div>
 

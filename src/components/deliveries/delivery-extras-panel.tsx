@@ -31,12 +31,14 @@ export function DeliveryExtrasPanel({
   extras,
   actorRole,
   onChanged,
+  embedded = false,
 }: {
   deliveryId: string;
   deliveryStatus: DeliveryStatus;
   extras?: DeliveryExtraView[];
   actorRole: "COMPANY" | "MOTOBOY";
   onChanged: () => Promise<void>;
+  embedded?: boolean;
 }) {
   const [form, setForm] = useState({
     type: "WAITING" as DeliveryExtraType,
@@ -131,7 +133,13 @@ export function DeliveryExtrasPanel({
   }
 
   return (
-    <Card className="p-5 sm:p-6">
+    <Card
+      className={
+        embedded
+          ? "rounded-2xl border-line p-4 shadow-none sm:p-5"
+          : "p-5 sm:p-6"
+      }
+    >
       <h2 className="font-display text-xl font-extrabold">
         Condições adicionais
       </h2>

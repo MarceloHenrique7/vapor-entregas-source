@@ -21,6 +21,12 @@ export const motoboyNavigation: NavigationItem[] = [
     mobile: true,
   },
   {
+    href: "/app/motoboy/ganhos",
+    label: "Ganhos",
+    icon: "wallet",
+    mobile: true,
+  },
+  {
     href: "/app/motoboy/historico",
     label: "Histórico",
     icon: "history",

@@ -14,6 +14,7 @@ import type { GeocodingResultPayload } from "@/lib/maps/location";
 import { CompanyLocationMapLoader } from "./company-location-map-loader";
 
 export type LocationPickerCity = "PETROLINA_PE" | "JUAZEIRO_BA";
+export type LocationInputMode = "search" | "manual";
 
 export interface LocationPickerAddress {
   street: string;
@@ -67,6 +68,11 @@ export function AddressLocationPicker({
   onPrimaryAction,
   onRetry,
   extraControl,
+  inputMode = "search",
+  onInputModeChange,
+  manualLatitude = "",
+  manualLongitude = "",
+  onManualCoordinateChange,
 }: {
   idPrefix: string;
   eyebrow?: string;
@@ -99,6 +105,14 @@ export function AddressLocationPicker({
   onPrimaryAction: () => void;
   onRetry?: () => void;
   extraControl?: ReactNode;
+  inputMode?: LocationInputMode;
+  onInputModeChange?: (mode: LocationInputMode) => void;
+  manualLatitude?: string;
+  manualLongitude?: string;
+  onManualCoordinateChange?: (
+    field: "latitude" | "longitude",
+    value: string,
+  ) => void;
 }) {
   const [manuallyEditingAddress, setManuallyEditingAddress] = useState(false);
   const [tileError, setTileError] = useState(false);
@@ -121,6 +135,8 @@ export function AddressLocationPicker({
     activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length
       ? activeSuggestionIndex
       : -1;
+
+  const manualMode = inputMode === "manual";
 
   function selectSuggestionAt(index: number) {
     const suggestion = suggestions[index];
@@ -155,192 +171,276 @@ export function AddressLocationPicker({
           {description} Escolha uma sugestão para preencher os dados
           automaticamente e depois confirme o ponto exato no mapa.
         </p>
-        <div className="relative mt-5">
-          <FormField
-            label="Digite rua, número, bairro ou CEP"
-            htmlFor={`${idPrefix}-search`}
-            hint="Você também pode pesquisar pelo nome de um estabelecimento."
+        <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-canvas p-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={manualMode ? "ghost" : "outline"}
+            className="w-full"
+            onClick={() => onInputModeChange?.("search")}
+            disabled={disabled}
           >
-            <Input
-              id={`${idPrefix}-search`}
-              value={searchValue}
-              placeholder="Rua, número, bairro ou CEP"
-              autoComplete="off"
-              aria-autocomplete="list"
-              aria-expanded={suggestions.length > 0}
-              aria-controls={`${idPrefix}-suggestions`}
-              aria-activedescendant={
-                safeActiveSuggestionIndex >= 0
-                  ? `${idPrefix}-suggestion-${safeActiveSuggestionIndex}`
-                  : undefined
-              }
+            Buscar no mapa
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={manualMode ? "outline" : "ghost"}
+            className="w-full"
+            onClick={() => onInputModeChange?.("manual")}
+            disabled={disabled}
+          >
+            Preencher manualmente
+          </Button>
+        </div>
+        {manualMode ? (
+          <div className="mt-5 grid gap-4 rounded-2xl bg-canvas p-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <p className="text-sm font-bold text-ink">
+                Preencha o endereço sem usar mapa ou sugestões
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                Se você colar latitude e longitude copiadas do Google Maps, o
+                ponto ficará mais preciso. Esses dados aparecem no Google Maps
+                ao clicar com o botão direito no local.
+              </p>
+            </div>
+            {extraControl}
+            <AddressFields
+              idPrefix={idPrefix}
+              address={address}
               disabled={disabled}
-              onChange={(event) => {
-                setActiveSuggestionIndex(-1);
-                onSearchChange(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowDown" && suggestions.length > 0) {
-                  event.preventDefault();
-                  setActiveSuggestionIndex((current) =>
-                    current >= suggestions.length - 1 ? 0 : current + 1,
-                  );
-                  return;
-                }
-                if (event.key === "ArrowUp" && suggestions.length > 0) {
-                  event.preventDefault();
-                  setActiveSuggestionIndex((current) =>
-                    current <= 0 ? suggestions.length - 1 : current - 1,
-                  );
-                  return;
-                }
-                if (event.key === "Escape") {
-                  setActiveSuggestionIndex(-1);
-                  return;
-                }
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                if (suggestions.length === 0) {
-                  onLocate();
-                  return;
-                }
-                selectSuggestionAt(
-                  safeActiveSuggestionIndex >= 0
-                    ? safeActiveSuggestionIndex
-                    : 0,
-                );
-              }}
+              onAddressChange={onAddressChange}
+              onCityChange={onCityChange}
             />
-            {suggestions.length === 0 &&
-              searchValue.trim().length >= 3 &&
-              suggestionStatus !== "searching" && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-3 w-full"
-                  onClick={onLocate}
-                  disabled={disabled || identifying || !searchValue.trim()}
+            {onManualCoordinateChange && (
+              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+                <FormField
+                  label="Latitude (Google Maps)"
+                  htmlFor={`${idPrefix}-manual-latitude`}
+                  hint="Ex.: -9.397200"
                 >
-                  <Icon name="search" className="size-5" />
-                  Buscar endereço
-                </Button>
-              )}
-          </FormField>
-          {suggestionStatus === "searching" && (
-            <p className="mt-2 text-xs text-muted" role="status">
-              Buscando endereços…
-            </p>
-          )}
-          {suggestionStatus === "error" && (
-            <p className="mt-2 text-xs text-amber-800" role="status">
-              A busca automática está indisponível. Ajuste o endereço ou o PIN.
-            </p>
-          )}
-          {suggestionStatus === "idle" &&
-            searchValue.trim().length >= 3 &&
-            suggestions.length === 0 && (
+                  <Input
+                    id={`${idPrefix}-manual-latitude`}
+                    inputMode="decimal"
+                    placeholder="-9.397200"
+                    value={manualLatitude}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      onManualCoordinateChange("latitude", event.target.value)
+                    }
+                  />
+                </FormField>
+                <FormField
+                  label="Longitude (Google Maps)"
+                  htmlFor={`${idPrefix}-manual-longitude`}
+                  hint="Ex.: -40.504800"
+                >
+                  <Input
+                    id={`${idPrefix}-manual-longitude`}
+                    inputMode="decimal"
+                    placeholder="-40.504800"
+                    value={manualLongitude}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      onManualCoordinateChange("longitude", event.target.value)
+                    }
+                  />
+                </FormField>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="relative mt-5">
+            <FormField
+              label="Digite rua, número, bairro ou CEP"
+              htmlFor={`${idPrefix}-search`}
+              hint="Você também pode pesquisar pelo nome de um estabelecimento."
+            >
+              <Input
+                id={`${idPrefix}-search`}
+                value={searchValue}
+                placeholder="Rua, número, bairro ou CEP"
+                autoComplete="off"
+                aria-autocomplete="list"
+                aria-expanded={suggestions.length > 0}
+                aria-controls={`${idPrefix}-suggestions`}
+                aria-activedescendant={
+                  safeActiveSuggestionIndex >= 0
+                    ? `${idPrefix}-suggestion-${safeActiveSuggestionIndex}`
+                    : undefined
+                }
+                disabled={disabled}
+                onChange={(event) => {
+                  setActiveSuggestionIndex(-1);
+                  onSearchChange(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown" && suggestions.length > 0) {
+                    event.preventDefault();
+                    setActiveSuggestionIndex((current) =>
+                      current >= suggestions.length - 1 ? 0 : current + 1,
+                    );
+                    return;
+                  }
+                  if (event.key === "ArrowUp" && suggestions.length > 0) {
+                    event.preventDefault();
+                    setActiveSuggestionIndex((current) =>
+                      current <= 0 ? suggestions.length - 1 : current - 1,
+                    );
+                    return;
+                  }
+                  if (event.key === "Escape") {
+                    setActiveSuggestionIndex(-1);
+                    return;
+                  }
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  if (suggestions.length === 0) {
+                    onLocate();
+                    return;
+                  }
+                  selectSuggestionAt(
+                    safeActiveSuggestionIndex >= 0
+                      ? safeActiveSuggestionIndex
+                      : 0,
+                  );
+                }}
+              />
+              {suggestions.length === 0 &&
+                searchValue.trim().length >= 3 &&
+                suggestionStatus !== "searching" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3 w-full"
+                    onClick={onLocate}
+                    disabled={disabled || identifying || !searchValue.trim()}
+                  >
+                    <Icon name="search" className="size-5" />
+                    Buscar endereço
+                  </Button>
+                )}
+            </FormField>
+            {suggestionStatus === "searching" && (
               <p className="mt-2 text-xs text-muted" role="status">
-                Nenhuma sugestÃ£o encontrada. Confira a cidade ou use o mapa
-                para marcar o ponto manualmente.
+                Buscando endereços…
               </p>
             )}
-          {suggestions.length > 0 && (
-            <div
-              id={`${idPrefix}-suggestions`}
-              role="listbox"
-              className="absolute z-[600] mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border border-line bg-white p-2 shadow-[0_18px_45px_rgba(33,24,25,.16)]"
-            >
-              {suggestions.map((suggestion, index) => {
-                const components = suggestion.components ?? {};
-                const primary = [components.street, components.number]
-                  .filter(Boolean)
-                  .join(", ");
-                const secondary = [
-                  components.neighborhood,
-                  components.city,
-                  components.state,
-                  components.postalCode,
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
-                const title =
-                  primary ||
-                  suggestion.formattedAddress ||
-                  suggestion.displayName ||
-                  "Local encontrado";
-                const isActive = index === safeActiveSuggestionIndex;
+            {suggestionStatus === "error" && (
+              <p className="mt-2 text-xs text-amber-800" role="status">
+                A busca automática está indisponível. Ajuste o endereço ou o
+                PIN.
+              </p>
+            )}
+            {suggestionStatus === "idle" &&
+              searchValue.trim().length >= 3 &&
+              suggestions.length === 0 && (
+                <p className="mt-2 text-xs text-muted" role="status">
+                  Nenhuma sugestÃ£o encontrada. Confira a cidade ou use o mapa
+                  para marcar o ponto manualmente.
+                </p>
+              )}
+            {suggestions.length > 0 && (
+              <div
+                id={`${idPrefix}-suggestions`}
+                role="listbox"
+                className="absolute z-[600] mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border border-line bg-white p-2 shadow-[0_18px_45px_rgba(33,24,25,.16)]"
+              >
+                {suggestions.map((suggestion, index) => {
+                  const components = suggestion.components ?? {};
+                  const primary = [components.street, components.number]
+                    .filter(Boolean)
+                    .join(", ");
+                  const secondary = [
+                    components.neighborhood,
+                    components.city,
+                    components.state,
+                    components.postalCode,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+                  const title =
+                    primary ||
+                    suggestion.formattedAddress ||
+                    suggestion.displayName ||
+                    "Local encontrado";
+                  const isActive = index === safeActiveSuggestionIndex;
 
-                return (
-                  <button
-                    key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.formattedAddress ?? suggestion.displayName}`}
-                    id={`${idPrefix}-suggestion-${index}`}
-                    type="button"
-                    role="option"
-                    aria-selected={isActive}
-                    className={`flex min-h-14 w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm transition hover:bg-brand-light/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${isActive ? "bg-brand-light/45" : ""}`}
-                    onMouseEnter={() => setActiveSuggestionIndex(index)}
-                    onClick={() => selectSuggestionAt(index)}
-                  >
-                    <Icon
-                      name="map-pin"
-                      className="mt-0.5 size-5 shrink-0 text-brand"
-                    />
-                    <span className="min-w-0 leading-5">
-                      <span className="block truncate font-bold text-ink">
-                        {title}
+                  return (
+                    <button
+                      key={`${suggestion.latitude}:${suggestion.longitude}:${suggestion.formattedAddress ?? suggestion.displayName}`}
+                      id={`${idPrefix}-suggestion-${index}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      className={`flex min-h-14 w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm transition hover:bg-brand-light/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${isActive ? "bg-brand-light/45" : ""}`}
+                      onMouseEnter={() => setActiveSuggestionIndex(index)}
+                      onClick={() => selectSuggestionAt(index)}
+                    >
+                      <Icon
+                        name="map-pin"
+                        className="mt-0.5 size-5 shrink-0 text-brand"
+                      />
+                      <span className="min-w-0 leading-5">
+                        <span className="block truncate font-bold text-ink">
+                          {title}
+                        </span>
+                        <span className="block truncate text-xs text-muted">
+                          {secondary ||
+                            suggestion.formattedAddress ||
+                            suggestion.displayName}
+                        </span>
                       </span>
-                      <span className="block truncate text-xs text-muted">
-                        {secondary ||
-                          suggestion.formattedAddress ||
-                          suggestion.displayName}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="border-y border-line bg-[#f3eeee]">
-        <div className="border-b border-line bg-white px-5 py-4 sm:px-7">
-          <p className="text-xs font-extrabold uppercase tracking-[.12em] text-brand">
-            2 · Confirmar PIN
-          </p>
-          <p className="mt-1 text-sm font-semibold text-ink">
-            Confirme a localização exata da entrada
-          </p>
-          <p className="mt-1 text-xs leading-5 text-muted">
-            Toque no mapa ou arraste o PIN. Se a busca falhar, você pode marcar
-            o ponto manualmente.
-          </p>
-        </div>
-        <div className="relative h-[23rem] min-h-[21rem] sm:h-[30rem]">
-          <CompanyLocationMapLoader
-            coordinates={coordinates}
-            onChange={(next) => {
-              setManuallyEditingAddress(false);
-              onPinChange(next);
-            }}
-            onTileError={() => setTileError(true)}
-            recenterKey={recenterKey}
-          />
-          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[500] flex justify-center">
-            <p className="rounded-full bg-white/95 px-4 py-2 text-center text-xs font-bold text-ink shadow-card backdrop-blur">
-              arraste o PIN até a entrada do local
+      {!manualMode && (
+        <div className="border-y border-line bg-[#f3eeee]">
+          <div className="border-b border-line bg-white px-5 py-4 sm:px-7">
+            <p className="text-xs font-extrabold uppercase tracking-[.12em] text-brand">
+              2 · Confirmar PIN
+            </p>
+            <p className="mt-1 text-sm font-semibold text-ink">
+              Confirme a localização exata da entrada
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted">
+              Toque no mapa ou arraste o PIN. Se a busca falhar, você pode
+              marcar o ponto manualmente.
             </p>
           </div>
-          {identifying && (
-            <div
-              className="pointer-events-none absolute inset-x-4 top-4 z-[500] rounded-2xl bg-white/95 p-3 text-center text-sm font-bold text-ink shadow-card backdrop-blur"
-              role="status"
-            >
-              Identificando endereço…
+          <div className="relative h-[23rem] min-h-[21rem] sm:h-[30rem]">
+            <CompanyLocationMapLoader
+              coordinates={coordinates}
+              onChange={(next) => {
+                setManuallyEditingAddress(false);
+                onPinChange(next);
+              }}
+              onTileError={() => setTileError(true)}
+              recenterKey={recenterKey}
+            />
+            <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[500] flex justify-center">
+              <p className="rounded-full bg-white/95 px-4 py-2 text-center text-xs font-bold text-ink shadow-card backdrop-blur">
+                arraste o PIN até a entrada do local
+              </p>
             </div>
-          )}
+            {identifying && (
+              <div
+                className="pointer-events-none absolute inset-x-4 top-4 z-[500] rounded-2xl bg-white/95 p-3 text-center text-sm font-bold text-ink shadow-card backdrop-blur"
+                role="status"
+              >
+                Identificando endereço…
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-5 p-5 sm:p-7">
         <section
@@ -381,7 +481,7 @@ export function AddressLocationPicker({
           </div>
         </section>
 
-        {editingAddress && (
+        {!manualMode && editingAddress && (
           <div
             id={`${idPrefix}-structured-address`}
             className="grid gap-4 rounded-2xl bg-canvas p-4 sm:grid-cols-2"

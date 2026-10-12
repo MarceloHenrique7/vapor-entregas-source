@@ -17,7 +17,6 @@ import type { DeliveryView } from "@/server/deliveries/types";
 import { apiErrorMessage, CONNECTION_ERROR } from "@/lib/http/client-error";
 
 import { useDeliveryEvents } from "./use-delivery-events";
-import { DeliveryExtrasSummary } from "./delivery-extras-summary";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -101,8 +100,8 @@ export function CompanyDeliveriesList() {
           ] ?? delivery.status;
         return (
           <Card key={delivery.id} className="p-5 sm:p-6">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
                     variant={
@@ -119,45 +118,34 @@ export function CompanyDeliveriesList() {
                     {date.format(new Date(delivery.createdAt))}
                   </span>
                 </div>
-                <h2 className="mt-3 font-display text-xl font-extrabold">
+                <h2 className="mt-3 truncate font-display text-lg font-extrabold">
                   {delivery.pickupNeighborhood} →{" "}
                   {delivery.destinationNeighborhood}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-muted">
-                  Destino: {delivery.destinationAddress},{" "}
-                  {delivery.destinationNumber}
-                </p>
-                <p className="mt-2 text-sm font-semibold text-ink-soft">
+                <p className="mt-1 text-sm text-muted">
                   {delivery.motoboyName
                     ? `Motoboy: ${delivery.motoboyName}`
                     : "Aguardando um motoboy aceitar"}
                 </p>
               </div>
-              <div className="rounded-2xl bg-brand-light/55 px-5 py-4 text-left sm:text-right">
-                <p className="font-display text-xl font-extrabold text-brand-dark">
-                  {currency.format(delivery.offeredPrice)}
-                </p>
-                <p className="mt-1 text-xs font-bold text-muted">
-                  {PAYMENT_METHOD_LABELS[delivery.paymentMethod]}
-                </p>
-                <Badge
-                  className="mt-2"
-                  variant={
-                    delivery.paymentStatus === "CONFIRMED"
-                      ? "success"
-                      : delivery.paymentStatus === "DISPUTED"
-                        ? "warning"
-                        : "neutral"
-                  }
+              <div className="flex items-center justify-between gap-4 sm:justify-end">
+                <div className="sm:text-right">
+                  <p className="font-display text-xl font-extrabold text-brand-dark">
+                    {currency.format(delivery.offeredPrice)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {PAYMENT_METHOD_LABELS[delivery.paymentMethod]}
+                  </p>
+                </div>
+                <Link
+                  href={`/app/empresa/entregas/${delivery.id}`}
+                  className={buttonStyles({ variant: "outline", size: "sm" })}
                 >
-                  {DELIVERY_PAYMENT_STATUS_LABELS[delivery.paymentStatus]}
-                </Badge>
+                  Acompanhar
+                </Link>
               </div>
             </div>
-            <div className="mt-4">
-              <DeliveryExtrasSummary extras={delivery.extras} />
-            </div>
-            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-4 text-xs font-semibold text-muted">
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-xs text-muted">
               <span>
                 {delivery.distanceEstimateKm.toFixed(1).replace(".", ",")} km
                 {delivery.routeDurationSeconds
@@ -173,12 +161,18 @@ export function CompanyDeliveriesList() {
                   })}
                 </span>
               )}
-              <Link
-                href={`/app/empresa/entregas/${delivery.id}`}
-                className="ml-auto font-bold text-brand hover:text-brand-dark"
+              <Badge
+                className="ml-auto"
+                variant={
+                  delivery.paymentStatus === "CONFIRMED"
+                    ? "success"
+                    : delivery.paymentStatus === "DISPUTED"
+                      ? "warning"
+                      : "neutral"
+                }
               >
-                Ver acompanhamento →
-              </Link>
+                {DELIVERY_PAYMENT_STATUS_LABELS[delivery.paymentStatus]}
+              </Badge>
             </div>
           </Card>
         );
