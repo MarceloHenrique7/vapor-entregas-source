@@ -139,6 +139,9 @@ export function CompanyLocationForm({
     const query = addressSearch.trim();
     if (query.length < 3) {
       suggestionRequests.current.invalidate();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale suggestions when the input becomes too short
+      setSuggestions([]);
+      setSuggestionStatus("idle");
       return;
     }
     const cacheKey = `${form.city}:${query.toLocaleLowerCase("pt-BR")}`;

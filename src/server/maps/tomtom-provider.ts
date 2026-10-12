@@ -218,7 +218,7 @@ function inRequestedCity(
   return (
     cityText.includes(normalize(config.city)) ||
     stateText === normalize(config.state) ||
-    stateText.includes(normalize(config.stateCode))
+    stateText === normalize(config.stateCode)
   );
 }
 
@@ -322,9 +322,7 @@ export function createTomTomProvider({
         `geocode:${normalize(textQuery)}`,
       );
       const result =
-        results.find((item) => inRequestedCity(item, query.city)) ??
-        results[0] ??
-        null;
+        results.find((item) => inRequestedCity(item, query.city)) ?? null;
       return result && postalAddress
         ? enrichPostalResult(result, postalAddress)
         : result;

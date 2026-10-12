@@ -236,6 +236,14 @@ export function AddressLocationPicker({
               A busca automática está indisponível. Ajuste o endereço ou o PIN.
             </p>
           )}
+          {suggestionStatus === "idle" &&
+            searchValue.trim().length >= 3 &&
+            suggestions.length === 0 && (
+              <p className="mt-2 text-xs text-muted" role="status">
+                Nenhuma sugestÃ£o encontrada. Confira a cidade ou use o mapa
+                para marcar o ponto manualmente.
+              </p>
+            )}
           {suggestions.length > 0 && (
             <div
               id={`${idPrefix}-suggestions`}

@@ -199,6 +199,9 @@ export function NewDeliveryForm({
     const query = addressSearch.trim();
     if (query.length < 3 || parseCoordinatesInput(query)) {
       suggestionRequests.current.invalidate();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale suggestions when the input becomes too short
+      setSuggestions([]);
+      setSuggestionStatus("idle");
       return;
     }
     const cacheKey = `${form.destinationCity}:${query.toLocaleLowerCase("pt-BR")}`;

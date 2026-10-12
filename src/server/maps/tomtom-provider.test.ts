@@ -152,4 +152,39 @@ describe("TomTomProvider", () => {
       provider.reverse({ latitude: -9.4, longitude: -40.51 }),
     ).rejects.toBeInstanceOf(GeocodingUnavailableError);
   });
+
+  it("rejeita resultado de outra cidade em vez de aceitÃ¡-lo silenciosamente", async () => {
+    const fetchImplementation = vi.fn(async () =>
+      response({
+        results: [
+          {
+            id: "br:addr:other-city",
+            address: {
+              municipality: "Juazeiro",
+              countrySubdivisionCode: "BA",
+              freeformAddress: "Juazeiro, BA, Brasil",
+            },
+            position: { lat: -9.41, lon: -40.5 },
+          },
+        ],
+      }),
+    );
+    const provider = createTomTomProvider({
+      baseUrl: "https://api.tomtom.com",
+      apiKey: "tomtom-test-key-4",
+      cacheTtlSeconds: 60,
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await expect(
+      provider.geocode({
+        address: "Rua inexistente",
+        number: "10",
+        neighborhood: undefined,
+        city: "PETROLINA_PE",
+        state: "PE",
+        postalCode: undefined,
+      }),
+    ).resolves.toBeNull();
+  });
 });
