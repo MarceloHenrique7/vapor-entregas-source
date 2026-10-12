@@ -19,6 +19,7 @@ describe("TomTomProvider", () => {
       expect(url.pathname).toContain("/search/2/search/");
       expect(url.searchParams.get("countrySet")).toBe("BR");
       expect(url.searchParams.get("typeahead")).toBe("true");
+      expect(url.searchParams.get("idxSet")).toBe("Addr,PAD,POI,Str");
       expect(url.searchParams.get("key")).toBe("tomtom-test-key");
       return response({
         results: [
@@ -70,6 +71,7 @@ describe("TomTomProvider", () => {
       const url = new URL(String(input));
       expect(url.pathname).toContain("/search/2/geocode/");
       expect(url.searchParams.get("countrySet")).toBe("BR");
+      expect(url.searchParams.get("idxSet")).toBe("Addr,PAD,POI,Str");
       return response({
         results: [
           {

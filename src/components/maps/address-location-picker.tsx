@@ -152,7 +152,8 @@ export function AddressLocationPicker({
           </span>
         </div>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-          {description} Depois, confirme o ponto exato no mapa.
+          {description} Escolha uma sugestão para preencher os dados
+          automaticamente e depois confirme o ponto exato no mapa.
         </p>
         <div className="relative mt-5">
           <FormField
@@ -210,16 +211,20 @@ export function AddressLocationPicker({
                 );
               }}
             />
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-3 w-full"
-              onClick={onLocate}
-              disabled={disabled || identifying || !searchValue.trim()}
-            >
-              <Icon name="search" className="size-5" />
-              Buscar endereço
-            </Button>
+            {suggestions.length === 0 &&
+              searchValue.trim().length >= 3 &&
+              suggestionStatus !== "searching" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3 w-full"
+                  onClick={onLocate}
+                  disabled={disabled || identifying || !searchValue.trim()}
+                >
+                  <Icon name="search" className="size-5" />
+                  Buscar endereço
+                </Button>
+              )}
           </FormField>
           {suggestionStatus === "searching" && (
             <p className="mt-2 text-xs text-muted" role="status">

@@ -313,7 +313,12 @@ export function createTomTomProvider({
         .join(", ");
       const results = await request(
         `/search/2/geocode/${encodeURIComponent(textQuery)}.json`,
-        { language: "pt-BR", countrySet: "BR", limit: "5" },
+        {
+          language: "pt-BR",
+          countrySet: "BR",
+          limit: "5",
+          idxSet: "Addr,PAD,POI,Str",
+        },
         `geocode:${normalize(textQuery)}`,
       );
       const result =
@@ -340,6 +345,7 @@ export function createTomTomProvider({
           countrySet: "BR",
           limit: String(safeLimit),
           typeahead: "true",
+          idxSet: "Addr,PAD,POI,Str",
         },
         `search:${normalize(textQuery)}:${safeLimit}`,
       );
