@@ -1,27 +1,44 @@
 import { ForbiddenError, UnauthenticatedError } from "@/server/auth/errors";
 import { assertAdminAccess } from "@/server/admin/policy";
-import { DefaultPickupRequiredError } from "@/server/deliveries/errors";
+import {
+  DefaultPickupRequiredError,
+  PricingRuleUnavailableError,
+} from "@/server/deliveries/errors";
 import type { DistanceProvider } from "@/server/routing/distance-provider";
 
-import { deliveryQuoteSchema, pricingRuleSchema } from "./schemas";
+import {
+  deliveryQuoteSchema,
+  manualFreightQuoteSchema,
+  pricingRuleSchema,
+} from "./schemas";
 import type {
   DeliveryQuote,
   PricingActor,
   PricingRepository,
   PricingRuleRecord,
   PricingRuleView,
+  ManualFreightQuote,
 } from "./types";
 
-const roundCurrency = (value: number) => Math.round(value * 100) / 100;
 const roundDistance = (value: number) => Math.round(value * 100) / 100;
 
 export function calculateSuggestedPrice(
   rule: Pick<PricingRuleRecord, "basePrice" | "pricePerKm" | "minimumPrice">,
   distanceKm: number,
 ) {
-  return roundCurrency(
-    Math.max(rule.minimumPrice, rule.basePrice + rule.pricePerKm * distanceKm),
-  );
+  return calculateSuggestedPriceCents(rule, distanceKm) / 100;
+}
+
+const toCents = (value: number) => Math.round(value * 100);
+
+export function calculateSuggestedPriceCents(
+  rule: Pick<PricingRuleRecord, "basePrice" | "pricePerKm" | "minimumPrice">,
+  distanceKm: number,
+) {
+  const basePriceCents = toCents(rule.basePrice);
+  const minimumPriceCents = toCents(rule.minimumPrice);
+  const distancePriceCents = Math.round(toCents(rule.pricePerKm) * distanceKm);
+  return Math.max(minimumPriceCents, basePriceCents + distancePriceCents);
 }
 
 export function toPricingRuleView(rule: PricingRuleRecord): PricingRuleView {
@@ -86,6 +103,47 @@ export async function quoteDelivery(
     distanceProvider,
     now,
   );
+}
+
+export async function quoteManualFreight(
+  actor: PricingActor | null,
+  input: unknown,
+  repository: Pick<PricingRepository, "getCompanyPickup" | "getActiveRule">,
+  now: Date,
+): Promise<ManualFreightQuote> {
+  if (!actor) throw new UnauthenticatedError();
+  if (actor.role !== "COMPANY") throw new ForbiddenError();
+  const validated = manualFreightQuoteSchema.parse(input);
+  const pickup = await repository.getCompanyPickup(actor.userId);
+  if (!pickup) throw new DefaultPickupRequiredError();
+  const rule = await repository.getActiveRule(pickup.city, now);
+  if (!rule) {
+    throw new PricingRuleUnavailableError();
+  }
+  const basePriceCents = toCents(rule.basePrice);
+  const minimumPriceCents = toCents(rule.minimumPrice);
+  const distancePriceCents = Math.round(
+    toCents(rule.pricePerKm) * validated.distanceKm,
+  );
+  const suggestedPriceCents = calculateSuggestedPriceCents(
+    rule,
+    validated.distanceKm,
+  );
+  return {
+    city: pickup.city,
+    distanceKm: Math.round(validated.distanceKm * 100) / 100,
+    distanceMethod: "MANUAL",
+    basePriceCents,
+    distancePriceCents,
+    minimumPriceCents,
+    additionalCents: validated.additionalCents,
+    suggestedPriceCents,
+    totalEstimateCents: suggestedPriceCents + validated.additionalCents,
+    pricingRuleId: rule.id,
+    pricingRuleActiveFrom: rule.activeFrom.toISOString(),
+    notice:
+      "Estimativa calculada com a distância informada manualmente. O valor da corrida continua sujeito ao acordo direto entre empresa e motoboy.",
+  };
 }
 
 export async function listPricingRules(

@@ -10,6 +10,13 @@ export const deliveryQuoteSchema = z.object({
   destinationCity: z.enum(["PETROLINA_PE", "JUAZEIRO_BA"]),
 });
 
+export const manualFreightQuoteSchema = z
+  .object({
+    distanceKm: z.coerce.number().finite().min(0).max(1_000),
+    additionalCents: z.coerce.number().int().min(0).max(1_000_000).default(0),
+  })
+  .strict();
+
 export const pricingRuleSchema = z
   .object({
     city: z.enum(["PETROLINA_PE", "JUAZEIRO_BA"]),

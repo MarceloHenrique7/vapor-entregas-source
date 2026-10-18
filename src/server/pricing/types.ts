@@ -41,6 +41,21 @@ export interface DeliveryQuote {
   pricingRuleId: string | null;
 }
 
+export interface ManualFreightQuote {
+  city: PricingCity;
+  distanceKm: number;
+  distanceMethod: "MANUAL";
+  basePriceCents: number;
+  distancePriceCents: number;
+  minimumPriceCents: number;
+  additionalCents: number;
+  suggestedPriceCents: number;
+  totalEstimateCents: number;
+  pricingRuleId: string;
+  pricingRuleActiveFrom: string;
+  notice: string;
+}
+
 export interface PricingRepository {
   getCompanyPickup(userId: string): Promise<CompanyPickupContext | null>;
   getActiveRule(

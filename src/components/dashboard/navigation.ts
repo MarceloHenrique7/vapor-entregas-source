@@ -58,6 +58,11 @@ export const companyNavigation: NavigationItem[] = [
     mobile: true,
   },
   {
+    href: "/app/empresa/calculadora",
+    label: "Calcular frete",
+    icon: "route",
+  },
+  {
     href: "/app/empresa/motoboys",
     label: "Minha rede",
     icon: "users",
@@ -70,6 +75,8 @@ export const companyNavigation: NavigationItem[] = [
     mobile: true,
   },
   { href: "/app/empresa/historico", label: "Histórico", icon: "history" },
+  { href: "/app/empresa/relatorios", label: "Relatórios", icon: "file" },
+  { href: "/app/empresa/integracoes", label: "Integrações", icon: "settings" },
   { href: "/app/empresa/assinatura", label: "Plano", icon: "wallet" },
   { href: "/app/empresa/gestao", label: "Gestão Pro", icon: "wallet" },
   { href: "/app/empresa/favoritos", label: "Favoritos", icon: "heart" },

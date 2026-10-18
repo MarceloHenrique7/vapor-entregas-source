@@ -1,0 +1,6 @@
+src/generated/
+.next/
+coverage/
+prisma/schema.prisma
+prisma/mysql/migrations/
+public/sw.js

@@ -6,7 +6,9 @@ import type { DistanceProvider } from "@/server/routing/distance-provider";
 import {
   buildDeliveryQuote,
   calculateSuggestedPrice,
+  calculateSuggestedPriceCents,
   quoteDelivery,
+  quoteManualFreight,
   replacePricingRule,
 } from "./pricing-service";
 import type { PricingRepository, PricingRuleRecord } from "./types";
@@ -65,6 +67,49 @@ describe("precificação sugerida", () => {
 
   it("respeita o preço mínimo", () => {
     expect(calculateSuggestedPrice(rule, 0.2)).toBe(12);
+  });
+
+  it.each([
+    [0, 1200],
+    [1, 1200],
+    [1.01, 1200],
+    [9.9, 2780],
+    [10, 2800],
+    [13, 3400],
+    [14, 3600],
+    [25, 5800],
+    [25.01, 5802],
+    [26, 6000],
+  ])("calcula %s km em centavos sem erro de ponto flutuante", (km, cents) => {
+    expect(calculateSuggestedPriceCents(rule, km)).toBe(cents);
+  });
+
+  it("rejeita distância manual negativa e soma adicionais em centavos", async () => {
+    const actor = {
+      userId: "company",
+      role: "COMPANY" as const,
+      status: "ACTIVE" as const,
+    };
+    await expect(
+      quoteManualFreight(
+        actor,
+        { distanceKm: -1, additionalCents: 0 },
+        repository(),
+        now,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      quoteManualFreight(
+        actor,
+        { distanceKm: 10, additionalCents: 550 },
+        repository(),
+        now,
+      ),
+    ).resolves.toMatchObject({
+      suggestedPriceCents: 2800,
+      totalEstimateCents: 3350,
+      distanceMethod: "MANUAL",
+    });
   });
 
   it("arredonda distância e registra método e regra usados", async () => {

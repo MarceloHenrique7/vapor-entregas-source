@@ -16,6 +16,8 @@ import {
   DeliveryUnavailableError,
   InvalidDeliveryTransitionError,
   MotoboyPresenceRequiredError,
+  PricingRuleUnavailableError,
+  ImportedOrderUnavailableError,
 } from "./errors";
 
 export function deliveryErrorResponse(error: unknown) {
@@ -51,7 +53,8 @@ export function deliveryErrorResponse(error: unknown) {
   }
   if (
     error instanceof CompanyProfileRequiredError ||
-    error instanceof DefaultPickupRequiredError
+    error instanceof DefaultPickupRequiredError ||
+    error instanceof PricingRuleUnavailableError
   ) {
     return NextResponse.json({ error: error.message }, { status: 409 });
   }
@@ -64,6 +67,12 @@ export function deliveryErrorResponse(error: unknown) {
   if (error instanceof DeliveryUnavailableError) {
     return NextResponse.json(
       { error: error.message, code: "DELIVERY_UNAVAILABLE" },
+      { status: 409 },
+    );
+  }
+  if (error instanceof ImportedOrderUnavailableError) {
+    return NextResponse.json(
+      { error: error.message, code: "IMPORTED_ORDER_UNAVAILABLE" },
       { status: 409 },
     );
   }

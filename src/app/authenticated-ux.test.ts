@@ -8,8 +8,8 @@ async function source(path: string) {
 }
 
 describe("experiência autenticada", () => {
-  it("mantém uma única entrada de Gestão Pro e redireciona a rota antiga", async () => {
-    const [navigation, legacyRoute, dashboard] = await Promise.all([
+  it("mantém Gestão Pro e oferece relatórios operacionais separados", async () => {
+    const [navigation, reportsRoute, dashboard] = await Promise.all([
       source("src/components/dashboard/navigation.ts"),
       source("src/app/app/empresa/relatorios/page.tsx"),
       source("src/components/company-pro/company-pro-dashboard.tsx"),
@@ -17,7 +17,8 @@ describe("experiência autenticada", () => {
 
     expect(navigation).toContain('label: "Gestão Pro"');
     expect(navigation).not.toContain('label: "Relatórios Pro"');
-    expect(legacyRoute).toContain('redirect("/app/empresa/gestao")');
+    expect(navigation).toContain('label: "Relatórios"');
+    expect(reportsRoute).toContain("CompanyReportsDashboard");
     expect(dashboard).not.toContain("reportMode");
     expect(dashboard).toContain("Exportar dados em CSV");
     expect(dashboard).toContain("Pagamentos pendentes");

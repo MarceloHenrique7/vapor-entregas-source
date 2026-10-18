@@ -91,6 +91,7 @@ export const createDeliverySchema = z
     offeredPrice: z.coerce.number().finite().positive().max(10_000),
     paymentMethod: z.enum(["PIX", "CASH", "COMPANY_SETTLEMENT", "OTHER"]),
     notes: optionalText(500),
+    importedOrderId: z.uuid().optional(),
     extras: z.array(deliveryExtraInputSchema).max(10).optional(),
   })
   .and(coordinates)

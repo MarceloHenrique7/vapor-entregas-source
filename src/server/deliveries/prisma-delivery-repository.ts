@@ -8,6 +8,7 @@ import {
   decryptPrivateField,
   encryptPrivateField,
 } from "@/server/security/private-fields";
+import { ImportedOrderUnavailableError } from "./errors";
 
 import type { DeliveryRepository } from "./delivery-service";
 import type {
@@ -342,7 +343,12 @@ export const prismaDeliveryRepository: DeliveryRepository = {
   },
 
   async createDelivery(actorUserId, pickup, input, pricing, expiresAt) {
-    const { extras = [], destinationPhone, ...deliveryInput } = input;
+    const {
+      extras = [],
+      destinationPhone,
+      importedOrderId,
+      ...deliveryInput
+    } = input;
     const delivery = await getPrisma().$transaction(async (transaction) => {
       const created = await transaction.delivery.create({
         data: {
@@ -408,6 +414,19 @@ export const prismaDeliveryRepository: DeliveryRepository = {
           actorRole: "COMPANY",
         },
       });
+      if (importedOrderId) {
+        const linked = await transaction.importedOrder.updateMany({
+          where: {
+            id: importedOrderId,
+            companyId: pickup.companyId,
+            status: "READY",
+            eligibleForOwnDelivery: true,
+            deliveryId: null,
+          },
+          data: { deliveryId: created.id, status: "CONVERTED" },
+        });
+        if (linked.count !== 1) throw new ImportedOrderUnavailableError();
+      }
       return created;
     });
     return toRecord(delivery);

@@ -185,6 +185,35 @@ enum DeliveryExtraAction {
   CANCELLED
 }
 
+enum IntegrationProvider {
+  GENERIC_WEBHOOK
+  MANUAL_CSV
+  IFOOD
+}
+
+enum IntegrationStatus {
+  NOT_CONNECTED
+  CONNECTED
+  AWAITING_AUTHORIZATION
+  UNAVAILABLE
+  REVOKED
+}
+
+enum ImportedOrderStatus {
+  IMPORTED
+  READY
+  CONVERTED
+  IGNORED
+  INVALID
+}
+
+enum IntegrationEventStatus {
+  RECEIVED
+  PROCESSED
+  REJECTED
+  FAILED
+}
+
 model User {
   id                        String                 @id @default(uuid()) @db.Char(36)
   role                      Role
@@ -422,6 +451,8 @@ model CompanyProfile {
   locations               CompanyLocation[]
   deliveries              Delivery[]
   favorites               Favorite[]
+  integrationConnections  IntegrationConnection[]
+  importedOrders          ImportedOrder[]
 
   @@index([city])
   @@index([proEnabled, proExpiresAt])
@@ -510,6 +541,7 @@ model Delivery {
   paymentEvents             DeliveryPaymentEvent[]
   pricingRule               PricingRule?              @relation(fields: [pricingRuleId], references: [id], onDelete: SetNull)
   tracking                  DeliveryTracking?
+  importedOrder             ImportedOrder?
 
   @@index([companyId, createdAt])
   @@index([companyId, status, createdAt])
@@ -522,6 +554,85 @@ model Delivery {
   @@index([pickupCity, status, expiresAt])
   @@index([pricingRuleId])
   @@map("deliveries")
+}
+
+model IntegrationConnection {
+  id              String              @id @default(uuid()) @db.Char(36)
+  companyId       String              @db.Char(36)
+  provider        IntegrationProvider
+  status          IntegrationStatus   @default(NOT_CONNECTED)
+  displayName     String              @db.VarChar(100)
+  keyPrefix       String?             @unique @db.VarChar(24)
+  secretEncrypted String?             @db.Text
+  secretHash      String?             @db.Char(64)
+  config          Json?               @db.Json
+  connectedAt     DateTime?           @db.DateTime(3)
+  revokedAt       DateTime?           @db.DateTime(3)
+  createdAt       DateTime            @default(now()) @db.DateTime(3)
+  updatedAt       DateTime            @updatedAt @db.DateTime(3)
+  company         CompanyProfile      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  events          IntegrationEvent[]
+  importedOrders  ImportedOrder[]
+
+  @@unique([companyId, provider])
+  @@index([companyId, status])
+  @@map("integration_connections")
+}
+
+model IntegrationEvent {
+  id              String                 @id @default(uuid()) @db.Char(36)
+  connectionId    String                 @db.Char(36)
+  externalEventId String                 @db.VarChar(191)
+  eventType       String                 @db.VarChar(100)
+  occurredAt      DateTime?              @db.DateTime(3)
+  payloadHash     String                 @db.Char(64)
+  status          IntegrationEventStatus @default(RECEIVED)
+  errorCode       String?                @db.VarChar(80)
+  createdAt       DateTime               @default(now()) @db.DateTime(3)
+  connection      IntegrationConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, externalEventId])
+  @@index([connectionId, createdAt])
+  @@index([status, createdAt])
+  @@map("integration_events")
+}
+
+model ImportedOrder {
+  id                        String                 @id @default(uuid()) @db.Char(36)
+  companyId                 String                 @db.Char(36)
+  connectionId              String?                @db.Char(36)
+  provider                  IntegrationProvider
+  externalId                String                 @db.VarChar(191)
+  channel                   String                 @db.VarChar(80)
+  externalStatus            String?                @db.VarChar(80)
+  externalCreatedAt         DateTime?              @db.DateTime(3)
+  lastEventAt               DateTime?              @db.DateTime(3)
+  logisticsMode             String?                @db.VarChar(80)
+  eligibleForOwnDelivery    Boolean                @default(false)
+  destinationAddress        String?                @db.VarChar(180)
+  destinationNumber         String?                @db.VarChar(20)
+  destinationNeighborhood   String?                @db.VarChar(100)
+  destinationComplement     String?                @db.VarChar(120)
+  destinationReference      String?                @db.VarChar(180)
+  destinationPhoneEncrypted String?                @db.Text
+  destinationCity           SupportedCity?
+  destinationState          String?                @db.Char(2)
+  destinationPostalCode     String?                @db.VarChar(9)
+  notes                     String?                @db.VarChar(500)
+  status                    ImportedOrderStatus    @default(IMPORTED)
+  metadata                  Json?                  @db.Json
+  deliveryId                String?                @unique @db.Char(36)
+  createdAt                 DateTime               @default(now()) @db.DateTime(3)
+  updatedAt                 DateTime               @updatedAt @db.DateTime(3)
+  company                   CompanyProfile         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection                IntegrationConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  delivery                  Delivery?              @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, provider, externalId])
+  @@index([companyId, status, createdAt])
+  @@index([companyId, provider, createdAt])
+  @@index([connectionId, createdAt])
+  @@map("imported_orders")
 }
 
 model DeliveryTracking {

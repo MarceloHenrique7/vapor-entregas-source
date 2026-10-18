@@ -100,6 +100,21 @@ interface RepeatDeliveryDraft {
   }>;
 }
 
+interface ImportedDeliveryDraft {
+  id: string;
+  destinationAddress: string | null;
+  destinationNumber: string | null;
+  destinationNeighborhood: string | null;
+  destinationComplement: string | null;
+  destinationReference: string | null;
+  destinationPhone: string | null;
+  destinationCity: City | null;
+  destinationState: string | null;
+  destinationPostalCode: string | null;
+  notes: string | null;
+  channel: string;
+}
+
 const initialExtras: PlannedExtra[] = (
   Object.keys(DELIVERY_EXTRA_TYPE_LABELS) as ExtraType[]
 ).map((type) => ({
@@ -118,24 +133,31 @@ const cityCenters: Record<City, Coordinates> = {
 export function NewDeliveryForm({
   pickup,
   repeatDeliveryId,
+  importedDraft,
 }: {
   pickup: PickupSummary;
   repeatDeliveryId?: string;
+  importedDraft?: ImportedDeliveryDraft;
 }) {
   const router = useRouter();
+  const importedCity = importedDraft?.destinationCity ?? pickup.city;
   const [form, setForm] = useState({
-    destinationAddress: "",
-    destinationNumber: "",
-    destinationNeighborhood: "",
-    destinationComplement: "",
-    destinationReference: "",
-    destinationPhone: "",
-    destinationCity: pickup.city,
-    destinationState: pickup.city === "PETROLINA_PE" ? "PE" : "BA",
-    destinationPostalCode: "",
+    destinationAddress: importedDraft?.destinationAddress ?? "",
+    destinationNumber: importedDraft?.destinationNumber ?? "",
+    destinationNeighborhood: importedDraft?.destinationNeighborhood ?? "",
+    destinationComplement: importedDraft?.destinationComplement ?? "",
+    destinationReference: importedDraft?.destinationReference ?? "",
+    destinationPhone: importedDraft?.destinationPhone
+      ? formatBrazilPhoneInput(importedDraft.destinationPhone)
+      : "",
+    destinationCity: importedCity,
+    destinationState:
+      importedDraft?.destinationState ??
+      (importedCity === "PETROLINA_PE" ? "PE" : "BA"),
+    destinationPostalCode: importedDraft?.destinationPostalCode ?? "",
     offeredPrice: "",
     paymentMethod: "PIX" as PaymentMethod,
-    notes: "",
+    notes: importedDraft?.notes ?? "",
   });
   const [coordinates, setCoordinates] = useState<Coordinates>(
     cityCenters[pickup.city],
@@ -149,7 +171,11 @@ export function NewDeliveryForm({
     useState<CanonicalLocation | null>(null);
   const [confirmedLocation, setConfirmedLocation] =
     useState<CanonicalLocation | null>(null);
-  const [addressSearch, setAddressSearch] = useState("");
+  const [addressSearch, setAddressSearch] = useState(
+    importedDraft?.destinationAddress
+      ? `${importedDraft.destinationAddress}, ${importedDraft.destinationNumber ?? "s/n"} - ${importedDraft.destinationNeighborhood ?? ""}`
+      : "",
+  );
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [suggestionStatus, setSuggestionStatus] = useState<
     "idle" | "searching" | "error"
@@ -1002,6 +1028,7 @@ export function NewDeliveryForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          ...(importedDraft ? { importedOrderId: importedDraft.id } : {}),
           destinationAddress: persistedAddress.street,
           destinationNumber: persistedAddress.number,
           destinationNeighborhood: persistedAddress.neighborhood,
@@ -1040,6 +1067,17 @@ export function NewDeliveryForm({
   return (
     <form onSubmit={publish} className="grid gap-6 xl:grid-cols-[1fr_.82fr]">
       <div className="space-y-6">
+        {importedDraft && (
+          <Card className="border-brand/25 bg-brand-light/35 p-5 text-sm">
+            <p className="font-bold text-brand-dark">
+              Pedido importado de {importedDraft.channel}
+            </p>
+            <p className="mt-2 text-muted">
+              O endereço foi preenchido como rascunho. Localize e confirme o
+              PIN, revise todos os campos e defina o valor antes de publicar.
+            </p>
+          </Card>
+        )}
         {repeatSource && (
           <Card className="border-brand/25 bg-brand-light/35 p-5 text-sm">
             <p className="font-bold text-brand-dark">

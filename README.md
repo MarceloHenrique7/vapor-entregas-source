@@ -670,6 +670,16 @@ empresa e a visibilidade das avaliações estão documentados em
 [`docs/company-subscriptions.md`](docs/company-subscriptions.md) e
 [`docs/reviews-visibility.md`](docs/reviews-visibility.md).
 
+## Calculadora, relatórios e integrações de pedidos
+
+A calculadora empresarial, os relatórios PDF/XLSX, a importação CSV, o webhook
+genérico assinado e o estado real da integração iFood estão documentados em
+[`docs/freight-reports-integrations.md`](docs/freight-reports-integrations.md).
+
+A implementação não publica corridas automaticamente e não adiciona checkout,
+carteira ou intermediação financeira. Pedidos importados sempre passam por revisão
+humana, confirmação do PIN e definição explícita do valor pela empresa.
+
 ## Aviso jurídico interno
 
 **MINUTA — REVISÃO JURÍDICA NECESSÁRIA ANTES DO LANÇAMENTO.**

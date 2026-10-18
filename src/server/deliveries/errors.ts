@@ -12,6 +12,20 @@ export class DefaultPickupRequiredError extends Error {
   }
 }
 
+export class PricingRuleUnavailableError extends Error {
+  constructor() {
+    super("Nenhuma regra de preço ativa foi configurada para a cidade.");
+    this.name = "PricingRuleUnavailableError";
+  }
+}
+
+export class ImportedOrderUnavailableError extends Error {
+  constructor() {
+    super("O pedido importado não está disponível para criar uma entrega.");
+    this.name = "ImportedOrderUnavailableError";
+  }
+}
+
 export class MotoboyPresenceRequiredError extends Error {
   constructor() {
     super("Fique online com localização recente para acessar oportunidades.");
